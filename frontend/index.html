@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- When the real KimCad server (kimcad web) serves this page same-origin, it substitutes the
+     per-boot CSRF token into the content below; api-client.js reads it and sends it on POSTs.
+     Served standalone (offline mock), the placeholder stays and is ignored. -->
+<meta name="kimcad-session-token" content="__KIMCAD_SESSION_TOKEN__">
 <!-- Runtime deps the Claude Design platform normally injects; vendored locally so this runs offline. -->
 <script src="./vendor/react.development.js"></script>
 <script src="./vendor/react-dom.development.js"></script>

@@ -9,6 +9,16 @@
  * Plain browser global (no bundler): `const api = new TinkerQuarryAPI();`
  */
 (function (global) {
+  // The real KimCad server injects a fresh per-boot CSRF token into the page shell it serves.
+  // When present, the API is same-origin and every state-changing POST must carry the token.
+  // The mock has no token (and ignores the header), so this is a no-op offline.
+  function sessionToken() {
+    if (typeof document === "undefined") return null;
+    const el = document.querySelector('meta[name="kimcad-session-token"]');
+    const v = el && el.getAttribute("content");
+    return v && v.indexOf("__") !== 0 ? v : null; // ignore an un-substituted "__…__" placeholder
+  }
+
   class TinkerQuarryAPI {
     constructor(baseUrl) {
       // Resolve the backend, most-specific first, so switching mock → real is one setting:
@@ -18,13 +28,19 @@
         (typeof location !== "undefined" && new URLSearchParams(location.search).get("api")) || null;
       const fromGlobal =
         (typeof window !== "undefined" && window.TINKERQUARRY_API_BASE) || null;
-      this.baseUrl = (baseUrl || fromQuery || fromGlobal || "http://127.0.0.1:8766").replace(/\/$/, "");
+      // When the real KimCad server serves this page it injects a session-token meta; the API is
+      // then same-origin (relative "") — no CORS — and we send that token on POSTs (see _req).
+      this.baseUrl = (baseUrl || fromQuery || fromGlobal ||
+        (sessionToken() ? "" : "http://127.0.0.1:8766")).replace(/\/$/, "");
     }
 
     async _req(method, path, body) {
+      const headers = body ? { "Content-Type": "application/json" } : {};
+      const tok = sessionToken();
+      if (tok) headers["X-KimCad-Session"] = tok;  // real KimCad CSRF gate; the mock ignores it
       const res = await fetch(this.baseUrl + path, {
         method,
-        headers: body ? { "Content-Type": "application/json" } : undefined,
+        headers: Object.keys(headers).length ? headers : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
       const data = await res.json().catch(() => ({}));
