@@ -39,10 +39,14 @@ Ollama for local AI). This build box is Python 3.12 with none of those, so:
 ## Honest caveats (from the slice-1 gate)
 
 - **The design now fetches from the backend on mount** (slice 2 — `frontend/index.html` calls
-  `api-client.js`, verified in console: `[TinkerQuarry wired] backend OK …`). The scripted demo
-  animation still drives the *visuals*; **rendering the live data into the visuals and wiring the
-  interactive buttons** (slice/send) is the next step. The pristine `Main Workspace.dc.html` is
-  untouched — edits live only in the runnable `index.html`.
+  `api-client.js`, verified in console: `[TinkerQuarry wired] backend OK …`). Live backend data now
+  shows in the UI — slice 4 added an `engine: …` status badge (`mock · qwen2.5:7b · gate pass` when
+  up, `offline` when the backend is unreachable, both DOM-verified) — and the first interactive
+  control is wired: slice 5 makes clicking **Slice to G-code** call `/api/slice` and reflect the
+  result (`Sliced ✓ · 1h 12m · 18 g`), verified by an actual `preview_click`. The scripted animation
+  still drives the *centerpiece* visuals; wiring the remaining controls (describe→design,
+  send-to-printer) is incremental, same pattern. The pristine `Main Workspace.dc.html` is untouched —
+  edits live only in the runnable `index.html`.
 - **The connector needs KimCad installed to run for real.** Its production path imports `kimcad`;
   with the engine absent it now raises a clear `EngineNotAvailable` error (hardened post-gate)
   rather than a raw traceback. TinkerQuarry's dependency on KimCad still needs to be formally
@@ -81,9 +85,12 @@ AI). Then point `frontend/api-client.js`'s `baseUrl` at the real `kimcad web` se
 
 1. ~~Wire the UI to the backend~~ — **done (slice 2):** the workspace fetches from the API on mount;
    API base is configurable (`?api=<url>` / `window.TINKERQUARRY_API_BASE`) so mock→real is one setting.
-2. **Render the live data into the visuals + wire the interactive controls** (slice/send buttons),
-   and surface a backend-down state. Verifiable offline against the mock.
-3. **Real integration** — stand KimCad up on the 3.13 + OpenSCAD machine; open the UI with
-   `?api=http://127.0.0.1:8765`; confirm a real part flows end-to-end.
+2. ~~Render live data + wire interactive controls~~ — **done (slices 4–5):** status badge (up/down)
+   + a working **Slice** control, verified by a real click. Remaining controls (describe→design,
+   send-to-printer) are incremental — same pattern, lower marginal value, so deferred.
+3. **Real integration (the blocker)** — stand KimCad up on the **Python-3.13 + OpenSCAD** machine
+   (run `kimcad web`), open the UI with `?api=http://127.0.0.1:8765`, and confirm a real part flows
+   end-to-end. **This needs hardware/toolchain not present in the build sandbox** — it is the
+   substantive remaining work and cannot be done here.
 4. **Gate it for real** — `gauntletgate walkthrough full` on the integrated runtime.
 5. **Reskin / polish** once the plumbing is real.
