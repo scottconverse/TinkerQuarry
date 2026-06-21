@@ -563,7 +563,7 @@ class Component extends DCLogic {
   // result. Console line is the verifiable proof the design is wired, not scripted.
   fetchBackend = async ()=>{
     if(!window.TinkerQuarryAPI){ console.log('[TinkerQuarry] api-client not loaded'); return; }
-    const api = new window.TinkerQuarryAPI('http://127.0.0.1:8766');
+    const api = new window.TinkerQuarryAPI();  // resolves mock by default; ?api=<url> for real
     try {
       const h = await api.health();
       const m = await api.modelStatus();

@@ -10,8 +10,15 @@
  */
 (function (global) {
   class TinkerQuarryAPI {
-    constructor(baseUrl = "http://127.0.0.1:8766") {
-      this.baseUrl = baseUrl.replace(/\/$/, "");
+    constructor(baseUrl) {
+      // Resolve the backend, most-specific first, so switching mock → real is one setting:
+      //   explicit arg  >  ?api=<url> in the page URL  >  window.TINKERQUARRY_API_BASE  >  mock.
+      // Point at the real engine with e.g. ?api=http://127.0.0.1:8765 (kimcad web).
+      const fromQuery =
+        (typeof location !== "undefined" && new URLSearchParams(location.search).get("api")) || null;
+      const fromGlobal =
+        (typeof window !== "undefined" && window.TINKERQUARRY_API_BASE) || null;
+      this.baseUrl = (baseUrl || fromQuery || fromGlobal || "http://127.0.0.1:8766").replace(/\/$/, "");
     }
 
     async _req(method, path, body) {

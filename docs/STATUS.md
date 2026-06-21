@@ -1,9 +1,9 @@
 # TinkerQuarry — build status
 
 **As of:** 2026-06-21 · **Commit:** slice 1 (`f83bbc6`) + gate fixes
-**Honest one-liner:** the **glue layer is built and tested**, the **frontend↔backend seam is proven
-in a real browser**, but **no real geometry runs yet** — the live engine needs a Python-3.13 +
-OpenSCAD machine, which this build environment is not.
+**Honest one-liner:** the **glue is built and tested**, the **UI now fetches from the backend** on
+load, and the **seam is proven in a real browser** — but **no real geometry runs yet**: the backend
+is the **mock**, and the live engine needs a Python-3.13 + OpenSCAD machine this build box is not.
 
 ---
 
@@ -38,9 +38,11 @@ Ollama for local AI). This build box is Python 3.12 with none of those, so:
 
 ## Honest caveats (from the slice-1 gate)
 
-- **The design (`frontend/index.html`) is a visual mockup, NOT wired to the backend.** It plays a
-  hard-coded demo sequence. It is the *face to apply later*; the **seam** (`_seam/`) is the proven
-  plumbing. Wiring the real UI to `api-client.js` is the next slice.
+- **The design now fetches from the backend on mount** (slice 2 — `frontend/index.html` calls
+  `api-client.js`, verified in console: `[TinkerQuarry wired] backend OK …`). The scripted demo
+  animation still drives the *visuals*; **rendering the live data into the visuals and wiring the
+  interactive buttons** (slice/send) is the next step. The pristine `Main Workspace.dc.html` is
+  untouched — edits live only in the runnable `index.html`.
 - **The connector needs KimCad installed to run for real.** Its production path imports `kimcad`;
   with the engine absent it now raises a clear `EngineNotAvailable` error (hardened post-gate)
   rather than a raw traceback. TinkerQuarry's dependency on KimCad still needs to be formally
@@ -51,14 +53,13 @@ Ollama for local AI). This build box is Python 3.12 with none of those, so:
 ## How to run (offline dev — works on any machine)
 
 ```
-# 1) backend: the mock KimCad API on :8766
-python backend/mock_api.py
+# one command — starts the mock API + serves the frontend together:
+python scripts/dev.py
+#   workspace : http://127.0.0.1:8753/   (open the console: "[TinkerQuarry wired] backend OK …")
+#   mock API  : http://127.0.0.1:8766
+#   real API  : open http://127.0.0.1:8753/?api=http://127.0.0.1:8765  (point at a real `kimcad web`)
 
-# 2) frontend: serve the folder (any static server) on :8753
-python -m http.server 8753 --directory frontend
-
-# 3) seam proof: serve frontend/_seam on :8754 and open it — 6/6 checks go green
-python -m http.server 8754 --directory frontend/_seam
+# seam proof (optional): python -m http.server 8754 --directory frontend/_seam  -> 6/6 checks green
 ```
 
 ## How to run for real (target Windows machine)
@@ -78,9 +79,11 @@ AI). Then point `frontend/api-client.js`'s `baseUrl` at the real `kimcad web` se
 
 ## Next slices (in order)
 
-1. **Wire the UI to the backend** — replace the design's scripted demo with real `api-client.js`
-   calls (`design → render → gate/readiness → slice → send`), keeping the mock as the offline target.
-2. **Real integration** — stand KimCad up on the 3.13 + OpenSCAD machine; point the client at the
-   real API; confirm a real part flows end-to-end.
-3. **Gate it for real** — `gauntletgate walkthrough full` on the integrated runtime.
-4. **Reskin / polish** the interface (the design is the reference) once the plumbing is real.
+1. ~~Wire the UI to the backend~~ — **done (slice 2):** the workspace fetches from the API on mount;
+   API base is configurable (`?api=<url>` / `window.TINKERQUARRY_API_BASE`) so mock→real is one setting.
+2. **Render the live data into the visuals + wire the interactive controls** (slice/send buttons),
+   and surface a backend-down state. Verifiable offline against the mock.
+3. **Real integration** — stand KimCad up on the 3.13 + OpenSCAD machine; open the UI with
+   `?api=http://127.0.0.1:8765`; confirm a real part flows end-to-end.
+4. **Gate it for real** — `gauntletgate walkthrough full` on the integrated runtime.
+5. **Reskin / polish** once the plumbing is real.
