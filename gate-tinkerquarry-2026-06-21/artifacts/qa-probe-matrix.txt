@@ -1,0 +1,47 @@
+﻿QA layer probe matrix — TinkerQuarry real engine 0.9.3 — 2026-06-21
+Token scraped from page shell <meta name=kimcad-session-token>: VALID, per-boot.
+
+== SESSION TOKEN (state-changing POST) ==
+design   no-token   -> 403 {"error":"Missing or invalid session token. Reload KimCad.","reason":"session"}
+design   wrong-token-> 403 (same)
+design   empty-token-> 403 (same)
+design   WITH token -> 200 (processed; pipeline returned model_unavailable, has_mesh:false) -- ACCEPTED
+slice    no-token   -> 403
+send     no-token   -> 403
+print-outcome no-tok -> 403
+settings no-token    -> 403
+render   no-token    -> 403
+connections no-token -> 403
+model-pull no-token  -> 403
+ALL state-changing routes gated. PASS.
+
+== Sec-Fetch-Site GET gating ==
+/api/step/1            cross-site -> 403 {"error":"Cross-origin request refused."}  PASS
+/api/health?recheck=1  cross-site -> 200 cached health (re-probe SKIPPED, read still answers) -- per code comment, side-effect suppressed; api.md wording looser. NIT.
+/api/options           cross-site -> 200 (ordinary GET never gated) PASS
+
+== SAFETY INVARIANTS ==
+slice/999 (no design)  -> 404 "Design the part first..."   PASS
+send/999  (no slice)   -> 404 "Slice the part first..."    PASS
+print-outcome/999      -> 404 "no longer available" (unknown rid precedes 409) PASS
+print-outcome bad val  -> 400 "Unknown print outcome."     PASS
+send no connector      -> 404 (slice-first guard precedes) PASS
+(gate_failed slice/send refusal confirmed in code: reg.gate_status fail-closed 'or fail'; slice 200 reason gate_failed; send 200 reason gate_failed)
+
+== PIPELINE ROBUSTNESS ==
+empty prompt       -> 400 "Please describe the part you want."
+whitespace prompt  -> 400 (same)
+missing prompt key -> 400 (same)
+non-object body    -> 400 "Request body must be a JSON object."
+malformed JSON     -> 400 "Request body isn't valid JSON."
+oversize >1MiB     -> 413 (drained)
+concurrent 2nd design -> 429 busy (single in-flight slot)
+WITH-token real run -> 200 model_unavailable typed body (recoverable, not 500)
+
+== SETTINGS VALIDATION ==
+default_material=unobtainium -> 400 "Unknown material."     PASS
+UNKNOWN FIELD bogus_field    -> 200 {"saved":true}  *** DEVIATION: api.md says typo'd field is an error; silently ignored ***
+(contrast: /api/connections POST rejects unknown fields 400 at webapp.py:1578)
+
+== CORS / headers (real vs mock) ==
+real /api/options headers: NO Access-Control-Allow-Origin (mock sends '*'). Correct: real relies on token+Sec-Fetch-Site. No CSP/X-Frame on shell (loopback minor).

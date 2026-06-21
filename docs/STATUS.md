@@ -16,7 +16,7 @@ G-code**. The only thing untouched is sending to a **physical printer** (deliber
 
 | Tool | Where | Proof |
 |---|---|---|
-| **Python 3.13.14** | uv-managed (`…\uv\python\cpython-3.13.14…`) | KimCad imports; **243 core-engine tests pass** |
+| **Python 3.13.14** | uv-managed (`…\uv\python\cpython-3.13.14…`) | KimCad imports; **~1,554 engine tests pass** (full suite ~1,667 collected; 9 pre-existing env/profile failures unrelated to this work, 104 skips for absent optional probes) |
 | **OpenSCAD 2021.01** | `_tools/openscad/openscad-2021.01/openscad.exe` | renders headlessly: cube→STL, part→**3MF** (no fallback) |
 | **OrcaSlicer 2.4.0** | `_tools/orcaslicer/orca-slicer.exe` | slices to G-code with the Bambu P2S profile |
 | **Ollama + qwen2.5:7b** | `…\Programs\Ollama`, model pulled (4.7 GB) | local design-plan LLM (CPU, ~50–80 s/part) |
