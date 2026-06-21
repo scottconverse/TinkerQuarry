@@ -50,6 +50,10 @@
       <span style="font-weight:600;">Local &amp; private</span>
       <span style="color:#6f8a5e;font-family:'JetBrains Mono',monospace;font-size:11px;">vision&nbsp;✓</span>
     </div>
+    <div data-tip="The geometry engine TinkerQuarry is talking to. 'mock' = the offline dev API; point at a real KimCad engine with ?api=&lt;url&gt;." onMouseEnter="{{ showTip }}" onMouseLeave="{{ hideTip }}" style="display:flex;align-items:center;gap:6px;background:#1a160f;border:1px solid #2e2719;color:#bdb29f;padding:5px 9px;border-radius:7px;font-size:11.5px;font-family:'JetBrains Mono',monospace;cursor:help;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#84b06a;"></span>
+      <span>engine: {{ backendLabel }}</span>
+    </div>
     <div style="display:flex;align-items:center;gap:2px;color:#8a7f6d;">
       <div style="width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:#28221a;">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M13 3l-1.4 1.4M4.4 11.6L3 13"/></svg>
@@ -687,6 +691,12 @@ class Component extends DCLogic {
       label: t.flag ? '#cf6b54' : '#6f6453',
     }));
 
+    // Slice 4: surface the live backend connection (and a backend-down state) in the UI.
+    const bk = this.state.backend;
+    const backendLabel = !bk ? 'connecting…'
+      : (bk.ok ? (bk.mock ? 'mock' : 'live') + ' · ' + bk.model + ' · gate ' + bk.gate
+               : 'offline');
+
     return {
       worldRef:this.worldRef, stageRef:this.stageRef, steps, tiles,
       showSummary: loopDone,
@@ -700,7 +710,7 @@ class Component extends DCLogic {
       wireOn:this.state.wire, measureOn:this.state.measure,
       loopMode: off ? 'Off' : mode, loopActive, loopDone, finding, findingKicker,
       gateChecking: R===7, readyPass: R>=8,
-      topFace:'#c3ced4', frontFace:'#9faab2', sideFace:'#93a0a8',
+      topFace:'#c3ced4', frontFace:'#9faab2', sideFace:'#93a0a8', backendLabel,
       r1bg:c1.bg, r1col:c1.col, r1bd:c1.bd,
       r2bg:c2.bg, r2col:c2.col, r2bd:c2.bd,
       r3bg:c3.bg, r3col:c3.col, r3bd:c3.bd,
