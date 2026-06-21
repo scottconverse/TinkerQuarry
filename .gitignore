@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Node / build
+node_modules/
+dist/
+
+# Runtime artifacts
+output/
+*.gcode.3mf
+*.stl
+*.3mf
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Keep the vendored frontend runtime (needed to run offline) — do NOT ignore frontend/vendor
