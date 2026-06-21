@@ -12,6 +12,19 @@ G-code**. The only thing untouched is sending to a **physical printer** (deliber
 
 ---
 
+## Naming: TinkerQuarry vs `kimcad`
+
+**TinkerQuarry is the product; KimCad is the engine inside it.** Per the Option-B strategy, the
+KimCad manufacturing engine is the host/brain and its Studio-derived front-end was absorbed and
+**reskinned to TinkerQuarry** (name, wordmark, earthy-dark theme). So you'll see TinkerQuarry in
+the UI but `kimcad` throughout the plumbing — the repo (`KimCadClaude/`), the CLI (`kimcad web`,
+`kimcad design`), the data dir, the `.kimcad` design-file format, and the `X-KimCad-Session`
+security header. **Those `kimcad` identifiers are deliberately kept** (renaming protocol/format
+strings would break the API contract and saved files); only user-facing copy was rebranded. If
+you're driving the app and wondering why `kimcad.exe` serves "TinkerQuarry" — that's expected.
+
+---
+
 ## The real toolchain (installed + verified on this machine)
 
 | Tool | Where | Proof |

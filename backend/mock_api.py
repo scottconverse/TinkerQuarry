@@ -12,6 +12,13 @@ Design:
   but deterministic. State resets per process, exactly like the real server.
 
 Run:  python -m backend.mock_api   (serves http://127.0.0.1:8766)
+
+⚠️ SECURITY — DEV-ONLY, NEVER A PRODUCTION SERVER. This mock intentionally OMITS the real
+server's hardening: there is **no per-boot session token / CSRF check**, no Sec-Fetch-Site
+guard, no non-loopback refusal, and it sends a permissive ``*`` CORS header for offline
+convenience. Do NOT copy this as the template for a real backend, and do NOT expose it beyond
+loopback. The production pattern is the real ``kimcad web`` server (KimCadClaude/src/kimcad/
+webapp.py): loopback bind + the ``X-KimCad-Session`` token the SPA reads from the page shell.
 """
 
 from __future__ import annotations
