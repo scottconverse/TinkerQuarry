@@ -8,6 +8,7 @@
 <script src="./vendor/react-dom.development.js"></script>
 <script src="./vendor/babel.min.js"></script>
 <script src="./support.js"></script>
+<script src="./api-client.js"></script>
 </head>
 <body>
 <x-dc>
@@ -522,13 +523,14 @@ class Component extends DCLogic {
     this.mode = 'orbit'; this.phase = 0; this.dragging = false;
     this.lx = 0; this.ly = 0;
   }
-  state = { tip:null, rank:0, codeOpen:false, loopExpanded:true, view:'orbit', wire:false, measure:false };
+  state = { tip:null, rank:0, codeOpen:false, loopExpanded:true, view:'orbit', wire:false, measure:false, backend:null };
 
   componentDidMount(){
     this.fit();
     this.applyT();
     this.raf = requestAnimationFrame(this.tick);
     this.startSeq();
+    this.fetchBackend();
     window.addEventListener('pointermove', this.onMove);
     window.addEventListener('pointerup', this.onUp);
     if(window.ResizeObserver && this.stageRef.current){
@@ -555,6 +557,31 @@ class Component extends DCLogic {
     this.timers = ms.map((t,i)=> setTimeout(()=> this.setState({rank:i+1}), t));
   }
   replay = ()=>{ this.setState({rank:0}); this.startSeq(); };
+
+  // Slice 2: the workspace is now backend-driven. On mount it talks to the TinkerQuarry
+  // API (mock now; a real `kimcad web` server later — identical shapes) and stores the
+  // result. Console line is the verifiable proof the design is wired, not scripted.
+  fetchBackend = async ()=>{
+    if(!window.TinkerQuarryAPI){ console.log('[TinkerQuarry] api-client not loaded'); return; }
+    const api = new window.TinkerQuarryAPI('http://127.0.0.1:8766');
+    try {
+      const h = await api.health();
+      const m = await api.modelStatus();
+      const d = await api.design('a wall bracket for a Raspberry Pi 4 — M3 screws, 3 mm walls');
+      const r = d.data.report;
+      console.log('[TinkerQuarry wired] backend OK —',
+        'engine:'+(h.mock?'mock':'real'),
+        'model:'+m.data.model,
+        'gate:'+r.gate_status,
+        'readiness:'+r.readiness.score,
+        'vcp:'+(r.vcp&&r.vcp.approved));
+      this.setState({ backend: { ok:true, mock:h.mock, model:m.data.model,
+        gate:r.gate_status, readiness:r.readiness.score, vcp:r.vcp } });
+    } catch(e){
+      console.log('[TinkerQuarry wired] backend unreachable:', String(e));
+      this.setState({ backend: { ok:false, error:String(e) } });
+    }
+  };
 
   tick = ()=>{
     if(this.mode === 'orbit' && !this.dragging){
