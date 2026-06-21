@@ -171,6 +171,30 @@ def test_unknown_method():
     assert resp["error"]["code"] == -32601
 
 
+def test_engine_missing_message_is_clear():
+    # M-1 (gate finding): the dependency-absent path must give a clear, actionable error.
+    err = CONN._engine_missing(ModuleNotFoundError("No module named 'kimcad'"))
+    assert isinstance(err, RuntimeError)
+    assert "KimCad engine is unavailable" in str(err) and "mock_api" in str(err)
+
+
+def test_default_construction_without_engine_raises_clear_error():
+    # When the KimCad engine is genuinely absent, constructing without injecting a backend
+    # raises the clear engine-missing error — not a raw ModuleNotFoundError.
+    import importlib
+    try:
+        importlib.import_module("kimcad.mcp_server")
+        return  # engine importable in this env -> dependency-absent path not exercised; skip
+    except ModuleNotFoundError:
+        pass
+    try:
+        CONN.KimCadConnector(config=SimpleNamespace())
+    except RuntimeError as e:
+        assert "KimCad engine is unavailable" in str(e)
+        return
+    assert False, "expected the clear engine-missing RuntimeError"
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     passed = 0

@@ -143,6 +143,16 @@ def design_result_dict(res: Any) -> dict[str, Any]:
 PipelineFactory = Callable[[str | None, str | None, str | None], Any]
 
 
+def _engine_missing(cause: Exception) -> RuntimeError:
+    """Clear, actionable error when the KimCad engine isn't importable (vs a raw traceback)."""
+    name = getattr(cause, "name", None) or "kimcad"
+    return RuntimeError(
+        f"TinkerQuarry's KimCad engine is unavailable (could not import '{name}'). The real "
+        "pipeline needs KimCad installed on Python 3.13 with OpenSCAD. For offline development use "
+        "backend/mock_api.py, or inject a printer_server / pipeline_factory."
+    )
+
+
 class KimCadConnector:
     """Pure JSON-RPC request handler for the universal connector.
 
@@ -173,8 +183,10 @@ class KimCadConnector:
 
     # --- defaults (lazy: importing kimcad heavy modules only when actually used) ----------
     def _default_printer_server(self) -> Any:
-        from kimcad.mcp_server import PrinterMCPServer
-
+        try:
+            from kimcad.mcp_server import PrinterMCPServer
+        except ModuleNotFoundError as e:
+            raise _engine_missing(e) from e
         return PrinterMCPServer(self._config)
 
     def _default_library_store(self) -> LibraryStore:
@@ -185,9 +197,12 @@ class KimCadConnector:
 
     def _default_pipeline_factory(self, printer: str | None, material: str | None, backend: str | None) -> Any:
         # Mirrors kimcad.cli._build_pipeline so the connector drives the identical tested path.
-        from kimcad.history import HistoryStore
-        from kimcad.llm_provider import FallbackProvider, LLMProvider
-        from kimcad.pipeline import Pipeline
+        try:
+            from kimcad.history import HistoryStore
+            from kimcad.llm_provider import FallbackProvider, LLMProvider
+            from kimcad.pipeline import Pipeline
+        except ModuleNotFoundError as e:
+            raise _engine_missing(e) from e
 
         cfg = self._config
         prn = cfg.printer(printer) if printer else cfg.printer(None)
@@ -363,7 +378,10 @@ _CONNECTOR_TOOLS: list[dict[str, Any]] = [
 
 
 def main() -> None:  # pragma: no cover - the stdio loop is exercised via handle() in tests
-    from kimcad.config import Config
+    try:
+        from kimcad.config import Config
+    except ModuleNotFoundError as e:
+        raise _engine_missing(e) from e
 
     connector = KimCadConnector(Config.load())
     for line in sys.stdin:
