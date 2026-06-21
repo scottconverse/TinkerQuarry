@@ -482,7 +482,7 @@ include <span style="color:#84b06a;">&lt;BOSL2/screws.scad&gt;</span>
           <div style="padding-bottom:16px;flex:1;">
             <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:13px;color:#e7e0d4;font-weight:500;">Slice</span><span data-tip="Slicing turns the 3D shape into the layer-by-layer instructions (G-code) your printer runs. A clean slice is part of the proof it's ready." onMouseEnter="{{ showTip }}" onMouseLeave="{{ hideTip }}" style="width:14px;height:14px;border-radius:50%;border:1px solid #4a4034;color:#7d7261;display:flex;align-items:center;justify-content:center;font-size:9px;cursor:help;">?</span></div>
             <div style="font-size:11.5px;color:#857a69;margin:5px 0 9px;font-family:'JetBrains Mono',monospace;">Bambu P1S · PLA · 0.2 mm</div>
-            <div style="background:#211b13;border:1px solid #352c1d;color:#e7e0d4;font-size:12.5px;font-weight:500;text-align:center;padding:9px 0;border-radius:8px;cursor:pointer;" style-hover="border-color:#5a4a2c;">Slice to G-code</div>
+            <div id="tq-slice-btn" onClick="{{ doSlice }}" style="background:#211b13;border:1px solid #352c1d;color:#e7e0d4;font-size:12.5px;font-weight:500;text-align:center;padding:9px 0;border-radius:8px;cursor:pointer;" style-hover="border-color:#5a4a2c;">{{ sliceLabel }}</div>
           </div>
         </div>
         <!-- print -->
@@ -527,7 +527,7 @@ class Component extends DCLogic {
     this.mode = 'orbit'; this.phase = 0; this.dragging = false;
     this.lx = 0; this.ly = 0;
   }
-  state = { tip:null, rank:0, codeOpen:false, loopExpanded:true, view:'orbit', wire:false, measure:false, backend:null };
+  state = { tip:null, rank:0, codeOpen:false, loopExpanded:true, view:'orbit', wire:false, measure:false, backend:null, slice:null };
 
   componentDidMount(){
     this.fit();
@@ -562,6 +562,20 @@ class Component extends DCLogic {
   }
   replay = ()=>{ this.setState({rank:0}); this.startSeq(); };
 
+  // Slice 5: a real interactive control. Clicking "Slice to G-code" calls the backend's
+  // /api/slice for the current design and reflects the result in the button.
+  doSlice = async ()=>{
+    const b = this.state.backend;
+    if(!(b && b.ok && b.rid)){ console.log('[TinkerQuarry] cannot slice — no backend design'); return; }
+    const api = new window.TinkerQuarryAPI();
+    this.setState({ slice: { pending:true } });
+    try {
+      const s = await api.slice(b.rid, 'bambu_p1s', 'pla');
+      console.log('[TinkerQuarry wired] slice ->', 'sliced:'+s.data.sliced, 'est:'+s.data.estimate);
+      this.setState({ slice: { ok:!!s.data.sliced, estimate:s.data.estimate, machine:s.data.machine } });
+    } catch(e){ console.log('[TinkerQuarry] slice failed', String(e)); this.setState({ slice:{ ok:false } }); }
+  };
+
   // Slice 2: the workspace is now backend-driven. On mount it talks to the TinkerQuarry
   // API (mock now; a real `kimcad web` server later — identical shapes) and stores the
   // result. Console line is the verifiable proof the design is wired, not scripted.
@@ -579,7 +593,7 @@ class Component extends DCLogic {
         'gate:'+r.gate_status,
         'readiness:'+r.readiness.score,
         'vcp:'+(r.vcp&&r.vcp.approved));
-      this.setState({ backend: { ok:true, mock:h.mock, model:m.data.model,
+      this.setState({ backend: { ok:true, rid:d.data.rid, mock:h.mock, model:m.data.model,
         gate:r.gate_status, readiness:r.readiness.score, vcp:r.vcp } });
     } catch(e){
       console.log('[TinkerQuarry wired] backend unreachable:', String(e));
@@ -696,6 +710,9 @@ class Component extends DCLogic {
     const backendLabel = !bk ? 'connecting…'
       : (bk.ok ? (bk.mock ? 'mock' : 'live') + ' · ' + bk.model + ' · gate ' + bk.gate
                : 'offline');
+    const sl = this.state.slice;
+    const sliceLabel = !sl ? 'Slice to G-code'
+      : (sl.pending ? 'Slicing…' : (sl.ok ? 'Sliced ✓ · ' + sl.estimate : 'Slice failed'));
 
     return {
       worldRef:this.worldRef, stageRef:this.stageRef, steps, tiles,
@@ -710,7 +727,7 @@ class Component extends DCLogic {
       wireOn:this.state.wire, measureOn:this.state.measure,
       loopMode: off ? 'Off' : mode, loopActive, loopDone, finding, findingKicker,
       gateChecking: R===7, readyPass: R>=8,
-      topFace:'#c3ced4', frontFace:'#9faab2', sideFace:'#93a0a8', backendLabel,
+      topFace:'#c3ced4', frontFace:'#9faab2', sideFace:'#93a0a8', backendLabel, doSlice:this.doSlice, sliceLabel,
       r1bg:c1.bg, r1col:c1.col, r1bd:c1.bd,
       r2bg:c2.bg, r2col:c2.col, r2bd:c2.bd,
       r3bg:c3.bg, r3col:c3.col, r3bd:c3.bd,
