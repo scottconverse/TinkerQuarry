@@ -11,6 +11,7 @@ import { shouldCaptureBootstrapAnalytics } from './analytics/bootstrapPolicy';
 import { AnalyticsRuntimeProvider } from './analytics/runtime';
 import { Button } from './components/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { EngineStatusBanner } from './components/EngineStatusBanner';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { getPlatform, initializePlatform } from './platform';
 import {
@@ -727,6 +728,7 @@ function BootstrapApp() {
       <ThemeProvider>
         <AnalyticsRuntimeProvider>
           <ErrorBoundary>
+            <EngineStatusBanner />
             <App />
           </ErrorBoundary>
         </AnalyticsRuntimeProvider>
