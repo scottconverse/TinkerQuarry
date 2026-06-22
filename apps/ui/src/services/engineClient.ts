@@ -68,6 +68,26 @@ export interface DesignResult {
   error?: string | null;
 }
 
+export interface SliceResult {
+  sliced?: boolean;
+  printer?: string;
+  material?: string;
+  gcode_lines?: number;
+  /** Plain-English summary, e.g. "~11m 1s, 100 layers, 3.12 cm3 filament". */
+  estimate?: string;
+  estimate_detail?: {
+    time?: string;
+    layers?: number;
+    filament_g?: number;
+    filament_cm3?: number;
+  };
+  profiles?: { machine?: string; process?: string; filament?: string };
+  gcode_url?: string | null;
+  gcode_filename?: string;
+  error?: string;
+  reason?: string;
+}
+
 export interface ApiResponse<T> {
   status: number;
   ok: boolean;
@@ -107,7 +127,7 @@ export class EngineClient {
     return this.req<DesignResult>('POST', `/render/${rid}`, { values });
   }
   slice(rid: number, printer?: string, material?: string) {
-    return this.req<Record<string, unknown>>('POST', `/slice/${rid}`, { printer, material });
+    return this.req<SliceResult>('POST', `/slice/${rid}`, { printer, material });
   }
   send(rid: number, confirm: boolean, connector?: string) {
     return this.req<Record<string, unknown>>('POST', `/send/${rid}`, { confirm, connector });

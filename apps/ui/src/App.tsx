@@ -41,6 +41,7 @@ import {
 import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
 import { useAiAgent } from './hooks/useAiAgent';
 import { describeIntoStudio } from './services/engineDocument';
+import { engine } from './services/engineClient';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
@@ -631,11 +632,14 @@ function App() {
   // TinkerQuarry Phase 4 (B core): describe → engine → Studio document, then render the engine's
   // (self-contained) SCAD directly so the viewer updates immediately (no content-watch timing). This
   // is the handler the shipping describe UI calls; also exposed on window in dev for verification.
+  // The engine rid of the last successful design is held so "Make it real" (slice) can act on it.
+  const lastEngineRidRef = useRef<number | null>(null);
   const handleEngineDescribe = useCallback(
     async (prompt: string) => {
       const result = await describeIntoStudio(prompt);
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
+        lastEngineRidRef.current = result.rid ?? null;
         // Surface the engine's manufacturing readiness (verdict + score + any warnings).
         notifySuccess('Design ready', { toastId: 'engine-design', description: result.gate });
       } else {
@@ -652,11 +656,48 @@ function App() {
     },
     [renderCodeDirect]
   );
+
+  // "Make it real": slice the current engine design into printable G-code, surfacing the real print
+  // estimate (time / layers / filament). This is the manufacturing payoff and where "Ready to print"
+  // is genuinely earned — only a successful slice proves the part is printable (PRD §6.7/§6.9).
+  const handleMakeItReal = useCallback(async (ridOverride?: number) => {
+    const rid = ridOverride ?? lastEngineRidRef.current;
+    if (rid == null) {
+      notifyError({
+        operation: 'make it real',
+        capture: false,
+        displayMessage: 'Describe a part first, then make it real.',
+        toastId: 'engine-slice',
+      });
+      return null;
+    }
+    notifySuccess('Slicing…', { toastId: 'engine-slice', description: 'Preparing printable G-code' });
+    const { ok, data } = await engine.slice(rid);
+    if (ok && data.sliced) {
+      notifySuccess('Ready to print', {
+        toastId: 'engine-slice',
+        description: `${data.estimate ?? ''}${data.printer ? ` · ${data.printer}` : ''}`.trim(),
+      });
+    } else {
+      notifyError({
+        operation: 'make it real',
+        capture: false,
+        displayMessage: data.error || 'Slicing failed — the part may not be print-ready yet.',
+        toastId: 'engine-slice',
+      });
+    }
+    return data;
+  }, []);
+
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    (window as unknown as { __TQ_DESCRIBE__?: typeof handleEngineDescribe }).__TQ_DESCRIBE__ =
-      handleEngineDescribe;
-  }, [handleEngineDescribe]);
+    const w = window as unknown as {
+      __TQ_DESCRIBE__?: typeof handleEngineDescribe;
+      __TQ_MAKE_REAL__?: typeof handleMakeItReal;
+    };
+    w.__TQ_DESCRIBE__ = handleEngineDescribe;
+    w.__TQ_MAKE_REAL__ = handleMakeItReal;
+  }, [handleEngineDescribe, handleMakeItReal]);
 
   // Tab management functions
   const createNewTab = useCallback(
