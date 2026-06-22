@@ -636,6 +636,17 @@ function App() {
       const result = await describeIntoStudio(prompt);
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
+        // Surface the engine's manufacturing readiness (verdict + score + any warnings).
+        notifySuccess('Design ready', { toastId: 'engine-design', description: result.gate });
+      } else {
+        // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
+        // reason; this is a designed outcome, not a crash, so don't capture it as an error.
+        notifyError({
+          operation: 'engine design',
+          capture: false,
+          displayMessage: result.gate || result.error || "Couldn't produce a printable design.",
+          toastId: 'engine-design',
+        });
       }
       return result;
     },
