@@ -48,6 +48,38 @@ describe('ParameterControl', () => {
     expect(seriousOrCritical).toEqual([]);
   });
 
+  it('has no serious or critical a11y violations for a dropdown control (§10/§12)', async () => {
+    const { container } = renderWithProviders(
+      <ParameterControl
+        param={makeParam({
+          type: 'dropdown',
+          value: 1,
+          rawValue: '1',
+          options: [
+            { value: 1, label: 'One' },
+            { value: 2, label: 'Two' },
+          ],
+        })}
+        onChange={() => {}}
+      />
+    );
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'parameter-control dropdown a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
+  });
+
   it('uses the compact inline layout for unannotated simple controls', () => {
     renderWithProviders(<ParameterControl param={makeParam()} onChange={() => {}} />);
 

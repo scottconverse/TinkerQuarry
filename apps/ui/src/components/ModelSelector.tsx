@@ -115,6 +115,7 @@ export function ModelSelector({
       >
         <SelectTrigger
           size="sm"
+          aria-label="AI model"
           style={{
             width: compact ? 'min(180px, 42vw)' : undefined,
             minWidth: compact ? '100px' : '120px',

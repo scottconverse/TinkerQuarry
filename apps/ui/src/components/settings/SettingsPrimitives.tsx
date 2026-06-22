@@ -1,4 +1,5 @@
-import type { CSSProperties, HTMLAttributes, ReactNode } from 'react';
+import { cloneElement, isValidElement } from 'react';
+import type { CSSProperties, HTMLAttributes, ReactElement, ReactNode } from 'react';
 import { Label, SegmentedControl, Text } from '../ui';
 
 const CARD_STYLE: CSSProperties = {
@@ -128,6 +129,18 @@ export function SettingsControlRow({
   style,
   ...props
 }: SettingsControlRowProps) {
+  // a11y: a bare control (e.g. a Radix Switch/Toggle button) rendered next to a visible label has
+  // no accessible name unless the two are wired together. When the row owns a string label and the
+  // caller didn't already associate them (htmlFor) or name the control (aria-label), thread the
+  // label onto the control so screen readers announce it. (§10/§12)
+  const controlHasOwnName =
+    isValidElement(control) &&
+    Boolean((control.props as { 'aria-label'?: unknown })['aria-label']);
+  const labelledControl =
+    isValidElement(control) && typeof label === 'string' && !htmlFor && !controlHasOwnName
+      ? cloneElement(control as ReactElement<{ 'aria-label'?: string }>, { 'aria-label': label })
+      : control;
+
   return (
     <SettingsCardSection
       divided={divided}
@@ -145,7 +158,7 @@ export function SettingsControlRow({
           </Text>
         ) : null}
       </div>
-      {control}
+      {labelledControl}
     </SettingsCardSection>
   );
 }

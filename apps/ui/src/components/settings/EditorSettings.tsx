@@ -67,7 +67,7 @@ export function EditorSettings({
             value={String(settings.editor.indentSize)}
             onValueChange={(v) => onEditorChange('indentSize', Number(v) as 2 | 4 | 8)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Indent Size">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -113,7 +113,7 @@ export function EditorSettings({
               value={String(settings.editor.autoRenderDelayMs)}
               onValueChange={(v) => onEditorChange('autoRenderDelayMs', Number(v))}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Render Delay">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

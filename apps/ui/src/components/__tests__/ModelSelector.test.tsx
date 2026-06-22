@@ -2,6 +2,7 @@
 
 import { TransformStream } from 'node:stream/web';
 import { act, screen, waitFor } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { jest } from '@jest/globals';
 import {
   clearApiKey,
@@ -124,6 +125,27 @@ describe('ModelSelector provider refresh', () => {
     const options = document.querySelectorAll('select option');
     return Array.from(options).map((o) => o.textContent ?? '');
   }
+
+  it('has no serious or critical a11y violations (§10/§12)', async () => {
+    storeApiKey('openai', 'openai-test-key');
+    const { container } = renderWithProviders(<ModelSelectorHarness />);
+    await screen.findByRole('combobox');
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'model-selector a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
+  });
 
   it('refreshes a mounted selector when an OpenAI key is added after mount', async () => {
     renderWithProviders(<ModelSelectorHarness />);

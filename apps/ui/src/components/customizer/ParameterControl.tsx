@@ -482,7 +482,11 @@ function DropdownControl({ param, onChange, isDirty, onReset }: ParameterControl
         }
       }}
     >
-      <SelectTrigger size="sm" className={layout === 'inline' ? 'w-36 shrink-0' : undefined}>
+      <SelectTrigger
+        size="sm"
+        aria-label={getDisplayLabel(param)}
+        className={layout === 'inline' ? 'w-36 shrink-0' : undefined}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
