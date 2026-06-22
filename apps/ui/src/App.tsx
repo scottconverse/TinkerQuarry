@@ -48,6 +48,7 @@ import {
 } from './services/engineDocument';
 import { engine } from './services/engineClient';
 import { engineGateSummary } from './services/engineDesign';
+import { FirstRealPrintDialog } from './components/FirstRealPrintDialog';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
@@ -651,6 +652,8 @@ function App() {
   // Plain-language slice profile (printer · material) shown BEFORE slicing so the user knows what
   // "Make it real" will produce — not a surprise after the fact (§6.9). The engine's default.
   const [sliceProfile, setSliceProfile] = useState<string | null>(null);
+  // First-real-print caution (§6.10): the manufacturing-commit moment is heightened the first time.
+  const [showFirstRealDialog, setShowFirstRealDialog] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
   // /api/design takes this as `history`. A fresh design (new part) resets it.
   const engineHistoryRef = useRef<EngineTurn[]>([]);
@@ -2706,6 +2709,12 @@ function App() {
             data-testid="make-it-real-button"
             variant="primary"
             onClick={() => {
+              // §6.10: the first time the user commits to a real printable file, pause for a
+              // quick caution; every time after, slice straight through.
+              if (!localStorage.getItem('tq-printed-real')) {
+                setShowFirstRealDialog(true);
+                return;
+              }
               void handleMakeItReal();
             }}
             size="sm"
@@ -2834,6 +2843,16 @@ function App() {
         workingDir={projectRoot}
         previewKind={activePreviewKind}
       />
+      {showFirstRealDialog && (
+        <FirstRealPrintDialog
+          onConfirm={() => {
+            localStorage.setItem('tq-printed-real', '1');
+            setShowFirstRealDialog(false);
+            void handleMakeItReal();
+          }}
+          onClose={() => setShowFirstRealDialog(false)}
+        />
+      )}
       <ShareDialog
         isOpen={showShareDialog}
         onClose={() => setShowShareDialog(false)}
