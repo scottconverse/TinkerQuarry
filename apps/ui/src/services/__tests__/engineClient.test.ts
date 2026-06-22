@@ -54,6 +54,13 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     });
   });
 
+  it('manual orientation sends the chosen axis and step (§6.8 override)', async () => {
+    await new EngineClient().orient(5, 'x', 90);
+    expect(calls[0].url).toBe('/api/orient/5');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ axis: 'x', degrees: 90 });
+  });
+
   it('deleteDesign hits the right path with POST (§6.12 manage)', async () => {
     await new EngineClient().deleteDesign('abc123');
     expect(calls[0].url).toBe('/api/designs/abc123/delete');

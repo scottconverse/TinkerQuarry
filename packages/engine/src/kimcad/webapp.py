@@ -673,6 +673,50 @@ def _regate_mesh(config: Any, mesh_path: Path, plan_dict: Any) -> str | None:
         return None
 
 
+def manually_orient_mesh(mesh_path: Path, axis: str, degrees: int) -> dict[str, Any]:
+    """Rotate an already-oriented live mesh by a user-selected 90-degree step and
+    drop it back onto the print bed.
+
+    This is a manufacturing-orientation override, not a design edit: it changes the
+    mesh that preview/slice use, then callers bump the geometry version so stale
+    slices and G-code are invalidated.
+    """
+    if axis not in {"x", "y", "z"}:
+        raise ValueError("axis must be x, y, or z")
+    if degrees not in {-180, -90, 90, 180}:
+        raise ValueError("degrees must be one of -180, -90, 90, 180")
+
+    import math
+    import numpy as np
+    import trimesh
+
+    from kimcad.orientation import _drop_to_bed
+    from kimcad.validation import load_mesh
+
+    mesh = load_mesh(mesh_path)
+    vectors = {
+        "x": np.array([1.0, 0.0, 0.0]),
+        "y": np.array([0.0, 1.0, 0.0]),
+        "z": np.array([0.0, 0.0, 1.0]),
+    }
+    mesh.apply_transform(
+        trimesh.transformations.rotation_matrix(
+            math.radians(degrees), vectors[axis], point=mesh.centroid
+        )
+    )
+    mesh.apply_transform(_drop_to_bed(mesh))
+    tmp_path = mesh_path.with_suffix(mesh_path.suffix + ".tmp")
+    mesh.export(tmp_path, file_type=mesh_path.suffix.lstrip("."))
+    tmp_path.replace(mesh_path)
+    extents = [round(float(v), 3) for v in mesh.extents]
+    return {
+        "oriented": True,
+        "axis": axis,
+        "degrees": degrees,
+        "extents_mm": extents,
+    }
+
+
 def slice_registered_mesh(
     config: Any, mesh_path: Path, printer_key: str | None, material_key: str | None
 ) -> tuple[dict[str, Any], Path | None]:
@@ -1581,6 +1625,9 @@ def make_handler(
                 return
             if self.path.startswith("/api/render/"):
                 self._handle_render(self.path.rsplit("/", 1)[-1])
+                return
+            if self.path.startswith("/api/orient/"):
+                self._handle_orient(self.path.rsplit("/", 1)[-1])
                 return
             if self.path.startswith("/api/send/"):
                 self._handle_send(self.path.rsplit("/", 1)[-1])
@@ -2707,6 +2754,56 @@ def make_handler(
                         # matches; the cap is enforced inside the method.
                         reg.cache_slice_locked(rid, key, info, gcode_path, sliced_ver, MAX_SLICE_CACHE)
             self._respond_slice(rid, info, gcode_path, sliced_ver)
+
+        def _handle_orient(self, raw_id: str) -> None:
+            """Manual build-plate orientation override (§6.8).
+
+            Rotates the live, already-validated mesh by a 90-degree step and invalidates
+            all slice/G-code outputs for the prior pose. This keeps manual orientation as
+            a manufacturing choice, not a hidden redesign.
+            """
+            try:
+                rid = int(raw_id)
+            except ValueError:
+                self._json(404, {"error": "Not found."})
+                return
+            data = self._read_json_body()
+            if data is None:
+                return
+            axis = str(data.get("axis", "")).lower()
+            try:
+                degrees = int(data.get("degrees"))
+            except (TypeError, ValueError):
+                self._json(400, {
+                    "error": "Choose an orientation step: axis x/y/z and degrees -90, 90, or 180."
+                })
+                return
+            if axis not in {"x", "y", "z"} or degrees not in {-180, -90, 90, 180}:
+                self._json(400, {
+                    "error": "Choose an orientation step: axis x/y/z and degrees -90, 90, or 180."
+                })
+                return
+            with reg.lock:
+                mesh_path = reg.meshes.get(rid)
+            if mesh_path is None or not mesh_path.exists():
+                self._json(404, {"error": "Design the part first, then orient it."})
+                return
+            try:
+                with render_lock:
+                    out = manually_orient_mesh(mesh_path, axis, degrees)
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+                return
+            except Exception as e:  # never leak a traceback to the browser
+                self.log_error("manual orient failed: %s: %s", type(e).__name__, e)
+                self._json(500, {"error": "Something went wrong while orienting the part."})
+                return
+            with reg.lock:
+                reg.meshes[rid] = mesh_path
+                reg.meshes.move_to_end(rid)
+                reg.bump_version_locked(rid)
+                out["mesh_url"] = f"/api/mesh/{rid}?v={reg.next_mesh_version()}"
+            self._json(200, out)
 
         def _handle_render(self, raw_id: str) -> None:
             """Stage 5 live-slider re-render: rebuild a template-backed part (by id) at new

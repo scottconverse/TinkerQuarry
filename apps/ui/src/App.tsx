@@ -678,6 +678,7 @@ function App() {
   >([]);
   const [printerKey, setPrinterKey] = useState<string>('');
   const [material, setMaterial] = useState<string>('');
+  const [isOrienting, setIsOrienting] = useState(false);
   // First-real-print caution (§6.10): the manufacturing-commit moment is heightened the first time.
   const [showFirstRealDialog, setShowFirstRealDialog] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
@@ -810,6 +811,81 @@ function App() {
     }
     return data;
   }, [material, printerKey, renderTargetContent]);
+
+  const handleManualOrient = useCallback(
+    async (axis: 'x' | 'y' | 'z', degrees: -90 | 90) => {
+      const rid = lastEngineRidRef.current;
+      if (rid == null) {
+        notifyError({
+          operation: 'orient part',
+          capture: false,
+          displayMessage: 'Describe a part first, then orient it.',
+          toastId: 'engine-orient',
+        });
+        return;
+      }
+      setIsOrienting(true);
+      notifySuccess('Orienting…', {
+        toastId: 'engine-orient',
+        description: `Rotating ${axis.toUpperCase()} ${degrees > 0 ? '+90' : '-90'}`,
+      });
+      try {
+        const { ok, data } = await engine.orient(rid, axis, degrees);
+        if (!ok || !data.mesh_url) {
+          notifyError({
+            operation: 'orient part',
+            capture: false,
+            displayMessage: data.error || 'Could not orient the part.',
+            toastId: 'engine-orient',
+          });
+          return;
+        }
+        const targetTab = renderTargetTab ?? activeTabRef.current;
+        const requestId = Date.now();
+        const diagnostics = renderTargetRender?.diagnostics ?? [];
+        commitTabRenderResult(targetTab.id, {
+          requestId,
+          previewSrc: data.mesh_url,
+          previewKind: 'mesh',
+          diagnostics,
+          dimensionMode: '3d',
+          lastRenderedContent: renderTargetContent,
+        });
+        if (renderTargetPath) {
+          getRenderArtifactState().publishSettledArtifact({
+            requestId,
+            renderTargetPath,
+            workspaceRoot: projectRoot,
+            sourceHash: createSourceHash(renderTargetContent),
+            previewKind: 'mesh',
+            previewSrc: data.mesh_url,
+            diagnostics,
+            error: '',
+            dimensionMode: '3d',
+            sceneStyle: previewSceneStyle,
+            useModelColors: settings.viewer.showModelColors,
+            createdAt: Date.now(),
+          });
+        }
+        notifySuccess('Orientation updated', {
+          toastId: 'engine-orient',
+          description: 'Cached slices were cleared; Make it real will use this pose.',
+        });
+      } finally {
+        setIsOrienting(false);
+      }
+    },
+    [
+      commitTabRenderResult,
+      projectRoot,
+      renderTargetContent,
+      renderTargetPath,
+      renderTargetRender?.diagnostics,
+      renderTargetTab,
+      previewSceneStyle,
+      settings.viewer.showModelColors,
+    ]
+  );
 
   // Save the current engine design to "My Designs" (§6.12). Empty name → the engine auto-names it by
   // the original prompt (QA-004), so no dialog is needed.
@@ -2887,6 +2963,35 @@ function App() {
                     Profile blocked
                   </span>
                 </>
+              )}
+            </div>
+          )}
+
+          {hasEngineDesign && (
+            <div
+              data-testid="manual-orient"
+              className="hidden lg:inline-flex items-center gap-1 px-1 text-xs"
+              title="Manual build-plate orientation"
+            >
+              {(['x', 'y', 'z'] as const).flatMap((axis) =>
+                ([-90, 90] as const).map((degrees) => (
+                  <Button
+                    key={`${axis}${degrees}`}
+                    data-testid={`orient-${axis}-${degrees}`}
+                    variant="ghost"
+                    onClick={() => {
+                      void handleManualOrient(axis, degrees);
+                    }}
+                    size="sm"
+                    disabled={isRendering || isOrienting}
+                    className="text-xs px-1.5 py-1"
+                    aria-label={`Rotate ${axis.toUpperCase()} ${degrees > 0 ? 'plus' : 'minus'} 90 degrees`}
+                    title={`Rotate ${axis.toUpperCase()} ${degrees > 0 ? '+90' : '-90'} degrees`}
+                  >
+                    {axis.toUpperCase()}
+                    {degrees > 0 ? '+90' : '-90'}
+                  </Button>
+                ))
               )}
             </div>
           )}

@@ -89,6 +89,15 @@ export interface SliceResult {
   reason?: string;
 }
 
+export interface OrientResult {
+  oriented?: boolean;
+  axis?: 'x' | 'y' | 'z';
+  degrees?: -180 | -90 | 90 | 180;
+  extents_mm?: number[];
+  mesh_url?: string;
+  error?: string;
+}
+
 export interface ApiResponse<T> {
   status: number;
   ok: boolean;
@@ -192,6 +201,9 @@ export class EngineClient {
   }
   slice(rid: number, printer?: string, material?: string) {
     return this.req<SliceResult>('POST', `/slice/${rid}`, { printer, material });
+  }
+  orient(rid: number, axis: 'x' | 'y' | 'z', degrees: -180 | -90 | 90 | 180) {
+    return this.req<OrientResult>('POST', `/orient/${rid}`, { axis, degrees });
   }
   send(rid: number, confirm: boolean, connector?: string) {
     return this.req<Record<string, unknown>>('POST', `/send/${rid}`, { confirm, connector });

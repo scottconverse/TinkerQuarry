@@ -14,6 +14,7 @@ from kimcad.webapp import (
     _estimate_detail_with_weight,
     _process_layer_height_mm,
     design_response,
+    manually_orient_mesh,
     make_handler,
     slice_registered_mesh,
     web_options,
@@ -961,6 +962,68 @@ def test_http_slice_before_design_is_404(tmp_path):
         try:
             urllib.request.urlopen(req, timeout=10)
             raise AssertionError("expected 404")
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+
+
+def test_manual_orient_mesh_rotates_and_drops_to_bed(tmp_path):
+    import pytest
+    import trimesh
+
+    mesh_path = tmp_path / "part.oriented.stl"
+    mesh = trimesh.creation.box(extents=(10, 20, 30))
+    mesh.apply_translation((0, 0, 15))
+    mesh.export(mesh_path)
+
+    info = manually_orient_mesh(mesh_path, "x", 90)
+    oriented = trimesh.load(mesh_path, force="mesh")
+
+    assert info["oriented"] is True
+    assert info["axis"] == "x"
+    assert info["degrees"] == 90
+    assert oriented.bounds[0][2] == pytest.approx(0, abs=1e-6)
+    assert oriented.extents == pytest.approx([10, 30, 20], abs=0.1)
+
+
+def test_http_manual_orient_invalidates_cached_gcode(tmp_path, monkeypatch):
+    import json
+    import urllib.error
+    import urllib.request
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    gcode = tmp_path / "manual-orient-stale.gcode.3mf"
+    gcode.write_bytes(b"PK\x03\x04manual")
+    monkeypatch.setattr(
+        "kimcad.webapp.slice_registered_mesh",
+        lambda cfg, mesh, printer, material: ({"sliced": True}, gcode),
+    )
+
+    with _serve(pipe, tmp_path) as (host, port):
+        base = f"http://{host}:{port}"
+        design = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + "/api/design",
+            data=json.dumps({"prompt": "a 20mm block"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=30))
+        rid = int(design["mesh_url"].rsplit("/", 1)[-1])
+        sliced = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + f"/api/slice/{rid}",
+            data=json.dumps({"printer": "bambu_p2s", "material": "pla"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=10))
+        assert sliced["gcode_url"] == f"/api/gcode/{rid}"
+        assert urllib.request.urlopen(base + sliced["gcode_url"], timeout=10).read()
+
+        oriented = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + f"/api/orient/{rid}",
+            data=json.dumps({"axis": "x", "degrees": 90}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=10))
+        assert oriented["oriented"] is True
+        assert oriented["mesh_url"].startswith(f"/api/mesh/{rid}?v=")
+        try:
+            urllib.request.urlopen(base + f"/api/gcode/{rid}", timeout=10)
+            raise AssertionError("expected stale G-code to be cleared by manual orientation")
         except urllib.error.HTTPError as e:
             assert e.code == 404
 
