@@ -60,6 +60,19 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     expect(header(calls[0].init, 'X-KimCad-Session')).toBeUndefined();
   });
 
+  it('targets the saved-designs endpoints (§6.12 version history)', async () => {
+    const c = new EngineClient();
+    await c.saveDesign(4, 'My Box');
+    expect(calls[0].url).toBe('/api/designs/save');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ design_id: 4, name: 'My Box' });
+    await c.listDesigns();
+    expect(calls[1].url).toBe('/api/designs');
+    expect(calls[1].init.method).toBe('GET');
+    await c.reopenDesign('abc 1');
+    expect(calls[2].url).toBe('/api/designs/abc%201'); // id is URL-encoded
+  });
+
   it('returns a typed failure (not a throw) when the engine is unreachable', async () => {
     (globalThis as unknown as { fetch: typeof fetch }).fetch = (() =>
       Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch;
