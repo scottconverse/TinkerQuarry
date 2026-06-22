@@ -9,6 +9,8 @@ venv/
 # Node / build
 node_modules/
 dist/
+.jest-cache/
+**/.jest-cache/
 
 # Runtime artifacts
 output/
