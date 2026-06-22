@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-21 · **Role:** Technical Writer (docs / README / architecture / manual / marketing accuracy + honesty)
 **Build:** KimCadClaude@0.9.3 (engine), tinkerquarry rebranded SPA · audit-only (read, no modify)
-**Scope read:** `tinkerquarry/docs/STATUS.md`, `TinkerQuarry-PRD-v0.3.md`, `gauntletgate-slice1-lite-v0.1.md`,
+**Scope read:** `tinkerquarry/docs/STATUS.md`, `prd/TinkerQuarry-PRD-v0.3.md`, `gauntletgate-slice1-lite-v0.1.md`,
 `tinkerquarry/README.md`, `tinkerquarry/LICENSE`; `KimCadClaude/docs/api.md`, `README.md`,
 `ARCHITECTURE.md`, `LICENSE`; consumed `gate-tinkerquarry-2026-06-21/walkthrough.md`. Verified counts
 against the live repo (pytest collect, grep).
@@ -33,7 +33,7 @@ and protocol identifiers are all still `kimcad`. None are blockers; all are fixa
 `KimCad imports; **243 core-engine tests pass**`. Reality: `pytest --collect-only` in
 `KimCadClaude` collects **1,688 tests** (1,128 `def test_` functions; the difference is
 parametrization). The project's *own* PRD agrees with reality, not with STATUS:
-`TinkerQuarry-PRD-v0.3.md:497` says *"~1,128 KimCad test functions."* So STATUS.md contradicts both
+`prd/TinkerQuarry-PRD-v0.3.md:497` says *"~1,128 KimCad test functions."* So STATUS.md contradicts both
 the ground truth and a sibling doc, understating the suite by ~5–7×.
 **Why it matters:** The gate explicitly cares about honesty, and STATUS.md is the document that "just
 claims the real engine runs here." A reader cross-checking the headline number finds it off by a
@@ -110,7 +110,7 @@ and note that OpenSCAD/OrcaSlicer live under `..\_tools` per `config/local.yaml`
 **Evidence:** `gauntletgate-slice1-lite-v0.1.md:60` flags **[m-2] "README links a file that doesn't
 exist" (docs/STATUS.md)** — now resolved (STATUS exists), so the lite report is stale but is the most
 recent gate doc a reader will find next to it. Separately, `STATUS.md` and README link
-`docs/TinkerQuarry-PRD-v0.3.md` and `KimCadClaude/docs/api.md` (both exist ✓), but the PRD's
+`prd/TinkerQuarry-PRD-v0.3.md` and `KimCadClaude/docs/api.md` (both exist ✓), but the PRD's
 "Foundation confidence" (`PRD:495-498`) hedges *"Not re-executed in the authoring environment"* —
 which is now **out of date**, since the walkthrough *did* execute the real engine end-to-end.
 **Why it matters:** A reader triaging the gate folder sees a lite report still listing a fixed issue

@@ -4,6 +4,11 @@
 
 # TinkerQuarry — Manual
 
+> ⚠️ **This manual describes the TARGET product (per the PRD), not the current build.** Several features
+> it covers — the Visual Correction Loop, the code drawer, the rich viewer, library management — are
+> **not yet implemented.** For what actually works today, see the canonical [STATUS matrix](STATUS.md)
+> and the [recovery plan](TinkerQuarry-Recovery-Plan-v2.md).
+
 This manual has three parts. Read the one that fits you:
 
 - **[Part I — Using TinkerQuarry](#part-i--using-tinkerquarry)** — for everyone. No technical
