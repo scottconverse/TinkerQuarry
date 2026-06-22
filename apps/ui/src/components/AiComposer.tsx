@@ -358,6 +358,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 multiple
+                aria-label="Attach reference photos or sketches"
                 className="hidden"
                 onChange={(event) => {
                   handleFiles(event.target.files);

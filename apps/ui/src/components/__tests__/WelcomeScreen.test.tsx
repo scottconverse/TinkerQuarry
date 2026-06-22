@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { jest } from '@jest/globals';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
 import { renderWithProviders } from './test-utils';
@@ -90,6 +91,43 @@ describe('WelcomeScreen', () => {
     const button = await screen.findByText('My Coaster');
     fireEvent.click(button);
     expect(onReopenDesign).toHaveBeenCalledWith('d1');
+  });
+
+  it('has no serious or critical accessibility violations on the describe surface (§10/§12)', async () => {
+    const { container } = renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: '', attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onOpenRecent={async () => 'opened'}
+        showRecentFiles={false}
+      />
+    );
+    // Let the async sections (My Designs fetch) settle so axe sees the full tree.
+    await screen.findByText('Try an example:');
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      // Surface the details so a failure is actionable, not opaque.
+      console.error(
+        'a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
   });
 
   it('shows the model selector inline with the welcome composer actions when an API key is configured', async () => {
