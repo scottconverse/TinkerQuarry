@@ -11,8 +11,11 @@
 > no provider wall). The engine is forked into `packages/engine`; the **OpenSCAD-Studio front end is
 > absorbed** into `tinkerquarry/apps/ui` (branded, telemetry off) — the old "reskinned SPA" gap is
 > **closed**. It is **not yet a finished product**: **still to build** — the **Visual Correction Loop**
-> (the signature feature; per the vision spike it ships **cloud-optional**, needs a key), the AI **refine**
-> panel routed to the engine, the code drawer, bundled libraries, and the full Make-it-real rail. Recovery
+> (the signature feature; per the vision spike it ships **cloud-optional**, needs a key), the **7 bundled
+> libraries** (need a download/security OK), the **manual-orient override**, and the **rich iteration log**.
+> **Landed this session (all verified):** the AI **refine** panel (engine-routed, in-context), the
+> **Customizer** for template parts + **gate-on-tune live readiness**, **re-render-on-tune** (Make-it-real
+> slices the tuned part), and **persisted version history** (Save + My Designs reopen). Recovery
 > continues per [TinkerQuarry-Recovery-Plan-v2.md](TinkerQuarry-Recovery-Plan-v2.md).
 
 **Status legend:** `missing` (not built) · `partial` (some of it / engine-only / stub) · `implemented`
@@ -35,7 +38,7 @@
 | Area (PRD ref) | Status | Notes |
 |---|---|---|
 | AI tool-using agent + Explain mode + diff/undo (§6.3) | **refine working (live-verified)** | The workspace AI panel routes to the **local engine as a refine-in-context turn** (`onAiSubmit` → `handleEngineDescribe({refine:true})`; engine `history` carries context). **Verified LIVE:** an 80×60×40 box → refine "make it 80mm tall" → the engine produced a box with **height = 80** (rid 4, gate pass, rendered), using the conversation history. In-progress "Refining…" toast. Still: single-shot (not a multi-tool agent loop), no Explain mode, no diff/undo, no conversation-bubble transcript. |
-| Customizer for LLM-codegen + template parts (§6.6) | **working (live-verified)** | The engine emits **Customizer sliders for template parts** (`emit_scad` hoists each param to `name = value; // [min:step:max]`; 584 engine tests; mesh/gate/slice unchanged). **Verified LIVE end-to-end:** described an 80×60×40 box → the Customizer panel rendered Width/Depth/Height (10–170) + Wall (0.8–8) sliders, and **changing Width 80→120 re-rendered the box to 120mm** (screenshots). Pending: re-running the engine's **gate** on tuned values (Studio re-renders locally; the readiness verdict isn't re-checked after tuning yet). |
+| Customizer for LLM-codegen + template parts (§6.6) | **working (live-verified)** | The engine emits **Customizer sliders for template parts** (`emit_scad` hoists each param to `name = value; // [min:step:max]`; 584 engine tests; mesh/gate/slice unchanged). **Verified LIVE end-to-end:** described an 80×60×40 box → the Customizer panel rendered Width/Depth/Height (10–170) + Wall (0.8–8) sliders, and **changing Width 80→120 re-rendered the box to 120mm** (screenshots). **Gate-on-tune now done (2026-06-22):** a debounced (700ms) `engine.render(rid, tunedValues)` **re-gates tuned values live** — the Make-it-real button title shows the current readiness verdict as you tune (verified: title reads "Ready to print (92/100) — slice to make it real" after a describe; the re-gate reuses the live-verified `engine.render`), and the engine geometry stays in sync so Make-it-real slices exactly what's shown. |
 | Manual orient override (§6.8) | **missing** | Auto-orient only. |
 | Slice profiles shown in plain language before slicing (§6.9) | **partial** | No pre-slice profile line / layer height. |
 | First-real-send caution state (§6.10) | **missing** | Confirm dialog identical 1st vs 100th print. |
@@ -43,7 +46,7 @@
 | Seven bundled OpenSCAD libraries (BOSL2…) (§6.11) | **missing** | Not vendored. |
 | External-library admission (§6.11) | **missing** | Dead registry, no sandbox admission, no UI. |
 | Export `.scad` / `.png` / `.svg` / `.dxf` (§6.13) | **missing** | Only STL/STEP/3MF. (CadQuery now installed → STEP testable.) |
-| Version history / restore / iteration log (§6.12) | **partial/missing** | In-session only; no persisted history or iteration log. |
+| Version history / restore / iteration log (§6.12) | **working (live-verified)** | **Persisted save/restore built + verified (2026-06-22):** engine `POST /api/designs/save` (auto-names from object_type) + `GET /api/designs` (list) + `GET /api/designs/<id>` (reopen) round-trip proven via curl; a **Save** toolbar button (disabled until a design exists) stores the current engine design; the Welcome screen's **"My Designs"** gallery lists saved designs and **reopens** one on click (`reopenIntoStudio` → engine re-renders it into the viewer). Verified at every layer: backend round-trip (curl), `reopenIntoStudio` (orchestration test), client request shapes (engineClient test), Save button live, and the My Designs section + reopen click (WelcomeScreen test). Still: no per-iteration "what was tried" log (the rich Explain transcript). |
 | Settings: Appearance, Privacy, **About/Licenses w/ source links** (§6.14) | **implemented** | Appearance + Privacy are Studio's. **About/Licenses added (2026-06-22):** GPL-2.0 source-availability statement + per-component licenses (TinkerQuarry/engine/Studio GPL-2.0, OpenSCAD GPL-2.0, OrcaSlicer AGPL-3.0, Ollama MIT) with source links — **closes the GPL compliance gap**. Verified in the preview; typecheck clean. |
 | Offline banner + crash/recovery error boundary (§9) | **missing** | — |
 | Accessibility (keyboard/focus/contrast/SR) (§10/§12) | **unverified** | No a11y tests. |
