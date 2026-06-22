@@ -103,6 +103,14 @@ export function WelcomeScreen({
       cancelled = true;
     };
   }, [onReopenDesign]);
+  // §6.12 manage: a two-step delete (the × arms an inline Delete/Cancel) so a saved design isn't
+  // lost to a stray click. On success the entry is dropped from the list in place.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const handleDeleteDesign = async (id: string) => {
+    const r = await engine.deleteDesign(id);
+    setConfirmDeleteId(null);
+    if (r.ok) setSavedDesigns((s) => s.filter((x) => x.id !== id));
+  };
   // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
   // describe surface is always available — there is no "configure a provider" wall.
   const hasApiKey: boolean = true;
@@ -301,16 +309,49 @@ export function WelcomeScreen({
               My Designs:
             </Text>
             <div className="flex flex-wrap gap-2">
-              {savedDesigns.slice(0, 12).map((d) => (
-                <Button
-                  key={d.id}
-                  variant="secondary"
-                  onClick={() => onReopenDesign(d.id)}
-                  title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ''}`}
-                >
-                  {d.name}
-                </Button>
-              ))}
+              {savedDesigns.slice(0, 12).map((d) =>
+                confirmDeleteId === d.id ? (
+                  <div
+                    key={d.id}
+                    className="inline-flex items-center gap-2 px-3 rounded-md border text-xs"
+                    style={{ borderColor: 'var(--border-primary)' }}
+                  >
+                    <span style={{ color: 'var(--text-secondary)' }}>Delete &ldquo;{d.name}&rdquo;?</span>
+                    <button
+                      data-testid={`confirm-delete-${d.id}`}
+                      onClick={() => void handleDeleteDesign(d.id)}
+                      className="font-medium"
+                      style={{ color: '#e5484d' }}
+                    >
+                      Delete
+                    </button>
+                    <button onClick={() => setConfirmDeleteId(null)} style={{ color: 'var(--text-tertiary)' }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div key={d.id} className="inline-flex items-stretch">
+                    <Button
+                      variant="secondary"
+                      onClick={() => onReopenDesign(d.id)}
+                      title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ''}`}
+                      className="rounded-r-none"
+                    >
+                      {d.name}
+                    </Button>
+                    <button
+                      data-testid={`delete-design-${d.id}`}
+                      onClick={() => setConfirmDeleteId(d.id)}
+                      aria-label={`Delete ${d.name}`}
+                      title={`Delete "${d.name}"`}
+                      className="px-2 rounded-r-md border border-l-0 text-sm"
+                      style={{ borderColor: 'var(--border-primary)', color: 'var(--text-tertiary)' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              )}
             </div>
           </div>
         )}

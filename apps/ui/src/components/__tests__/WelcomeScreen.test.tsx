@@ -93,6 +93,50 @@ describe('WelcomeScreen', () => {
     expect(onReopenDesign).toHaveBeenCalledWith('d1');
   });
 
+  it('deletes a saved design via the two-step confirm (§6.12)', async () => {
+    const calls: string[] = [];
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: jest.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        calls.push(`${init?.method ?? 'GET'} ${url}`);
+        if (url.includes('/delete')) return createJsonResponse({ ok: true });
+        if (url.includes('/api/designs')) {
+          return createJsonResponse({
+            designs: [{ id: 'd1', name: 'My Coaster', object_type: 'coaster' }],
+          });
+        }
+        return createJsonResponse({ data: [] });
+      }),
+    });
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: '', attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onReopenDesign={jest.fn()}
+        onOpenRecent={async () => 'opened'}
+      />
+    );
+    await screen.findByText('My Coaster');
+    // First click only ARMS the inline confirm — nothing is deleted on a stray click.
+    fireEvent.click(screen.getByTestId('delete-design-d1'));
+    expect(screen.getByTestId('confirm-delete-d1')).toBeTruthy();
+    expect(calls.some((c) => c.includes('/delete'))).toBe(false);
+    // Confirming actually deletes (POST .../delete) and removes the entry in place.
+    fireEvent.click(screen.getByTestId('confirm-delete-d1'));
+    await waitFor(() => expect(screen.queryByTestId('confirm-delete-d1')).toBeNull());
+    expect(screen.queryByTestId('delete-design-d1')).toBeNull();
+    expect(calls.some((c) => c === 'POST /api/designs/d1/delete')).toBe(true);
+  });
+
   it('has no serious or critical accessibility violations on the describe surface (§10/§12)', async () => {
     const { container } = renderWithProviders(
       <WelcomeScreen

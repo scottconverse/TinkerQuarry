@@ -187,6 +187,10 @@ export class EngineClient {
   reopenDesign(id: string) {
     return this.req<DesignResult & { saved_id?: string }>('GET', `/designs/${encodeURIComponent(id)}`);
   }
+  /** Permanently delete a saved design from the local "My Designs" store. */
+  deleteDesign(id: string) {
+    return this.req<{ ok?: boolean }>('POST', `/designs/${encodeURIComponent(id)}/delete`);
+  }
 
   // --- catalog / status (no token needed) ---
   health() {
