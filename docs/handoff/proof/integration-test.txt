@@ -1,0 +1,10 @@
+PASS src/services/__tests__/engineLive.integration.test.ts
+  engine integration (LIVE) — anchors the manual "verified LIVE" FE claims
+    √ reopen → /api/source serves real SCAD (the §6.12 path the unit tests stub away) (13 ms)
+    √ slice with a NON-default printer returns real G-code for THAT printer (the §6.9 picker) (802 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        1.391 s
+Ran all test suites matching /engineLive.integration/i.
