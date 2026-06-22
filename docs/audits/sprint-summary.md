@@ -4,16 +4,22 @@
 gated phase-by-phase. **27 commits** (`22a283e…`). Anti-stall gate **stays armed** — only the human can
 release it; the agent cannot and did not disarm.
 
-## Headline: the core TinkerQuarry flow WORKS (Phase 4 B core, verified live)
-**Describe → local engine → printable geometry, rendered in Studio's viewer — no cloud, no provider
-wall.** `describeIntoStudio` (the WelcomeScreen describe surface) runs `/api/design`, pulls the engine's
-**self-contained** SCAD (`/api/source?inline=1` — `inline_library_includes` resolves library `use<>` so
-Studio's WASM can render template parts), sets it as the document, **auto-renders** it, and surfaces the
-engine's **readiness** verdict. **Proven live with screenshots:** described a 55 mm and a 70 mm coaster →
-each rendered in Studio's viewer at the right size; both LLM-codegen and template parts work. The
-**"Configure an AI provider" wall is removed** (PRD §6.1 local-first). Front end **599/599 green**,
-typecheck clean. This is the moment the two halves became one product. Detail:
-[phase4-architecture-decision.md](phase4-architecture-decision.md).
+## Headline: the full core TinkerQuarry flow WORKS, end to end (Phase 4 B core, verified live)
+**Describe a part in plain English → the local engine designs it → it renders in Studio's viewer with a
+pre-slice readiness check → "Make it real" slices it to real printable G-code — locally, no cloud, no
+provider wall.** Verified live this session, every step:
+- **Describe → viewer:** the WelcomeScreen describe (`describeIntoStudio`) runs `/api/design`, pulls the
+  engine's **self-contained** SCAD (`/api/source?inline=1` — `inline_library_includes` resolves library
+  `use<>` so Studio's WASM renders template parts), sets the document, **auto-renders**. Screenshots: a
+  20 mm cube and 55/70 mm coasters rendered at the right size; LLM-codegen AND template parts.
+- **Readiness:** toast "Design ready · Looks printable (92/100) · Make it real to slice" (pre-slice, per
+  PRD §6.7/§6.9 — final "Ready to print" is earned by the slice, not claimed at design time).
+- **Make it real:** a toolbar button slices the design → toast **"Ready to print · ~11m 1s, 100 layers,
+  3.12 cm³ filament · Bambu Lab P2S"** (18,335 G-code lines).
+- **Code drawer:** the engine's generated SCAD shows in Studio's Monaco editor (editable).
+- **Refine** foundation in place (engine `history` → refine in context; UI trigger pending).
+- **No provider wall** (PRD §6.1). Front end **599/599 green**, typecheck clean. Detail:
+  [phase4-architecture-decision.md](phase4-architecture-decision.md).
 
 ## What shipped (each with proof — builder ≠ self-grader)
 
