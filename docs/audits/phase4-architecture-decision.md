@@ -44,7 +44,24 @@ This is **following the spec**, not an ungrounded call — the exact discipline 
    and **verified live** (describe → engine mesh actually appears in the viewer) so it can't regress
    Studio's existing WASM render. Build it behind that verification, not blind.
 
+## Mechanism VERIFIED LIVE (2026-06-22) — the key de-risking
+The decisive uncertain question — *can the engine actually drive Studio's viewer?* — is answered **yes**,
+in the running app, and it's even lower-risk than Option B's render-store path:
+
+- The engine produces **valid OpenSCAD** (NL→plan→SCAD). Fed the engine's generated SCAD
+  (`GET /api/source/1`, the "50×30×10 mm name tag") into Studio's **own renderer**
+  (`__TEST_OPENSCAD__.renderCode`) → **the viewer rendered it**: model version changed, `maxDim` = **50**
+  (matches the engine's part), and the screenshot shows the exact part in Studio's 3D viewer.
+- **So the seam is the SCAD itself**, not a mesh hand-off: engine = brain (NL→**SCAD**+gate+slice),
+  Studio = IDE that **renders + edits** that SCAD through its existing, unchanged pipeline. **No
+  render-store surgery, no blob-url lifecycle risk** — the integration rides Studio's proven render path.
+
+**Revised production path for the B core (now low-risk):** describe → `/api/design` → take the engine's
+SCAD (`/api/source/<rid>`) → **set Studio's active document content to it** (Studio renders it normally) →
+surface the engine's gate/readiness (`engineGateSummary`) + drop the provider wall for the core describe.
+
 ## Status
-Everything *around* this decision is de-risked and proven (seam, engine, source API, glue + tests).
-The next build is the **B core**, verified live. The **A refine layer** and the cloud-optional visual
-loop (needs a key) follow. Recorded here so the architecture is grounded + reviewable, per builder≠auditor.
+Everything around AND through this decision is now de-risked: the seam, the engine, the source API, the
+glue+tests, **and the live proof that the engine's SCAD renders in Studio's viewer**. The remaining work
+is the production wiring of describe→document→render + gate (well-understood, low-risk) + the A refine
+layer + the cloud-optional visual loop (needs a key). Grounded + reviewable, per builder≠auditor.
