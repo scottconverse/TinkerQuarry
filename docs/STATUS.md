@@ -44,7 +44,7 @@
 | External-library admission (§6.11) | **missing** | Dead registry, no sandbox admission, no UI. |
 | Export `.scad` / `.png` / `.svg` / `.dxf` (§6.13) | **missing** | Only STL/STEP/3MF. (CadQuery now installed → STEP testable.) |
 | Version history / restore / iteration log (§6.12) | **partial/missing** | In-session only; no persisted history or iteration log. |
-| Settings: Appearance, Privacy, **About/Licenses w/ source links** (§6.14) | **missing** | About is a bare "GPL-2.0" string — likely **GPL source-availability compliance gap**. |
+| Settings: Appearance, Privacy, **About/Licenses w/ source links** (§6.14) | **implemented** | Appearance + Privacy are Studio's. **About/Licenses added (2026-06-22):** GPL-2.0 source-availability statement + per-component licenses (TinkerQuarry/engine/Studio GPL-2.0, OpenSCAD GPL-2.0, OrcaSlicer AGPL-3.0, Ollama MIT) with source links — **closes the GPL compliance gap**. Verified in the preview; typecheck clean. |
 | Offline banner + crash/recovery error boundary (§9) | **missing** | — |
 | Accessibility (keyboard/focus/contrast/SR) (§10/§12) | **unverified** | No a11y tests. |
 

@@ -17,3 +17,4 @@ export { PrivacySettings } from './PrivacySettings';
 export { LibrariesSettings } from './LibrariesSettings';
 export { AiSettings } from './AiSettings';
 export { ApiProviderCard } from './ApiProviderCard';
+export { AboutSettings } from './AboutSettings';

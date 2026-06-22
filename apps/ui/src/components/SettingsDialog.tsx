@@ -16,6 +16,7 @@ import {
   TbBooks,
   TbShield,
   TbRuler,
+  TbInfoCircle,
 } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { applyWorkspacePreset } from '../stores/layoutStore';
@@ -28,6 +29,7 @@ import {
   PrivacySettings,
   LibrariesSettings,
   AiSettings,
+  AboutSettings,
 } from './settings';
 import type { AiSettingsHandle } from './settings/AiSettings';
 
@@ -38,7 +40,8 @@ export type SettingsSection =
   | 'privacy'
   | 'ai'
   | 'libraries'
-  | 'project';
+  | 'project'
+  | 'about';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -231,6 +234,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       ? [{ key: 'libraries' as const, label: 'Libraries', icon: <TbBooks size={16} /> }]
       : []),
     { key: 'ai', label: 'AI Assistant', icon: <TbSparkles size={16} /> },
+    { key: 'about', label: 'About', icon: <TbInfoCircle size={16} /> },
   ];
 
   const sectionTitle: Record<SettingsSection, string> = {
@@ -241,6 +245,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     privacy: 'Privacy',
     libraries: 'Libraries',
     ai: 'AI Assistant',
+    about: 'About',
   };
 
   return (
@@ -381,6 +386,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             {activeSection === 'ai' && (
               <AiSettings ref={aiRef} isOpen={isOpen} onCanSaveChange={setAiCanSave} />
             )}
+            {activeSection === 'about' && <AboutSettings />}
           </div>
 
           {/* Footer */}
