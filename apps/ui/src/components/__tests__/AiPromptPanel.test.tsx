@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { fireEvent, screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { jest } from '@jest/globals';
 import { forwardRef } from 'react';
 import type { AiPromptPanelProps } from '../AiPromptPanel';
@@ -164,6 +165,27 @@ function installScrollMetrics(
 describe('AiPromptPanel', () => {
   beforeAll(async () => {
     ({ AiPromptPanel } = await import('@/components/AiPromptPanel'));
+  });
+
+  it('has no serious or critical a11y violations (§10/§12)', async () => {
+    const { container } = renderWithProviders(
+      <AiPromptPanel {...createBaseProps({ messages: [createCompletedToolMessage()] })} />
+    );
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'ai-prompt-panel a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
   });
 
   it('keeps completed tool payloads collapsed until expanded', () => {

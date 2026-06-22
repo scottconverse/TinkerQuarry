@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { ParameterControl } from '../customizer/ParameterControl';
 import type { CustomizerParam } from '../../utils/customizer/types';
 import { updateSetting } from '../../stores/settingsStore';
@@ -21,6 +22,30 @@ describe('ParameterControl', () => {
   beforeEach(() => {
     localStorage.clear();
     updateSetting('viewer', { measurementUnit: 'mm' });
+  });
+
+  it('has no serious or critical a11y violations for a slider control (§10/§12)', async () => {
+    const { container } = renderWithProviders(
+      <ParameterControl
+        param={makeParam({ type: 'slider', min: 10, max: 170, step: 1 })}
+        onChange={() => {}}
+      />
+    );
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'parameter-control a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
   });
 
   it('uses the compact inline layout for unannotated simple controls', () => {
