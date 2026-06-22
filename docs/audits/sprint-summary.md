@@ -48,38 +48,36 @@ not introduced here.
    spatially, so the loop is **cloud-optional** — decided by a spike, not a guess.
 
 ## What's next
-The **Phase 4 B core + adjacent surfaces are done + verified** (describe→viewer, readiness, make-it-real
-slice, code drawer, AI-panel refine routing, in-progress feedback, engine-unreachable hardening; wall
-removed). Remaining:
-- **Visual Correction Loop (cloud-optional, Phase 6):** the signature feature — needs a **cloud vision
-  API key** (you); local vision failed the spike.
-- **Seven bundled libraries (§6.11):** needs **downloading/vendoring** third-party SCAD libs + the
-  license/sandbox admission the plan specs — **your OK** (supply-chain + GPL/license care).
-- **Full 2-turn refine UX:** the AI panel routes to the engine, but the conversation **bubbles** for a
-  refine turn aren't rendered yet (needs the agent message API); verify the 2-turn flow when LLM latency
-  allows.
-- **Readiness semantics in the engine:** the UI reframes it (§6.7/§6.9 done at the UI); the deeper
-  `smart_mesh` verdict rename (wide test impact) stays optional.
-- **Edits back through the engine** (Phase 5): user code edits + manual orient + version history.
+The product is **usable end-to-end** (describe → tune → print the tuned part → refine), all verified.
+Remaining, by category:
+- **Blocked on you:** the **Visual Correction Loop** (signature feature — needs a **cloud vision API key**;
+  local vision failed the spike) and the **7 bundled libraries** (needs your **OK to download/vendor** —
+  supply-chain + license/sandbox).
+- **Large net-new features** (engine surface + UI): **manual orient** (§6.8 — the engine auto-orients but
+  exposes no candidate-pose override), **version history / My Designs** (§6.12 — the engine has
+  `/api/designs` save/list/reopen; needs a UI surface), **edits-back-through-the-engine** (re-gate
+  arbitrary edited SCAD, behind the sandbox).
+- **Lower-value polish:** refine conversation bubbles, Explain mode, live-readiness-while-dragging, the
+  optional `smart_mesh` verdict rename.
+
+## Resolved since the first cut (now done + live-verified)
+- ✅ **Customizer (§6.6) for template parts** — `emit_scad` hoists params to sliders; the panel renders
+  Width/Depth/Height/Wall sliders and **tuning re-renders** (box 80→120, screenshots). 584 engine + 9
+  parser tests.
+- ✅ **Make-it-real prints the TUNED part** — a pure slider tune re-renders via `engine.render` before
+  slicing (safe tune-vs-edit detection; tuned 60→150 sliced the 150 mm box, not the original).
+- ✅ **Refine in context** — "make it 80mm tall" on an 80×60×40 box → height-80 box, via conversation history.
 
 ## Known limitations (honest — for the review)
-- **Make-it-real after a manual code edit slices the LAST ENGINE design, not the edit.** Edits aren't yet
-  wired back through the engine (no re-design/re-gate of edited SCAD), and `Make it real` slices the
-  engine rid. The common flow (describe → make it real, no edit) is correct; document-edit-then-slice is
-  the gap. Fix = the "edits back through the engine" piece (behind the SCAD sandbox).
-- **Template parts show the inlined (self-contained) SCAD in the code drawer**, not the readable
-  `coaster_with_rim(od=70)` form. The renderer accepts aux files (renderService), so a readable-source +
-  virtual-library-files split is viable; deferred (needs a template describe to verify).
-- The 2-turn refine **conversation display** (above).
-- **Customizer (§6.6) for TEMPLATE parts:** Studio's Customizer parses top-level `name = value; //
-  [min:step:max]`. LLM-codegen parts already emit top-level params (e.g. `width = 20.0;`), so they're
-  Customizer-parseable; **template** parts emit a function call (`coaster_with_rim(od=60)`), which isn't.
-  The clean fix is `templates.emit_scad` hoisting each `ParamSpec` (it has name/min/max/step) to a
-  top-level customizer var and referencing it in the call — render/gate/slice are unaffected (OpenSCAD
-  evaluates identically; the gate validates the mesh), but **`emit_scad`'s text is asserted across
-  conftest + 5 test files → wide test impact**, so it's care-intensive (like the readiness rename), not a
-  rushed edit. (Live-verifying the Customizer panel also needs dockview interaction the headless preview
-  can't drive.)
+- **Make-it-real after a structural CODE edit** (not a slider tune) still slices the last engine design,
+  with a warning — wiring arbitrary edited SCAD back through the engine's re-gate (behind the sandbox) is
+  the remaining "edits-back" piece.
+- **Template parts show the inlined (self-contained) SCAD in the code drawer**, not the readable form —
+  but the inlined form is *correct* for the Customizer (Studio re-renders the document locally on a tune;
+  a library-less readable doc would break that). Low priority.
+- The 2-turn refine **conversation-bubble transcript** (the refine works; it just doesn't render as chat).
+- **Live readiness while dragging a slider** — the readiness verdict updates at Make-it-real (the engine
+  re-gates then; an un-printable tune is refused), not continuously during the drag. Safety is covered.
 
 **Recommended:** the auditor reviews the gate-passes (P1/P2/P4-foundation/P4-B-core/P5/P6, all evidenced
 with live screenshots + tests; 603/603 front end, typecheck clean). The hard, uncertain work is **done and
