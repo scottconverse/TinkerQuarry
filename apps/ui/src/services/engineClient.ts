@@ -102,6 +102,15 @@ function sessionToken(): string | null {
   return v && !v.startsWith('__') ? v : null; // ignore an un-substituted "__…__" placeholder
 }
 
+export interface SavedDesignEntry {
+  id: string;
+  name: string;
+  object_type?: string;
+  thumb_url?: string;
+  created_at?: string;
+  readiness_score?: number | null;
+}
+
 export class EngineClient {
   constructor(private readonly base: string = '/api') {}
 
@@ -159,6 +168,24 @@ export class EngineClient {
   source(rid: number, inline = false) {
     const q = inline ? '?inline=1' : '';
     return this.req<{ rid: number; scad: string; inlined?: boolean }>('GET', `/source/${rid}${q}`);
+  }
+
+  // --- saved designs (§6.12 version history) ---
+  /** Persist the current design (engine rid) to the local "My Designs" store. */
+  saveDesign(rid: number, name: string, thumbnail?: string) {
+    return this.req<{ id: string; name: string; saved: boolean }>('POST', '/designs/save', {
+      design_id: rid,
+      name,
+      thumbnail,
+    });
+  }
+  /** List saved designs (id, name, object_type, thumb_url, …). */
+  listDesigns() {
+    return this.req<{ designs: SavedDesignEntry[] }>('GET', '/designs');
+  }
+  /** Reopen a saved design — re-registers it live and returns a fresh design payload (mesh, params). */
+  reopenDesign(id: string) {
+    return this.req<DesignResult & { saved_id?: string }>('GET', `/designs/${encodeURIComponent(id)}`);
   }
 
   // --- catalog / status (no token needed) ---
