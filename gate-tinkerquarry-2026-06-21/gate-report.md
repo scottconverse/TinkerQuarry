@@ -12,7 +12,7 @@
 
 - **First-run:** reaches core feature ✅ (AI killed → KimCad self-heals; honest progress, no dead-end) — first-run coverage **VALID** (caveat: the model-on-disk "never-downloaded" cell was not torn down; covered by the tested setup flow).
 - **Severity roll-up (after fixing the self-inflicted regressions this run):** Blocker **0** · Critical **0** · Major **5** · Minor ~13 · Nit ~10. *(Started at 10 Major; 5 were regressions I introduced and fixed in-run.)*
-- **One-line why:** The integrated describe→LLM→geometry→gate→slice pipeline, the session-token security, and the safety invariants are genuinely sound; the remaining Majors are documentation/licensing reconciliation and pre-existing environment drift — none block advancement.
+- **One-line why:** The integrated describe→LLM→geometry→gate→slice pipeline, the session-token security, and the safety invariants are genuinely sound; the remaining Majors are documentation and pre-existing environment drift — none block advancement. *(Update 2026-06-21: the licensing-reconciliation Major is now **RESOLVED** — the engine was relicensed GPL-2.0, so the combined work is uniformly GPL-2.0; see watchlist #1.)*
 
 ---
 
@@ -38,13 +38,13 @@
 Wizard guides (Welcome · Set up AI · Printer · Direct printing · Ready); "Set up your AI" is one-click (no "go install Ollama yourself"); adversarial Skip→Design-it with AI killed did **not** dead-end — honest progress + **managed-engine self-heal**. Findings: W-1 (Minor, status `running:true`+`model_present:false` during cold load), W-2 (Nit, cold-start latency).
 
 ### Full — 5-role panel (deep-dives `01-engineering`…`05-qa`)
-- **Engineering** (0B/0C/2 Maj/4 Min/3 Nit): security model, gate, and untrusted-codegen boundary well-built. Majors: licensing inconsistency (no NOTICE/THIRD_PARTY); mock_api.py strips hardening. Credits: constant-time token, gate fails-closed at slice+send, SCAD sanitizer blocks dangerous ops, zip-slip/bomb-safe import, vision always local.
+- **Engineering** (0B/0C/2 Maj/4 Min/3 Nit): security model, gate, and untrusted-codegen boundary well-built. Majors: licensing inconsistency (no NOTICE/THIRD_PARTY) — **now RESOLVED** (relicensed GPL-2.0 + `THIRD_PARTY_LICENSES.md` added); mock_api.py strips hardening. Credits: constant-time token, gate fails-closed at slice+send, SCAD sanitizer blocks dangerous ops, zip-slip/bomb-safe import, vision always local.
 - **UI/UX** (0B/0C/2 Maj/4 Min/3 Nit): **dark theme contrast-clean** (retheme preserved the AA fill-vs-text splits). Majors were **light-theme** AA dips (primary button 4.31:1, warn/fail) — **FIXED this run**. Minors: "Kim" persona never introduced; theme-default doc stale (fixed).
-- **Technical Writer** (0B/0C/3 Maj/4 Min/3 Nit): api.md is a **drift-free contract**; real end-to-end claim substantially true. Majors: STATUS test-count wrong (**FIXED**); license contradiction unreconciled; KimCad↔TinkerQuarry relationship undocumented.
+- **Technical Writer** (0B/0C/3 Maj/4 Min/3 Nit): api.md is a **drift-free contract**; real end-to-end claim substantially true. Majors: STATUS test-count wrong (**FIXED**); license contradiction (**RESOLVED** — relicensed GPL-2.0, docs now state GPL-2.0 uniformly + link `THIRD_PARTY_LICENSES.md`/`STRATEGY-RECON.md`); KimCad↔TinkerQuarry relationship undocumented (**FIXED** — naming box added to STATUS).
 - **Test Engineer** (0B/0C/2 Maj/3 Min/2 Nit): verified **frontend 405/405, glue 19/19**, engine **1552 passed / 11 failed / 104 skip**. 2 failures were rebrand/retheme regressions (**FIXED → green**); 9 are pre-existing env/profile drift. Safety invariants well covered (gate reject on real geometry, slice-requires-pass, send forces confirm).
 - **QA** (0B/0C/1 Maj/1 Min/1 Nit): session token solid (8 state-changing POSTs → 403 without it; accepted with the page-shell token); safety invariants hold (no-design→404, gate-failed→refused, simulated send never unlocks outcome, oversize→413). Major: `/api/settings` accepts unknown fields (silent config loss). Mock↔real parity confirmed.
 
-**Cross-role finding:** the **licensing inconsistency** (engine Apache-2.0 vs glue GPL-2.0, both bundling GPL OpenSCAD/OrcaSlicer, no NOTICE) was independently raised by Engineering **and** Docs — a high-leverage Major.
+**Cross-role finding:** the **licensing inconsistency** (engine Apache-2.0 vs glue GPL-2.0, both bundling GPL OpenSCAD/OrcaSlicer, no NOTICE) was independently raised by Engineering **and** Docs — a high-leverage Major. **Resolved 2026-06-21:** the engine was relicensed Apache-2.0 → GPL-2.0 and `THIRD_PARTY_LICENSES.md` added, so the combined work is uniformly GPL-2.0 (watchlist #1).
 
 ---
 
@@ -52,7 +52,7 @@ Wizard guides (Welcome · Set up AI · Printer · Direct printing · Ready); "Se
 **None.** 0 Blocker / 0 Critical.
 
 ## Next-stage watchlist (Majors — none block, but fix before ship)
-1. **Licensing reconciliation (Option-B premise).** Engine repo `KimCadClaude/LICENSE` is Apache-2.0 (with a subprocess-isolation argument that GPL doesn't attach); glue/PRD assert GPL-2.0. Both bundle GPL OpenSCAD + GPL/AGPL OrcaSlicer as fetched binaries. Decide the combined-work license, add a NOTICE/THIRD_PARTY_LICENSES, and state which governs. **This is your call — it's the relicense decision at the heart of Option B.**
+1. **Licensing reconciliation (Option-B premise). — ✅ RESOLVED (relicensed GPL-2.0).** The combined-work license question is settled: per `STRATEGY-RECON.md` (Option B), the engine `KimCadClaude` was **relicensed Apache-2.0 → GPL-2.0** (LICENSE swapped, `pyproject` `license = "GPL-2.0-only"`, README updated) and `KimCadClaude/THIRD_PARTY_LICENSES.md` was added. TinkerQuarry is now **uniformly GPL-2.0**: the v2 lock comes from the absorbed OpenSCAD-Studio front-end (GPL-2.0-only) the product embeds; OpenSCAD/OrcaSlicer are invoked as arm's-length subprocesses. There is no remaining Apache-vs-GPL split. *(Original finding, for history: engine repo was Apache-2.0 with a subprocess-isolation argument while glue/PRD asserted GPL-2.0; both bundle GPL OpenSCAD + GPL/AGPL OrcaSlicer as fetched binaries.)*
 2. **Document the KimCad↔TinkerQuarry relationship.** Product is TinkerQuarry; repo/CLI/`.kimcad`/`X-KimCad-Session` are `kimcad` (correct to keep) — but a one-paragraph orientation is needed so it doesn't read as an unfinished rebrand.
 3. **`mock_api.py` hardening note** — it's the dev mock and intentionally permissive, but add a header banner that it must never be the production server (the real one's session-token model is the pattern).
 4. **`/api/settings` unknown-field validation** — return 400 on typo'd fields like `/api/connections` does, so the `saved:true` flag can't be a false positive.

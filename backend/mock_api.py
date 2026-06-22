@@ -228,10 +228,23 @@ def make_handler(api: MockKimCad):
     return Handler
 
 
+def _is_loopback(host: str) -> bool:
+    return host in ("127.0.0.1", "::1", "localhost", "")
+
+
 def serve(host: str = "127.0.0.1", port: int = 8766) -> None:
+    # GauntletGate ENG-M-2: this mock has NONE of the real server's hardening (no session token,
+    # no CSRF, permissive CORS). Refuse to bind anywhere but loopback so it can never become a
+    # drive-and-forget network exposure, and shout the dev-only status on startup.
+    if not _is_loopback(host):
+        raise SystemExit(
+            f"refusing to bind the TinkerQuarry MOCK API to non-loopback host {host!r}. "
+            "It is dev-only and unauthenticated; run the real `kimcad web` for anything reachable."
+        )
     api = MockKimCad()
     httpd = ThreadingHTTPServer((host, port), make_handler(api))
     print(f"TinkerQuarry mock KimCad API on http://{host}:{port}  (X-TinkerQuarry-Mock: 1)")
+    print("  [DEV-ONLY] unauthenticated mock — NOT the production server. Loopback only.")
     httpd.serve_forever()
 
 

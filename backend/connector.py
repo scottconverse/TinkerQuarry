@@ -128,7 +128,12 @@ def design_result_dict(res: Any) -> dict[str, Any]:
         "render_attempts": getattr(res, "render_attempts", None),
         "gate": None if gate is None else {
             "status": str(getattr(gate, "status", "")),
-            "messages": list(getattr(gate, "messages", []) or []),
+            # GateResult exposes `findings` (objects), not `messages`; read findings first so MCP
+            # clients get the real gate reasons, falling back to `messages`, and stringify each.
+            "messages": [
+                str(getattr(m, "message", m))
+                for m in (getattr(gate, "findings", None) or getattr(gate, "messages", None) or [])
+            ],
         },
         "readiness": None if report is None else {
             "score": _val(report, "readiness", "score"),
@@ -185,7 +190,7 @@ class KimCadConnector:
     def _default_printer_server(self) -> Any:
         try:
             from kimcad.mcp_server import PrinterMCPServer
-        except ModuleNotFoundError as e:
+        except ImportError as e:  # broadened: also catch native-ext load failures, not just a missing module
             raise _engine_missing(e) from e
         return PrinterMCPServer(self._config)
 
@@ -201,7 +206,7 @@ class KimCadConnector:
             from kimcad.history import HistoryStore
             from kimcad.llm_provider import FallbackProvider, LLMProvider
             from kimcad.pipeline import Pipeline
-        except ModuleNotFoundError as e:
+        except ImportError as e:  # broadened: also catch native-ext load failures, not just a missing module
             raise _engine_missing(e) from e
 
         cfg = self._config
@@ -380,7 +385,7 @@ _CONNECTOR_TOOLS: list[dict[str, Any]] = [
 def main() -> None:  # pragma: no cover - the stdio loop is exercised via handle() in tests
     try:
         from kimcad.config import Config
-    except ModuleNotFoundError as e:
+    except ImportError as e:  # broadened: also catch native-ext load failures, not just a missing module
         raise _engine_missing(e) from e
 
     connector = KimCadConnector(Config.load())

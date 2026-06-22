@@ -58,6 +58,9 @@ imports and raise a typed, actionable error; document the KimCad dependency + pa
 
 **[m-2] Minor · Docs — README links a file that doesn't exist.** `README.md` references
 `docs/STATUS.md`, which is not yet created. *Fix:* create STATUS.md (planned this session).
+**> RESOLVED (2026-06-21): `docs/STATUS.md` now exists and the README link is live. This lite-lane
+> finding is historical — superseded by the 2026-06-21 walkthrough + full gate
+> (`gate-tinkerquarry-2026-06-21/gate-report.md`), which ran the real runtime end-to-end.**
 
 **[m-3] Minor · UX/Honesty — the design mockup is an unwired scripted demo.**
 `frontend/index.html` runs a hard-coded demo sequence (timers in the `dc-script`), not real backend
