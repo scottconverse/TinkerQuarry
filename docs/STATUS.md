@@ -5,15 +5,15 @@
 **This file is the single source of truth for "where we really are."** It supersedes every prior
 "done"/"CLEAR TO ADVANCE" claim.
 
-> **One-line truth:** TinkerQuarry is **a partial implementation**, not a finished product. There is a
-> strong, real **KimCad manufacturing engine** (now forked into `packages/engine`) and the
-> **OpenSCAD-Studio front end is now absorbed** into `tinkerquarry/apps/ui` (TinkerQuarry-branded,
-> telemetry off, 3-column layout) — so the old "shipping KimCad's reskinned SPA" gap is **closed**. The
-> **engine↔front-end seam is proven** (authenticated `describe→/api/design→mesh`, plus a `/api/source`
-> code endpoint). **Still not built:** the **Visual Correction Loop** (the signature feature — and per the
-> vision spike it must ship **cloud-optional**), and the wiring of Studio's viewer/editor/customizer onto
-> the engine. Recovery is in progress per
-> [TinkerQuarry-Recovery-Plan-v2.md](TinkerQuarry-Recovery-Plan-v2.md).
+> **One-line truth:** TinkerQuarry's **core flow now works end-to-end** — **describe a part in plain
+> English → the local KimCad engine designs it → it renders in Studio's viewer with a readiness verdict →
+> "Make it real" slices it to real printable G-code** (all verified live this session, locally, no cloud,
+> no provider wall). The engine is forked into `packages/engine`; the **OpenSCAD-Studio front end is
+> absorbed** into `tinkerquarry/apps/ui` (branded, telemetry off) — the old "reskinned SPA" gap is
+> **closed**. It is **not yet a finished product**: **still to build** — the **Visual Correction Loop**
+> (the signature feature; per the vision spike it ships **cloud-optional**, needs a key), the AI **refine**
+> panel routed to the engine, the code drawer, bundled libraries, and the full Make-it-real rail. Recovery
+> continues per [TinkerQuarry-Recovery-Plan-v2.md](TinkerQuarry-Recovery-Plan-v2.md).
 
 **Status legend:** `missing` (not built) · `partial` (some of it / engine-only / stub) · `implemented`
 (built + wired) · `verified` (built + wired + test/proof). **Tier:** P0 = release-blocking · P1 = v1.
@@ -27,7 +27,7 @@
 | **Supplied design interface productized** (design spec) | **in-progress** | **Phase 3:** real app is now the forked Studio (TinkerQuarry-branded, telemetry off, **3-column AI \| preview \| Customize** layout matching the design at desktop width). Pending: the **Make it real** rail (Phase 4 net-new) + full design polish. |
 | **"Show me the code" / OpenSCAD editor** (§6.5) | **present + read-source wired** | Studio's Monaco editor is in the fork. **Phase 5:** engine now exposes the generated source — `GET /api/source/<rid>` returns the real `.scad` (verified live + unit test); `engineClient.source()` added. Pending: surface it in the code drawer + wire **edits** back through the engine pipeline (behind the SCAD sandbox). |
 | **Rich 3D viewer** (§6.4) | **present + engine-fed** | The forked Studio viewer brings **preset views, ortho, wireframe, shadows, pan/orbit/zoom, measure, build-plate, offscreen multi-view capture**. **Now fed from the engine:** a described part's engine SCAD renders in this viewer (proven live, both LLM-codegen + template parts). Pending: section-plane/2D-SVG verification inputs (Phase 6 loop). |
-| **Right panel = Customize / Make it real** (design) | **partial** | **Customize** is now its own right column (Phase 3). **Make it real** (orient→slice→print rail) is net-new, Phase 4. |
+| **Right panel = Customize / Make it real** (design) | **working (slice action)** | **Customize** is its own right column (Phase 3). **Make it real** is wired + verified: a toolbar button slices the current engine design → **real printable G-code + estimate** ("Ready to print / ~11m 1s, 100 layers, 3.12 cm³ filament · Bambu Lab P2S", live toast; 18,335 G-code lines). Pending: the full right-rail layout (orient override, send-to-printer surfaced inline). |
 | Real prompt → printable design — from the canonical repo | **verified** | **Phase 2 PASS:** `packages/engine` does design→gate→slice (31k-line G-code) + 38 sandbox tests pass, from `tinkerquarry`. [audits/phase2-proof.md](audits/phase2-proof.md). |
 
 ## P1 — required for v1
