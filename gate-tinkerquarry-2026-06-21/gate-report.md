@@ -6,7 +6,35 @@
 
 ---
 
-## Verdict (read first)
+## ROUND 2 (re-run after fixes) — verdict: ✅ CLEAR TO ADVANCE at **0/0/0/0/0**
+
+**Date:** 2026-06-21 (later) · **Build:** KimCadClaude@HEAD · tinkerquarry@HEAD · **Lanes:** walkthrough + full (5-role re-audit)
+
+> **✅ CLEAR TO ADVANCE — 0 Blocker / 0 Critical / 0 Major / 0 Minor / 0 Nit.**
+
+After round 1's findings were fixed and committed, the full 5-role panel **re-audited the
+committed code**. Every round-1 finding was confirmed genuinely fixed; the re-audit surfaced a
+short tail of residuals (mostly *second copies* round 1 missed), all now fixed:
+
+| Round-2 finding | Sev | Fix |
+|---|---|---|
+| ENG-R2-MIN-1 — user-facing license still "Apache-2.0" (About panel + bundle + USER-MANUAL) | Minor | → GPL-2.0; SPA rebuilt |
+| UIUX-R2-01 — `.kc-tone-pass` "Passed" badge 3.95:1 | Minor | → `--kc-pass-text` (5.40:1) |
+| N-1 — stale engine test count ("9 failures") in STATUS/README/PRD | Minor | → 1,590 pass / 0 fail / 101 skip |
+| ENG-R2-NIT-1 — engine `connector.py` still read `gate.messages` | Nit | → `gate.findings` (the round-1 fix had only touched the glue copy) |
+| ENG-R2-NIT-2 — mock `_is_loopback("")` treated bind-all as loopback | Nit | → removed `""` |
+| TST-8 — KCViewport measurement overlay still Zen gold | Nit | → forge amber `0xe0a667` |
+| TST-9 — `health.external_binaries` / `model_status.model_loading` not asserted | Nit | → assertions added |
+| flaky-405 — Windows socket-teardown race in a test client | (test) | → idempotent retry; 405 routing was already correct |
+
+**Tests (verified):** engine **1,590 passed · 0 failed · 101 skipped**; frontend **407**; glue **19/19**.
+**By-design note (not a finding):** the PRD §1 describes the visual-correction loop in present tense
+as a *requirements/design* doc; §13 honestly flags it as not-yet-live, and all user-facing surfaces
+(README/STATUS/MANUAL/app) frame it as planned. Round-2 deep-dives: `0X-*-round2.md`.
+
+---
+
+## Verdict — Round 1 (historical; see Round 2 above for the current state)
 
 > **✅ CLEAR TO ADVANCE** — both required lanes ran; 0 Blocker / 0 Critical; a brand-new user reaches the core feature.
 
