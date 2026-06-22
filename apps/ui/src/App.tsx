@@ -47,6 +47,7 @@ import {
   type EngineTurn,
 } from './services/engineDocument';
 import { engine } from './services/engineClient';
+import { engineGateSummary } from './services/engineDesign';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
@@ -644,6 +645,9 @@ function App() {
   const lastEngineScadRef = useRef<string | null>(null);
   // Whether an engine design exists yet — drives the "Make it real" button's enabled state.
   const [hasEngineDesign, setHasEngineDesign] = useState(false);
+  // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
+  // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
+  const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
   // /api/design takes this as `history`. A fresh design (new part) resets it.
   const engineHistoryRef = useRef<EngineTurn[]>([]);
@@ -662,6 +666,7 @@ function App() {
         lastEngineRidRef.current = result.rid ?? null;
         lastEngineScadRef.current = result.scad ?? null;
         setHasEngineDesign(true);
+        setLiveReadiness(result.gate || null);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
           { role: 'user', content: prompt },
@@ -795,6 +800,7 @@ function App() {
         lastEngineScadRef.current = result.scad;
         engineHistoryRef.current = [];
         setHasEngineDesign(true);
+        setLiveReadiness(result.gate || null);
         notifySuccess('Reopened', { toastId: 'engine-design', description: result.gate });
       } else {
         notifyError({
@@ -831,6 +837,26 @@ function App() {
     w.__TQ_SWITCH_PANEL__ = (id: string) => getDockviewApi()?.getPanel(id)?.api.setActive();
     w.__TQ_SHOW_WELCOME__ = showWelcomeScreen;
   }, [handleEngineDescribe, handleMakeItReal, showWelcomeScreen]);
+
+  // Live readiness while tuning: when the document is a pure Customizer tune of the engine's design,
+  // re-gate it on the engine (debounced) so the readiness reflects the tuned values — and keep the
+  // engine's geometry in sync so "Make it real" slices exactly what's shown.
+  useEffect(() => {
+    const rid = lastEngineRidRef.current;
+    const orig = lastEngineScadRef.current;
+    if (rid == null || !orig) return;
+    const tuned = pureTuneValues(renderTargetContent, orig);
+    if (!tuned) return;
+    const handle = setTimeout(() => {
+      void engine.render(rid, tuned).then((r) => {
+        if (r.ok && r.data.status === 'completed') {
+          lastEngineScadRef.current = renderTargetContent;
+          setLiveReadiness(engineGateSummary(r.data));
+        }
+      });
+    }, 700);
+    return () => clearTimeout(handle);
+  }, [renderTargetContent]);
 
   // Tab management functions
   const createNewTab = useCallback(
@@ -2657,7 +2683,9 @@ function App() {
             className="text-xs px-2 py-1"
             title={
               hasEngineDesign
-                ? 'Slice the current design into printable G-code'
+                ? liveReadiness
+                  ? `${liveReadiness}\n— slice to make it real`
+                  : 'Slice the current design into printable G-code'
                 : 'Describe a part first'
             }
           >
