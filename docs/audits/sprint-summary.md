@@ -48,18 +48,31 @@ not introduced here.
    spatially, so the loop is **cloud-optional** — decided by a spike, not a guess.
 
 ## What's next
-The **Phase 4 B core is done + verified** (describe → engine → viewer, wall removed, readiness surfaced).
-Remaining:
-- **AI panel (refine layer) → engine:** the workspace AI panel still routes to the cloud agent; route it
-  to the engine too (dockview-wired `submitPrompt`) so refine is local-first like the entry describe.
-- **Make-it-real rail (§ design):** orient → slice → print, wired to the engine's `slice`/`send`.
-- **Readiness semantics ("Ready to print" only after a slice, §6.7/§6.9):** a core change to the engine's
-  readiness model (`smart_mesh`/`pipeline`) with wide test impact — care-intensive, not an hour-N edit.
-- **Visual Correction Loop implementation (cloud-optional, Phase 6):** needs a **cloud vision API key** (you).
-- **Seven bundled libraries (§6.11):** needs **downloading/vendoring** third-party SCAD libs (your OK).
-- **Code drawer (Phase 5):** surface `/api/source` in the editor UI + wire edits back (behind the sandbox).
+The **Phase 4 B core + adjacent surfaces are done + verified** (describe→viewer, readiness, make-it-real
+slice, code drawer, AI-panel refine routing, in-progress feedback, engine-unreachable hardening; wall
+removed). Remaining:
+- **Visual Correction Loop (cloud-optional, Phase 6):** the signature feature — needs a **cloud vision
+  API key** (you); local vision failed the spike.
+- **Seven bundled libraries (§6.11):** needs **downloading/vendoring** third-party SCAD libs + the
+  license/sandbox admission the plan specs — **your OK** (supply-chain + GPL/license care).
+- **Full 2-turn refine UX:** the AI panel routes to the engine, but the conversation **bubbles** for a
+  refine turn aren't rendered yet (needs the agent message API); verify the 2-turn flow when LLM latency
+  allows.
+- **Readiness semantics in the engine:** the UI reframes it (§6.7/§6.9 done at the UI); the deeper
+  `smart_mesh` verdict rename (wide test impact) stays optional.
+- **Edits back through the engine** (Phase 5): user code edits + manual orient + version history.
+
+## Known limitations (honest — for the review)
+- **Make-it-real after a manual code edit slices the LAST ENGINE design, not the edit.** Edits aren't yet
+  wired back through the engine (no re-design/re-gate of edited SCAD), and `Make it real` slices the
+  engine rid. The common flow (describe → make it real, no edit) is correct; document-edit-then-slice is
+  the gap. Fix = the "edits back through the engine" piece (behind the SCAD sandbox).
+- **Template parts show the inlined (self-contained) SCAD in the code drawer**, not the readable
+  `coaster_with_rim(od=70)` form. The renderer accepts aux files (renderService), so a readable-source +
+  virtual-library-files split is viable; deferred (needs a template describe to verify).
+- The 2-turn refine **conversation display** (above).
 
 **Recommended:** the auditor reviews the gate-passes (P1/P2/P4-foundation/P4-B-core/P5/P6, all evidenced
-above with live screenshots + tests). The hard, uncertain work is done and proven; the next pieces
-(refine routing, make-it-real rail, cloud-vision loop, library vendoring) are clearer and lower-risk. The
-sprint remains armed until you release it.
+with live screenshots + tests; 603/603 front end, typecheck clean). The hard, uncertain work is **done and
+proven**; the remaining is mostly blocked on you (cloud key, library OK) or is bounded polish. The sprint
+remains armed until you release it.
