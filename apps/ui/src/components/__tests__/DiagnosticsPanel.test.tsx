@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
 import { renderWithProviders } from './test-utils';
 import type { Diagnostic } from '../../platform/historyService';
@@ -88,6 +89,30 @@ describe('DiagnosticsPanel', () => {
     renderWithProviders(<DiagnosticsPanel diagnostics={[]} />);
 
     expect(screen.getByTestId('diagnostics-panel')).toHaveTextContent('No messages');
+  });
+
+  it('has no serious or critical a11y violations (§10/§12)', async () => {
+    const diagnostics: Diagnostic[] = [
+      { severity: 'error', line: 7, message: 'Unexpected token' },
+      { severity: 'warning', line: 9, message: 'Potential issue' },
+      { severity: 'info', message: 'ECHO: ready' },
+    ];
+    const { container } = renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'diagnostics-panel a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
   });
 
   it('orders sections as errors, warnings, then output', () => {

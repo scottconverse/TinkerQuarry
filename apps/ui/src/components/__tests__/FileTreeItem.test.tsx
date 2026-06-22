@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { fireEvent, screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { jest } from '@jest/globals';
 import { FileTreeItem } from '../FileTree/FileTreeItem';
 import { renderWithProviders } from './test-utils';
@@ -25,6 +26,25 @@ describe('FileTreeItem', () => {
   it('renders the file name', () => {
     renderWithProviders(<FileTreeItem {...defaultProps} />);
     expect(screen.getByText('main.scad')).toBeTruthy();
+  });
+
+  it('has no serious or critical a11y violations (§10/§12)', async () => {
+    const { container } = renderWithProviders(<FileTreeItem {...defaultProps} />);
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'file-tree-item a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
   });
 
   it('enters rename mode on Enter key and allows multi-character typing', () => {
