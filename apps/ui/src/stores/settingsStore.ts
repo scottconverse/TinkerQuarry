@@ -114,7 +114,10 @@ const DEFAULT_SETTINGS: Settings = {
   ui: {
     customizerWidth: 420,
     hasCompletedNux: true,
-    defaultLayoutPreset: 'default',
+    // TinkerQuarry (recovery Phase 3): describe-first IA (PRD §8 + the supplied design) — the
+    // AI/describe surface + 3D preview are primary on open. (Full Customize / Make-it-real right-rail
+    // re-layout to the design is the larger Phase 3/4 work; this sets the default entry layout.)
+    defaultLayoutPreset: 'ai-first',
     hasDismissedViewerControlsHint: false,
     fileTreeVisible: true,
     fileTreeWidth: 200,
