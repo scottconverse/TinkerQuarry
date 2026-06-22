@@ -21,7 +21,20 @@
     "fs:allow-watch",
     {
       "identifier": "fs:scope",
-      "allow": ["$HOME/**", "$APPCACHE/**"]
+      "allow": ["$HOME/**", "$APPCACHE/**"],
+      "deny": [
+        "$HOME/.ssh/**",
+        "$HOME/.gnupg/**",
+        "$HOME/.aws/**",
+        "$HOME/.azure/**",
+        "$HOME/.config/gcloud/**",
+        "$HOME/.docker/**",
+        "$HOME/.kube/**",
+        "$HOME/.git-credentials",
+        "$HOME/AppData/Roaming/Microsoft/Credentials/**",
+        "$HOME/AppData/Roaming/Microsoft/Crypto/**",
+        "$HOME/AppData/Roaming/GnuPG/**"
+      ]
     },
     {
       "identifier": "core:app:allow-app-show",
