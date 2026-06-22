@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kimcad"
+# Stage 11 Slice 11.3: THE version — every surface (CLI --version, /api/health, the
+# Settings About line, the installer's filename + wizard) reads it from package metadata;
+# no other file may carry a literal copy (pinned by tests/test_version_single_source.py).
+version = "0.9.3"
+description = "AI-assisted parametric design for functional 3D prints"
+readme = "README.md"
+# Python 3.13 is THE supported line for this version (decided 2026-06-10): new enough for
+# every pinned wheel, old enough that CadQuery's OCCT backend runs on the SAME interpreter
+# line (3.14 is too new for it). The floor is what we test and ship on.
+requires-python = ">=3.13"
+license = { text = "GPL-2.0-only" }
+authors = [{ name = "Scott Converse" }]
+dependencies = [
+    "openai>=1.40",
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+    "trimesh>=4.4",
+    "numpy>=2.0",
+    # trimesh runtime backends KimCad relies on (not imported directly): scipy powers
+    # connected-component split / body_count and convex ops; networkx backs graph ops.
+    "scipy>=1.13",
+    "networkx>=3.3",
+    "lxml>=5.0",  # trimesh's 3MF reader (default output format) requires it
+    # Manifold3D guarantees a clean 2-manifold mesh before slicing (pre-slice hardening).
+    # HARD dependency — always installed. The import guard in hardening.py is a DEFENSIVE
+    # fallback for a broken/partial install (degrades to the gate-validated mesh), NOT an
+    # "optional feature" switch; see hardening.py's module docstring (ENG-007).
+    "manifold3d>=3.0",
+    # ENG-001: the OpenRouter key lives in the OS credential store (Windows Credential
+    # Manager) at rest. settings_store degrades to the disclosed file fallback if the
+    # backend is unusable, so this stays a soft runtime requirement in behavior.
+    "keyring>=25.0",
+    # Stage 11: the windowed app shell (`kimcad shell`) over WebView2. Windows-only by
+    # marker; shell.py degrades to the `kimcad web` browser path when absent, so a
+    # non-Windows from-source install loses only the window, never the app.
+    'pywebview>=6.2; sys_platform == "win32"',
+]
+
+[project.optional-dependencies]
+# Bambu Lab native direct print (Stage 10) - optional; without it the bambu connectors
+# report 'not set up' with the install hint (graceful absence, like CadQuery).
+bambu = ["bambulabs-api>=2.6"]
+# Marlin over a USB SERIAL port (KC-21, #26) - optional; the host:port (serial-over-network)
+# path needs nothing. Without pyserial, a serial-port target reports a clear install hint.
+serial = ["pyserial>=3.5"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",  # `pytest --cov=kimcad --cov-branch` to spot un-entered branches
+    "ruff>=0.5",
+    "diff-cover>=9.0",  # KC-22 (#27): the changed-line coverage gate (scripts/check_diff_coverage.py)
+    # KC-20 (#25): the Playwright e2e browser suite. Deliberately NOT in requirements.lock — it's
+    # test-only browser tooling that must never enter the user-facing installer's dependency set;
+    # the gate provisions it explicitly (ci.yml) + `playwright install chromium` for the browser
+    # binary (which a pip lock can't express). Tests skip cleanly where it's absent (needs_browser).
+    # PINNED to the exact versions the gate runs (ci.yml) so a contributor's `pip install -e .[dev]`
+    # matches CI — Playwright's auto-wait/selector behavior shifts across minors (ENG-4/DOC-4).
+    "playwright==1.60.0",
+    "pytest-playwright==0.8.0",
+]
+
+[project.scripts]
+kimcad = "kimcad.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Beta-gate BG-U001 (Blocker): the package's DATA — the built SPA and the prompt
+# templates — must ship in the wheel. The editable dev install masked their absence for
+# the whole project history (a wheel install had never been runtime-proven before the
+# Stage-11 installer); verify_install now fetches the SPA shell so this can never
+# silently regress.
+[tool.setuptools.package-data]
+kimcad = ["web/*", "web/assets/*", "prompts/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# ENG-006: even a bare `pytest .` must not collect the bundled third-party OpenSCAD library
+# tests under tools/ (legacy pytest API, not KimCad code) — keep the gate signal clean.
+norecursedirs = ["tools", ".venv"]
+markers = [
+    # Tests that invoke the real OrcaSlicer binary (live assembly). Run the fast inner loop
+    # with `pytest -m "not live"`; the full suite (CI) runs everything.
+    "live: exercises a real external tool (OrcaSlicer) — slower, needs the binary/profiles",
+    # KC-16 (#21): env-dependent markers. conftest's pytest_runtest_setup auto-SKIPS each off
+    # its environment (so a wrong-OS / no-binary dev gets clean red/green, never a hard error),
+    # while the target box (Windows + fetched binaries) runs them all. See CONTRIBUTING.
+    "windows_only: Windows-specific behavior (e.g. exclusive socket bind); skipped elsewhere",
+    "real_tool: needs a fetched OpenSCAD/OrcaSlicer binary; skipped when absent",
+    "needs_manifold: needs manifold3d installed; skipped when absent",
+    "needs_cadquery: needs a discoverable CadQuery interpreter; skipped when absent",
+    # KC-20 (#25): the Playwright e2e browser suite.
+    "needs_browser: needs Playwright Chromium (run `playwright install chromium`); skipped when absent",
+    "browser_serial: e2e browser test serialized around one localhost server (Windows socket churn)",
+]
+# KC-16: surface accidental unmarked-marker typos as errors, not silent no-ops.
+filterwarnings = ["error::pytest.PytestUnknownMarkWarning"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]

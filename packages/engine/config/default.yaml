@@ -1,0 +1,537 @@
+# KimCad default configuration.
+# Copy to config/local.yaml (gitignored) to override on a given machine.
+# VERIFY markers: re-check per spec §7.5 before relying on the value.
+
+binaries:
+  # Paths are relative to the project root unless absolute.
+  # Populated by the tools/ fetch step; override here for a system install.
+  # KC-8 (#13): these defaults are the Windows-bundled .exe paths. On macOS/Linux the
+  # auto-fetch step can't provision these yet — install OpenSCAD/OrcaSlicer yourself and set
+  # absolute paths in config/local.yaml, e.g.:
+  #   macOS:  openscad: /Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD
+  #           orcaslicer: /Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer
+  #   Linux:  openscad: /usr/bin/openscad      (or the OpenSCAD .AppImage)
+  #           orcaslicer: /usr/bin/orca-slicer  (or the OrcaSlicer .AppImage)
+  # The browser UI (`kimcad web`) runs without either; only rendering and slicing need them.
+  openscad: tools/openscad/openscad.exe
+  orcaslicer: tools/orcaslicer/orca-slicer.exe
+  # Stage 7 validation engine (PrintProof3D, owner's MIT Rust binary, invoked at arm's length).
+  # The binary is NOT shipped with KimCad; this is just the conventional location the build/fetch
+  # step would place it. Until a binary actually exists at this path, KimCad resolves it to
+  # "not present" and Smart Mesh falls back to its own gate (honestly, at lower confidence) — so
+  # this key is inert by default, not an active dependency. Build the engine (cargo build
+  # --release) and drop it here, or set an absolute path in config/local.yaml, to wire it in.
+  # See docs/printproof3d-integration.md.
+  printproof3d: tools/printproof3d/printproof3d.exe
+  # Stage 8 CadQuery backend interpreter. KimCad targets Python 3.13 and CadQuery runs on
+  # 3.13 too — but generated CadQuery code still executes OUT-OF-PROCESS in its own
+  # interpreter (a security-isolation choice, not a version constraint). Point this at a
+  # Python that has `cadquery` installed (pip install cadquery). Values:
+  #   null (default) -> auto-discover (the repo-local .venv-cq313 first, then
+  #                     `py -3.13/-3.12/-3.11`, then python3.13/.. on PATH)
+  #   false or ""    -> force the CadQuery backend OFF even if an interpreter exists
+  #   "<path>"       -> use this exact python.exe (must have cadquery), no auto-discovery
+  # When no interpreter is found the CadQuery backend simply stays off (OpenSCAD still works).
+  cadquery_python: null
+
+# Optional per-user paths (Stage 7). Sensible defaults; uncomment to relocate.
+# paths:
+#   # The Smart Mesh learning store (local-first; nothing leaves the machine). Unset (the default)
+#   # => ~/.kimcad/history.json — per-user, outside the repo so it's never committed. Set an
+#   # ABSOLUTE path to relocate it; a relative path resolves against the project root (no ~ expansion).
+#   history: C:\Users\you\.kimcad\history.json
+
+llm:
+  # Active backend: one of the keys under `backends`.
+  # Local-first: no cloud calls. Cloud backends remain defined for later opt-in.
+  active: local
+  # Optional fallback backend key. When set, a primary connection/timeout/model-not-found
+  # error transparently retries against this backend instead of failing immediately.
+  # Example: set to cloud_deepseek in local.yaml to fall back to cloud when Ollama is down.
+  alt_backend: null
+
+  backends:
+    cloud_deepseek:
+      provider: deepseek
+      base_url: https://api.deepseek.com/v1
+      model_name: deepseek-v4-flash   # VERIFY §7.1 — exact tag + pricing move weekly
+      api_key_env: DEEPSEEK_API_KEY
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: true
+
+    local:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1   # Ollama default; LM Studio uses :1234
+      model_name: qwen2.5:7b                # the on-device PLANNER. On-machine bake-off 2026-06-15
+                                            # (16-thread CPU / 780M iGPU): qwen2.5:7b planned 4/4 vs
+                                            # gemma4:e4b 1/4 and llama3.1:8b 0/4; the native
+                                            # schema-constrained plan path keeps output parseable.
+                                            # ~6 GB RAM; the advisor downshifts smaller boxes.
+                                            # qwen3:8b rejected (too slow/empty on CPU). Override
+                                            # in local.yaml per machine.
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false     # Ollama: rely on JSON-instructed prompt
+      vision_model: qwen2.5vl:3b            # Stage 9: the DEDICATED local vision model for the
+                                            # photo/sketch on-ramps (ollama pull qwen2.5vl:3b).
+                                            # Measured on-target: gemma4:e4b's vision is broken
+                                            # on this stack (reports "no image provided"), while
+                                            # qwen2.5vl:3b reads dimensioned sketches 3/3 — see
+                                            # docs/benchmarks/stage-9-vision-onramps.md. The image
+                                            # never leaves the machine either way.
+
+    local_qwen:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1   # same Ollama; the Stage 6 bake-off challenger
+      model_name: qwen2.5-coder:1.5b        # Stage 6 candidate — evaluated via the live bake-off
+                                            # 2026-06-02 and REJECTED (0/10: a code model can't
+                                            # produce a design plan), so the default planner
+                                            # (qwen2.5:7b) stays in place. Retained as a selectable `--backend` to
+                                            # re-run the comparison (`kimcad bakeoff`).
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false
+
+    custom_openrouter:
+      provider: openai_compatible
+      base_url: https://openrouter.ai/api/v1
+      model_name: ""                         # user supplies
+      api_key_env: OPENROUTER_API_KEY
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: true
+
+defaults:
+  printer: bambu_p2s
+  material: pla
+  output_format: "3mf"   # falls back to "stl" if OpenSCAD lacks lib3mf
+
+# Build volume = [x, y, z] in mm. nozzle_diameter in mm.
+# OrcaSlicer profile names below are verified against the pinned shipped build
+# (v2.4.0-alpha resources/profiles/) — each per-material filament profile is checked to
+# resolve, be compatible with the machine, and live-slice. orca_filament_profiles is the
+# SOLE source of truth per printer: a material with no entry is honestly "not available" on
+# that printer (no cross-vendor generic fallback, which could mis-slice on the wrong machine).
+# Kim's three printers — Bambu P2S, Bambu A1, and the Elegoo Neptune 4 Max — are all sliceable.
+printers:
+  bambu_p2s:
+    name: "Bambu Lab P2S"
+    build_volume: [256, 256, 256]   # VERIFIED == the shipped Orca machine profile's printable
+                                    # area (test_configured_build_volumes_match_the_shipped_orca_profiles)
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab P2S 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL P2S"
+    # Per-material filament profiles, each verified to live-slice on this machine.
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL P2S"
+      petg: "Generic PETG @BBL P2S"
+      tpu: "Bambu TPU 95A @BBL P2S"
+      abs: "Bambu ABS @BBL P2S"
+    reference_hardware: true          # target hardware (validated in the final beta, not yet)
+  bambu_a1:
+    name: "Bambu Lab A1"
+    build_volume: [256, 256, 256]   # VERIFIED == the shipped Orca machine profile's printable
+                                    # area (same pin test as the P2S)
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab A1 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL A1"
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL A1"
+      petg: "Bambu PETG Basic @BBL A1"
+      tpu: "Bambu TPU 95A @BBL A1"
+      abs: "Bambu ABS @BBL A1"
+    reference_hardware: true          # Kim's; validated in the final beta, not yet
+  elegoo_neptune_4_max:
+    name: "Elegoo Neptune 4 Max"
+    build_volume: [426, 426, 480]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    nozzle_diameter: 0.4
+    # OrcaSlicer 2.4.0 dropped the parenthesized "(0.4 nozzle)" form: machine profiles are now
+    # "Elegoo Neptune 4 Max 0.4 nozzle" and process profiles abbreviate to "@Elegoo N4Max 0.4 nozzle".
+    orca_machine_profile: "Elegoo Neptune 4 Max 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Elegoo N4Max 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Generic PLA @Elegoo"
+      petg: "Generic PETG @Elegoo"
+      abs: "Generic ABS @Elegoo"
+      # No TPU entry: the shipped OrcaSlicer has no TPU filament profile compatible with the
+      # Neptune 4 Max, so TPU is honestly NOT offered for this printer rather than silently
+      # mapped to an incompatible (Bambu) generic. (Verified: no Elegoo TPU profile ships.)
+    reference_hardware: true          # target hardware (validated in the final beta, not yet)
+
+  # ---- #22 curated catalog: popular current machines across the top makers. Each is
+  # build-volume-verified against its shipped OrcaSlicer machine profile (KC-7,
+  # test_configured_build_volumes_match_the_shipped_orca_profiles) and slice-proven — a 20 mm box
+  # was run through the REAL OrcaSlicer with the machine+process+filament profiles below, per
+  # scripts/build_printer_catalog.py --verify (re-run it to refresh from a newer profile tree).
+  # These are NOT reference_hardware (no native direct-send, not Kim's target box), so they take
+  # the default reference_hardware:false. A material absent from a printer's list has NO shipped
+  # filament profile that slices on it (honest "not available" — e.g. the A1 mini offers no ABS,
+  # the Elegoo Neptune family no TPU), never a silent cross-vendor fallback. Some entries use a
+  # vendor's shared family profile (e.g. Bambu P1S/X1E slice with @BBL X1C, Sovol SV06 with a
+  # shared filament) — that's the vendor's own shipped profile, verified to slice here. ----
+  bambu_p1p:
+    name: "Bambu Lab P1P"
+    build_volume: [256, 256, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab P1P 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL P1P"
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL P1P"
+      petg: "Bambu PETG Basic @BBL X1C"
+      tpu: "Bambu TPU 95A @BBL P1P"
+      abs: "Bambu ABS @BBL P1P"
+  bambu_p1s:
+    name: "Bambu Lab P1S"
+    build_volume: [256, 256, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab P1S 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL X1C"
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL X1C"
+      petg: "Bambu PETG Basic @BBL X1C"
+      tpu: "Bambu TPU 95A @BBL X1C"
+      abs: "Bambu ABS @BBL X1C"
+  bambu_x1c:
+    name: "Bambu Lab X1 Carbon"
+    build_volume: [256, 256, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab X1 Carbon 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL X1C"
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL X1C"
+      petg: "Bambu PETG Basic @BBL X1C"
+      tpu: "Bambu TPU 95A @BBL X1C"
+      abs: "Bambu ABS @BBL X1C"
+  bambu_x1e:
+    name: "Bambu Lab X1E"
+    build_volume: [256, 256, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab X1E 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL X1C"
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL X1C"
+      petg: "Bambu PETG Basic @BBL X1C"
+      tpu: "Bambu TPU 95A @BBL X1C"
+      abs: "Bambu ABS @BBL X1E"
+  bambu_a1_mini:
+    name: "Bambu Lab A1 mini"
+    build_volume: [180, 180, 180]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Bambu Lab A1 mini 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @BBL A1M"
+    orca_filament_profiles:
+      pla: "Bambu PLA Basic @BBL A1M"
+      petg: "Bambu PETG Basic @BBL A1M 0.4 nozzle"
+      tpu: "Bambu TPU 95A @BBL A1M"
+  creality_k1:
+    name: "Creality K1"
+    build_volume: [220, 220, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality K1 (0.4 nozzle)"
+    orca_process_profile: "0.20mm Standard @Creality K1 (0.4 nozzle)"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA"
+      petg: "Creality Generic PETG"
+      tpu: "Creality Generic TPU"
+      abs: "Creality Generic ABS"
+  creality_k1_max:
+    name: "Creality K1 Max"
+    build_volume: [300, 300, 300]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality K1 Max (0.4 nozzle)"
+    orca_process_profile: "0.20mm Standard @Creality K1Max (0.4 nozzle)"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA"
+      petg: "Creality Generic PETG"
+      tpu: "Creality Generic TPU"
+      abs: "Creality Generic ABS"
+  creality_k1c:
+    name: "Creality K1C"
+    build_volume: [220, 220, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality K1C 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Creality K1C 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA @K1-all"
+      petg: "Creality Generic PETG @K1-all"
+      tpu: "Creality Generic TPU @K1-all"
+      abs: "Creality Generic ABS @K1-all"
+  creality_k2_plus:
+    name: "Creality K2 Plus"
+    build_volume: [350, 350, 350]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality K2 Plus 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Creality K2 Plus 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA @K2-all"
+      petg: "Creality Generic PETG @K2-all"
+      tpu: "Creality Generic TPU @K2-all"
+      abs: "Creality Generic ABS @K2-all"
+  creality_ender3_v3:
+    name: "Creality Ender-3 V3"
+    build_volume: [220, 220, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality Ender-3 V3 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Creality Ender3V3 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA @Ender-3V3-all"
+      petg: "Creality Generic PETG @Ender-3V3-all"
+      tpu: "Creality Generic TPU @Ender-3V3-all"
+      abs: "Creality Generic ABS @Ender-3V3-all"
+  creality_ender3_v3_ke:
+    name: "Creality Ender-3 V3 KE"
+    build_volume: [220, 220, 245]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality Ender-3 V3 KE 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Creality Ender3V3KE"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA @Ender-3V3-all"
+      petg: "Creality Generic PETG @Ender-3V3-all"
+      tpu: "Creality Generic TPU @Ender-3V3-all"
+      abs: "Creality Generic ABS @Ender-3V3-all"
+  creality_cr10_se:
+    name: "Creality CR-10 SE"
+    build_volume: [220, 220, 265]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Creality CR-10 SE 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Creality CR10SE 0.4"
+    orca_filament_profiles:
+      pla: "Creality Generic PLA"
+      petg: "Creality Generic PETG"
+      tpu: "Creality Generic TPU"
+      abs: "Creality Generic ABS"
+  prusa_mk4:
+    name: "Prusa MK4"
+    build_volume: [250, 210, 220]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Prusa MK4 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @MK4"
+    orca_filament_profiles:
+      pla: "Prusa Generic PLA @MK4"
+      petg: "Prusa Generic PETG @MK4"
+      tpu: "Prusa Generic TPU @MK4"
+      abs: "Prusa Generic ABS @MK4"
+  prusa_mini:
+    name: "Prusa MINI"
+    build_volume: [180, 180, 180]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Prusa MINI 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @MINI"
+    orca_filament_profiles:
+      pla: "Prusa Generic PLA"
+      petg: "Prusa Generic PETG"
+      tpu: "Prusa Generic TPU"
+      abs: "Prusa Generic ABS"
+  anycubic_kobra2:
+    name: "Anycubic Kobra 2"
+    build_volume: [220, 220, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Anycubic Kobra 2 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Anycubic Kobra2"
+    orca_filament_profiles:
+      pla: "Anycubic Generic PLA"
+      petg: "Anycubic Generic PETG"
+      tpu: "Anycubic Generic TPU"
+      abs: "Anycubic Generic ABS"
+  anycubic_kobra2_max:
+    name: "Anycubic Kobra 2 Max"
+    build_volume: [420, 420, 500]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Anycubic Kobra 2 Max 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Anycubic Kobra 2 Max 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Anycubic PLA @Anycubic Kobra 2 Max 0.4 nozzle"
+  anycubic_kobra_s1:
+    name: "Anycubic Kobra S1"
+    build_volume: [250, 250, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Anycubic Kobra S1 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Anycubic Kobra S1 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Anycubic PLA @Anycubic Kobra S1 0.4 nozzle"
+      petg: "Anycubic PETG @Anycubic Kobra S1 0.4 nozzle"
+      tpu: "Anycubic TPU @Anycubic Kobra S1 0.4 nozzle"
+      abs: "Anycubic ABS @Anycubic Kobra S1 0.4 nozzle"
+  elegoo_neptune4:
+    name: "Elegoo Neptune 4"
+    build_volume: [230, 230, 265]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Elegoo Neptune 4 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Elegoo N4 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Generic PLA @Elegoo"
+      petg: "Generic PETG @Elegoo"
+      abs: "Generic ABS @Elegoo"
+  elegoo_neptune4_pro:
+    name: "Elegoo Neptune 4 Pro"
+    build_volume: [230, 230, 265]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Elegoo Neptune 4 Pro 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Elegoo N4Pro 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Generic PLA @Elegoo"
+      petg: "Generic PETG @Elegoo"
+      abs: "Generic ABS @Elegoo"
+  elegoo_neptune4_plus:
+    name: "Elegoo Neptune 4 Plus"
+    build_volume: [325, 325, 385]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Elegoo Neptune 4 Plus 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Elegoo N4Plus 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Generic PLA @Elegoo"
+      petg: "Generic PETG @Elegoo"
+      abs: "Generic ABS @Elegoo"
+  qidi_q1_pro:
+    name: "Qidi Q1 Pro"
+    build_volume: [245, 245, 240]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Qidi Q1 Pro 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Qidi Q1 Pro"
+    orca_filament_profiles:
+      pla: "QIDI PLA Basic @Qidi Q1 Pro 0.4 nozzle"
+      petg: "QIDI PETG Basic @Qidi Q1 Pro 0.4 nozzle"
+      tpu: "Qidi TPU 95A-HF @Qidi Q1 Pro 0.4 nozzle"
+      abs: "Bambu ABS @Qidi Q1 Pro 0.4 nozzle"
+  qidi_xmax3:
+    name: "Qidi X-Max 3"
+    build_volume: [325, 325, 315]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Qidi X-Max 3 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Qidi XMax3"
+    orca_filament_profiles:
+      pla: "QIDI PLA Basic"
+      petg: "QIDI PETG Basic"
+      tpu: "Qidi TPU 95A-HF"
+      abs: "HATCHBOX ABS @Qidi"
+  qidi_xplus3:
+    name: "Qidi X-Plus 3"
+    build_volume: [280, 280, 270]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Qidi X-Plus 3 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Qidi XPlus3"
+    orca_filament_profiles:
+      pla: "QIDI PLA Basic"
+      petg: "QIDI PETG Basic"
+      tpu: "Qidi TPU 95A-HF"
+      abs: "HATCHBOX ABS @Qidi"
+  sovol_sv06:
+    name: "Sovol SV06"
+    build_volume: [220, 220, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Sovol SV06 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Sovol SV06"
+    orca_filament_profiles:
+      pla: "Sovol Zero PLA Basic"
+      petg: "SUNLU PETG @Sovol SV08 MAX"
+      tpu: "Generic TPU @Sovol SV08 MAX"
+      abs: "Generic ABS @Sovol SV08 MAX"
+  sovol_sv07:
+    name: "Sovol SV07"
+    build_volume: [220, 220, 250]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Sovol SV07 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Sovol SV07"
+    orca_filament_profiles:
+      pla: "Sovol SV07 PLA"
+  sovol_sv08:
+    name: "Sovol SV08"
+    build_volume: [350, 350, 345]
+    nozzle_diameter: 0.4
+    orca_machine_profile: "Sovol SV08 0.4 nozzle"
+    orca_process_profile: "0.20mm Standard @Sovol SV08 0.4 nozzle"
+    orca_filament_profiles:
+      pla: "Sovol SV08 PLA"
+      petg: "Sovol SV08 PETG"
+      tpu: "Sovol SV08 TPU"
+      abs: "Sovol SV08 ABS"
+
+# Min recommended wall thickness is computed as wall_multiplier * nozzle_diameter
+# unless a material overrides it. Temps are nozzle/bed in °C.
+#
+# CONTRACT (read before trusting these for a print): these temps + wall_multiplier feed
+# the *Printability Gate* (wall-thickness check), not the slice. At slice time the
+# material only selects the OrcaSlicer *filament profile* — which carries its own
+# temps/flow — so changing nozzle_temp here does not change the sliced temperatures.
+# Each printer maps every material it can print to a verified filament profile (see
+# orca_filament_profiles above) — Bambu-branded where one exists, an Elegoo/Generic profile
+# otherwise. A few combinations still use a vendor "Generic <MATERIAL>" profile (e.g. P2S
+# PETG, the Elegoo's PLA/PETG/ABS); the UI flags those as generic.
+#
+# `density` is nominal filament density in g/cm³ (PLA ~1.24, PETG ~1.27, TPU ~1.21, ABS ~1.04).
+# It's used ONLY to estimate print *weight* from the slicer's reported filament volume when the
+# OrcaSlicer profile carries no density of its own (several shipped vendor profiles set
+# filament_density=0, so they emit volume but no grams). A real spool's density varies by
+# brand/colour, so a weight derived from this is an estimate — the UI labels it as one.
+materials:
+  pla:   { name: "PLA",     nozzle_temp: 210, bed_temp: 55,  wall_multiplier: 2.0, shrinkage: 0.002, density: 1.24 }
+  petg:  { name: "PETG",    nozzle_temp: 240, bed_temp: 75,  wall_multiplier: 2.5, shrinkage: 0.004, density: 1.27 }
+  tpu:   { name: "TPU",     nozzle_temp: 225, bed_temp: 45,  wall_multiplier: 3.0, shrinkage: 0.008, density: 1.21 }
+  abs:   { name: "ABS/ASA", nozzle_temp: 250, bed_temp: 100, wall_multiplier: 2.5, shrinkage: 0.006, density: 1.04 }
+
+# Send-to-printer connectors. Each named target the CLI `--send <name>` / the web can
+# print to. The API key is read from the named env var at send time, never stored here.
+# No real hardware is driven until the final beta — "mock" is a built-in loopback to try
+# the flow, and a mock OctoPrint server ships (`python -m kimcad.mock_printer`).
+connectors:
+  mock:
+    type: loopback
+  octoprint:
+    type: octoprint
+    base_url: http://127.0.0.1:5000   # your OctoPrint instance
+    api_key_env: OCTOPRINT_API_KEY    # set this env var to your OctoPrint API key
+  # Klipper (Moonraker) + Prusa (PrusaLink) ship visible-but-unconfigured like the Bambu
+  # templates below (beta-gate BG-U007): fill in the address in Settings -> Printer
+  # connections. Moonraker's API key is OPTIONAL (often unauthenticated on a trusted LAN);
+  # set its env var only if your [authorization] requires it.
+  moonraker:
+    type: moonraker
+    base_url:                       # e.g. http://192.168.0.40 (Mainsail/Fluidd box)
+    api_key_env: MOONRAKER_API_KEY
+  prusalink:
+    type: prusalink
+    base_url:                       # the printer's IP, e.g. http://192.168.0.50
+    api_key_env: PRUSALINK_API_KEY
+    storage: usb        # target storage; "usb" (MK4/XL default) or "local" (e.g. MINI/SD)
+  # RepRapFirmware / Duet (Duet 2/3 boards, RRF 2/3) over the classic /rr_* HTTP interface
+  # (KC-21). The password is OPTIONAL — RRF runs open on many LANs; set its env var only if the
+  # board has a password (the RRF default is "reprap"). Fill in the address in Settings.
+  duet:
+    type: duet
+    base_url:                       # the board's IP, e.g. http://192.168.0.60
+    api_key_env: DUET_PASSWORD      # optional; the board's password if one is set
+  # Marlin firmware (Ender-class + most consumer FDM) over its raw M-code line protocol (KC-21).
+  # The target (base_url) is EITHER a serial port (COM3, /dev/ttyUSB0 — needs `pip install
+  # pyserial`) OR a host:port for a serial-over-network bridge (ser2net/ESP3D/an OctoPrint relay).
+  # KimCad uploads to the printer's SD card and starts the print; the printer prints from SD.
+  marlin:
+    type: marlin
+    base_url:                       # e.g. COM3, /dev/ttyUSB0, or 192.168.0.70:8080
+  # Bambu Lab printers (P2S / A1 family), native LAN mode (Stage 10). Needs the OPTIONAL
+  # bambulabs-api package (pip install bambulabs-api). On the printer: enable LAN/Developer
+  # mode, note the Access Code (Settings -> WLAN) and Serial (Settings -> Device). The access
+  # code is a secret - it lives in the env var, never in this file. use_ams: false feeds from
+  # the external spool instead of the AMS. These ship visible-but-unconfigured: the app's
+  # send picker lists them disabled ('not set up yet') and names the missing piece when selected.
+  bambu_p2s:
+    type: bambu
+    base_url:                       # the printer's IP, e.g. 192.168.0.60
+    serial:                         # e.g. 01S00C123456789
+    api_key_env: BAMBU_P2S_ACCESS_CODE
+    use_ams: true
+  bambu_a1:
+    type: bambu
+    base_url:                       # the printer's IP
+    serial:
+    api_key_env: BAMBU_A1_ACCESS_CODE
+    use_ams: true
+
+limits:
+  openscad_timeout_simple_s: 30
+  openscad_timeout_complex_s: 120
+  max_output_bytes: 209715200   # 200 MB render guard
+  slice_timeout_s: 600          # OrcaSlicer is CPU-bound on the 780M target; be generous
+  cadquery_timeout_s: 120       # out-of-process CadQuery worker (OCCT) wall-clock limit
