@@ -1,0 +1,137 @@
+import type { DockviewApi } from 'dockview';
+import { addPresetPanels } from '../layoutStore';
+
+type MockAddPanelOptions = {
+  id: string;
+  component: string;
+  title: string;
+  position?: {
+    referenceGroup?: string;
+    referencePanel?: string;
+    direction?: 'above' | 'below' | 'left' | 'right';
+  };
+  inactive?: boolean;
+  initialHeight?: number;
+  initialWidth?: number;
+};
+
+type MockGroup = {
+  id: string;
+  locked?: string;
+  header: {
+    hidden: boolean;
+  };
+};
+
+type MockPanel = {
+  id: string;
+  group: MockGroup;
+  api: {
+    group: MockGroup;
+  };
+};
+
+class MockDockview {
+  groups: MockGroup[] = [];
+  addPanelCalls: MockAddPanelOptions[] = [];
+  private readonly panels = new Map<string, MockPanel>();
+
+  addPanel(options: MockAddPanelOptions) {
+    this.addPanelCalls.push(options);
+
+    let group: MockGroup | undefined;
+    if (options.position?.referenceGroup) {
+      group = this.groups.find((candidate) => candidate.id === options.position?.referenceGroup);
+    } else if (options.position?.referencePanel) {
+      group = this.createGroup();
+    } else {
+      group = this.createGroup();
+    }
+
+    if (!group) {
+      throw new Error(`Missing group for panel ${options.id}`);
+    }
+
+    this.panels.set(options.id, {
+      id: options.id,
+      group,
+      api: {
+        group,
+      },
+    });
+  }
+
+  getPanel(id: string) {
+    return this.panels.get(id);
+  }
+
+  private createGroup(): MockGroup {
+    const group = {
+      id: `group-${this.groups.length + 1}`,
+      header: {
+        hidden: false,
+      },
+    };
+    this.groups.push(group);
+    return group;
+  }
+}
+
+function createMockApi(): MockDockview & DockviewApi {
+  return new MockDockview() as MockDockview & DockviewApi;
+}
+
+describe('layoutStore addPresetPanels', () => {
+  it('places the AI-first console in the preview tab group', () => {
+    const api = createMockApi();
+
+    addPresetPanels(api, 'ai-first');
+
+    expect(api.groups).toHaveLength(2);
+    expect(api.getPanel('ai-chat')?.group.id).toBe(api.getPanel('editor')?.group.id);
+    expect(api.getPanel('preview')?.group.id).toBe(api.getPanel('customizer')?.group.id);
+    expect(api.getPanel('preview')?.group.id).toBe(api.getPanel('console')?.group.id);
+  });
+
+  it('uses a single preview+customizer tab group on mobile', () => {
+    const api = createMockApi();
+
+    addPresetPanels(api, 'default', 'mobile');
+
+    expect(api.groups).toHaveLength(1);
+    expect(api.addPanelCalls.map((call) => call.id)).toEqual([
+      'preview',
+      'customizer',
+      'editor',
+      'ai-chat',
+      'console',
+    ]);
+
+    const previewGroupId = api.getPanel('preview')?.group.id;
+    expect(api.getPanel('customizer')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('editor')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('ai-chat')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('console')?.group.id).toBe(previewGroupId);
+
+    expect(api.addPanelCalls[0]?.inactive).toBeUndefined();
+    expect(api.addPanelCalls[1]?.inactive).toBe(true);
+    expect(api.addPanelCalls[2]?.inactive).toBe(true);
+    expect(api.addPanelCalls[3]?.inactive).toBe(true);
+    expect(api.addPanelCalls[4]?.inactive).toBe(true);
+  });
+
+  it('creates a preview-led customizer-first desktop layout', () => {
+    const api = createMockApi();
+
+    addPresetPanels(api, 'customizer-first');
+
+    expect(api.groups).toHaveLength(2);
+    const previewGroupId = api.getPanel('preview')?.group.id;
+    const customizerGroupId = api.getPanel('customizer')?.group.id;
+    expect(customizerGroupId).not.toBe(previewGroupId);
+    // ai-chat, editor, console are tabs in the left (preview) group
+    expect(api.getPanel('ai-chat')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('editor')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('console')?.group.id).toBe(previewGroupId);
+  });
+});

@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme CSS Variables - Default (Solarized Dark) */
+:root {
+  /* Numeric spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Semantic spacing aliases */
+  --space-control-gap: var(--space-2);
+  --space-label-gap: var(--space-2);
+  --space-helper-gap: var(--space-1);
+  --space-field-gap: var(--space-4);
+  --space-section-gap: var(--space-5);
+  --space-dialog-padding-x: var(--space-6);
+  --space-dialog-padding-y: var(--space-6);
+  --space-dialog-footer-gap: var(--space-2);
+
+  /* Radius scale */
+  --radius-md: 8px;
+  /* interactive controls: buttons, inputs, selects */
+  --radius-lg: 12px;
+  /* cards & panels */
+  --radius-xl: 16px;
+  /* dialogs & prominent empty states */
+  --radius-full: 9999px;
+  /* pills: toggles, badges */
+
+  --bg-primary: #002b36;
+  --bg-secondary: #073642;
+  --bg-tertiary: #586e75;
+  --bg-elevated: #073642;
+
+  --text-primary: #839496;
+  --text-secondary: #93a1a1;
+  --text-tertiary: #586e75;
+  --text-inverse: #fdf6e3;
+
+  --border-primary: #073642;
+  --border-secondary: #586e75;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-focus: #268bd2;
+
+  --accent-primary: #268bd2;
+  --accent-secondary: #2aa198;
+  --accent-hover: #6c71c4;
+
+  --color-error: #dc322f;
+  --color-warning: #b58900;
+  --color-success: #859900;
+  --color-info: #268bd2;
+
+  --editor-bg: #002b36;
+  --editor-fg: #839496;
+}
+
+.dockview-theme-openscad {
+  --dv-paneview-header-border-color: var(--border-primary);
+  --dv-tabs-and-actions-container-background-color: var(--bg-primary);
+  --dv-tabs-and-actions-container-height: 28px;
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-secondary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-elevated);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-tab-divider-color: var(--border-primary);
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary);
+  --dv-background-color: var(--bg-primary);
+  --dv-group-view-background-color: var(--bg-secondary);
+  --dv-separator-border: var(--border-subtle);
+  --dv-drag-over-background-color: rgba(38, 139, 210, 0.15);
+  --dv-drag-over-border-color: var(--accent-primary);
+}
+
+@media (max-width: 767px) {
+  .dockview-theme-openscad {
+    --dv-tabs-and-actions-container-height: 44px;
+  }
+}
+
+.dockview-theme-openscad .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash {
+  --dv-sash-size: 6px;
+}
+
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):hover,
+.dockview-theme-openscad
+  .dv-split-view-container
+  .dv-sash-container
+  .dv-sash:not(.disabled):active {
+  background-color: var(--accent-primary);
+  transition: background-color 0.15s ease;
+  transition-delay: 0.2s;
+}
+
+/* Hide native spinner arrows on number inputs in the customizer */
+.customizer-number-input::-webkit-inner-spin-button,
+.customizer-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.customizer-number-input {
+  -moz-appearance: textfield;
+}
+
+@layer base {
+  body {
+    @apply m-0 p-0 w-full h-screen overflow-hidden;
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  #root {
+    @apply w-full h-full;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

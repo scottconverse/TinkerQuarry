@@ -1,0 +1,44 @@
+{
+  "name": "openscad-studio",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Modern OpenSCAD editor with live preview and AI copilot",
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "dev": "cd apps/ui && pnpm dev",
+    "build": "cd apps/ui && pnpm build",
+    "tauri:dev": "cd apps/ui && pnpm tauri dev",
+    "tauri:build": "cd apps/ui && pnpm tauri build",
+    "lint": "pnpm -r lint",
+    "test:formatter:ci": "cd apps/ui && pnpm test:formatter:ci",
+    "test:unit": "cd apps/ui && pnpm test",
+    "test:ui:coverage": "cd apps/ui && pnpm test:coverage -- --runInBand src/hooks/__tests__/useAiAgent.test.tsx src/hooks/__tests__/useOpenScad.test.tsx src/services/__tests__/renderService.test.ts src/platform/__tests__/index.test.tsx src/stores/__tests__/apiKeyStore.test.tsx",
+    "test:unit:coverage": "pnpm test:ui:coverage && pnpm test:web:coverage",
+    "test:web:unit": "cd apps/web && pnpm test",
+    "test:web:coverage": "cd apps/web && pnpm test:coverage -- --runInBand functions/_lib/__tests__/share.test.ts functions/api/__tests__/share.test.ts functions/s/__tests__/shareMeta.test.ts",
+    "type-check": "pnpm -r type-check",
+    "format": "pnpm format:ts && pnpm format:rust",
+    "format:ts": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\"",
+    "web:dev": "cd apps/web && pnpm dev",
+    "web:build": "cd apps/web && pnpm build",
+    "web:share:build": "cd apps/web && pnpm share:build",
+    "web:share:dev": "cd apps/web && pnpm share:dev",
+    "web:preview": "cd apps/web && pnpm preview",
+    "test:e2e:web": "npx playwright test --project=web-chromium",
+    "test:scripts": "node --test scripts/__tests__/validate-changes.test.mjs",
+    "validate:changes": "bash ./scripts/validate-changes.sh",
+    "format:rust": "cd apps/ui/src-tauri && cargo fmt",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\" && cd apps/ui/src-tauri && cargo fmt --check"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "prettier": "^3.7.4"
+  },
+  "dependencies": {
+    "zustand": "^5.0.11"
+  }
+}

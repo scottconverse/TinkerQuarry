@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>OpenSCAD Studio — Modern OpenSCAD Editor</title>
+    <meta
+      name="description"
+      content="A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot. Free and open source."
+    />
+
+    <!-- Favicons -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="OpenSCAD Studio — Modern OpenSCAD Editor" />
+    <meta
+      property="og:description"
+      content="A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot. Free and open source."
+    />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:site_name" content="OpenSCAD Studio" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="OpenSCAD Studio — Modern OpenSCAD Editor" />
+    <meta
+      name="twitter:description"
+      content="A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot. Free and open source."
+    />
+    <meta name="twitter:image" content="/icon-512.png" />
+  </head>
+  <body style="margin: 0; background: #002b36">
+    <script>
+      (function () {
+        var ok =
+          typeof WebAssembly !== 'undefined' &&
+          typeof SharedArrayBuffer !== 'undefined' &&
+          window.crossOriginIsolated === true;
+        if (!ok) {
+          var missing = [];
+          if (typeof WebAssembly === 'undefined') missing.push('WebAssembly');
+          if (typeof SharedArrayBuffer === 'undefined') missing.push('SharedArrayBuffer');
+          if (!window.crossOriginIsolated) missing.push('Cross-Origin Isolation');
+          window.__UNSUPPORTED_BROWSER = true;
+          document.getElementById('root').innerHTML =
+            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#002b36;color:#839496;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:2rem">' +
+            '<div style="max-width:480px;text-align:center">' +
+            '<div style="font-size:2rem;font-weight:700;color:#eee8d5;margin-bottom:1rem">Browser Not Supported</div>' +
+            '<p style="line-height:1.6;margin-bottom:1.5rem">OpenSCAD Studio requires features your browser doesn\u2019t support: <strong style="color:#eee8d5">' +
+            missing.join(', ') +
+            '</strong>.</p>' +
+            '<p style="line-height:1.6;margin-bottom:2rem">Please use a recent version of <strong style="color:#eee8d5">Chrome</strong>, <strong style="color:#eee8d5">Edge</strong>, or <strong style="color:#eee8d5">Firefox</strong>.</p>' +
+            '<a href="https://github.com/zacharyfmarion/openscad-studio" style="display:inline-block;padding:0.625rem 1.5rem;background:#268bd2;color:#002b36;border-radius:0.5rem;text-decoration:none;font-weight:600">Learn More on GitHub</a>' +
+            '</div></div>';
+        }
+      })();
+    </script>
+    <div id="root"></div>
+    <script>
+      // Polyfill Object.hasOwn for Safari < 15.4 and other older browsers.
+      // Some dependencies (e.g. posthog-js, ai SDK) rely on this method.
+      if (!Object.hasOwn) {
+        Object.hasOwn = function (obj, prop) {
+          return Object.prototype.hasOwnProperty.call(obj, prop);
+        };
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,482 @@
+import { jest } from '@jest/globals';
+
+const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
+const mockCheckSyntax = jest.fn(async () => ({ diagnostics: [] }));
+const mockAnthropicModel = jest.fn((modelId: string) => ({ provider: 'anthropic', modelId }));
+const mockCreateAnthropic = jest.fn(() => mockAnthropicModel);
+const mockOpenAiResponsesModel = jest.fn((modelId: string) => ({ provider: 'openai', modelId }));
+const mockOpenAiChatModel = jest.fn((modelId: string) => ({
+  provider: 'openai-compatible',
+  modelId,
+}));
+const mockCreateOpenAI = jest.fn(() =>
+  Object.assign(mockOpenAiResponsesModel, { chat: mockOpenAiChatModel })
+);
+
+jest.unstable_mockModule('@ai-sdk/anthropic', () => ({
+  createAnthropic: (...args: unknown[]) => mockCreateAnthropic(...args),
+}));
+
+jest.unstable_mockModule('@ai-sdk/openai', () => ({
+  createOpenAI: (...args: unknown[]) => mockCreateOpenAI(...args),
+}));
+
+jest.unstable_mockModule('@/services/renderService', () => ({
+  getRenderService: () => ({
+    checkSyntax: (...args: unknown[]) => mockCheckSyntax(...args),
+  }),
+  RenderService: {
+    getInstance: () => ({
+      checkSyntax: (...args: unknown[]) => mockCheckSyntax(...args),
+    }),
+  },
+}));
+
+jest.unstable_mockModule('@/services/offscreenRenderer', () => ({
+  captureOffscreen: (...args: unknown[]) => mockCaptureOffscreen(...args),
+}));
+
+import { FALLBACK_PREVIEW_SCENE_STYLE } from '../previewSceneConfig';
+import type { AiToolCallbacks } from '../aiService';
+
+let buildTools: typeof import('../aiService').buildTools;
+let createModel: typeof import('../aiService').createModel;
+
+type ExecutableTool = {
+  execute: (input: unknown) => Promise<unknown>;
+};
+
+function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallbacks {
+  return {
+    captureCurrentView: async () => null,
+    get3dPreviewUrl: () => null,
+    getPreviewSceneStyle: () => FALLBACK_PREVIEW_SCENE_STYLE,
+    getUseModelColors: () => true,
+    listProjectFiles: () => [
+      'lib/constants.h',
+      'lib/utils.scad',
+      'main.scad',
+      'parts/base.scad',
+      'parts/lid.scad',
+    ],
+    readProjectFile: (path: string) => {
+      const files: Record<string, string> = {
+        'main.scad': 'use <lib/utils.scad>\ncube(10);',
+        'lib/constants.h': 'wall = 2;',
+        'lib/utils.scad': 'module helper() { cube(5); }',
+        'parts/base.scad': 'module base() { cube(20); }',
+        'parts/lid.scad': 'module lid() { cube(5); }',
+      };
+      return files[path] ?? null;
+    },
+    getRenderTargetPath: () => 'main.scad',
+    getRenderValidationInputs: async () => ({
+      code: 'use <lib/utils.scad>\ncube(10);',
+      renderTargetPath: 'main.scad',
+      renderOptions: {
+        auxiliaryFiles: {
+          'lib/utils.scad': 'module helper() { cube(5); }',
+        },
+        inputPath: 'main.scad',
+      },
+    }),
+    createProjectFile: () => true,
+    editProjectFile: () => null,
+    requestRender: () => {},
+    setRenderTarget: () => true,
+    getMeasurementUnit: () => 'mm',
+    setMeasurementUnit: () => {},
+    ...overrides,
+  };
+}
+
+describe('createModel', () => {
+  beforeAll(async () => {
+    ({ createModel } = await import('../aiService'));
+  });
+
+  beforeEach(() => {
+    mockCreateAnthropic.mockClear();
+    mockAnthropicModel.mockClear();
+    mockCreateOpenAI.mockClear();
+    mockOpenAiResponsesModel.mockClear();
+    mockOpenAiChatModel.mockClear();
+  });
+
+  it('uses chat completions with baseURL for OpenAI-compatible providers', () => {
+    const model = createModel('openai-compatible', '', 'gemma4:12b', {
+      baseUrl: 'http://127.0.0.1:11434/v1',
+    });
+
+    expect(mockCreateOpenAI).toHaveBeenCalledWith({
+      apiKey: 'local',
+      baseURL: 'http://127.0.0.1:11434/v1',
+      name: 'openai-compatible',
+    });
+    expect(mockOpenAiChatModel).toHaveBeenCalledWith('gemma4:12b');
+    expect(mockOpenAiResponsesModel).not.toHaveBeenCalled();
+    expect(model).toEqual({ provider: 'openai-compatible', modelId: 'gemma4:12b' });
+  });
+});
+
+describe('buildTools', () => {
+  beforeAll(async () => {
+    ({ buildTools } = await import('../aiService'));
+  });
+
+  beforeEach(() => {
+    mockCheckSyntax.mockClear();
+    mockCheckSyntax.mockResolvedValue({ diagnostics: [] });
+  });
+
+  describe('get_project_context', () => {
+    it('returns render target path, code, and file listing', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.get_project_context.execute({})) as string;
+
+      expect(result).toContain('Render target: main.scad');
+      expect(result).toContain('cube(10)');
+      expect(result).toContain('main.scad (render target)');
+      expect(result).toContain('📁 lib/');
+      expect(result).toContain('📁 parts/');
+    });
+
+    it('truncates large render target content', async () => {
+      const longContent = Array.from({ length: 300 }, (_, i) => `// line ${i + 1}`).join('\n');
+      const tools = buildTools(
+        createCallbacks({
+          readProjectFile: (path: string) => (path === 'main.scad' ? longContent : null),
+        })
+      ) as Record<string, ExecutableTool>;
+
+      const result = (await tools.get_project_context.execute({})) as string;
+
+      expect(result).toContain('showing 150 of 300 lines');
+      expect(result).toContain('Use read_file to see the full content.');
+      expect(result).not.toContain('// line 200');
+    });
+
+    it('handles no render target', async () => {
+      const tools = buildTools(createCallbacks({ getRenderTargetPath: () => null })) as Record<
+        string,
+        ExecutableTool
+      >;
+
+      const result = (await tools.get_project_context.execute({})) as string;
+
+      expect(result).toContain('No render target set.');
+    });
+
+    it('handles empty project', async () => {
+      const tools = buildTools(
+        createCallbacks({
+          listProjectFiles: () => [],
+          getRenderTargetPath: () => null,
+        })
+      ) as Record<string, ExecutableTool>;
+
+      const result = (await tools.get_project_context.execute({})) as string;
+
+      expect(result).toContain('No project files.');
+    });
+  });
+
+  describe('list_folder_contents', () => {
+    it('lists root directory entries', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.list_folder_contents.execute({})) as string;
+
+      expect(result).toContain('Project root:');
+      expect(result).toContain('📁 lib/');
+      expect(result).toContain('📁 parts/');
+      expect(result).toContain('main.scad (render target)');
+    });
+
+    it('lists subdirectory contents', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.list_folder_contents.execute({ path: 'parts' })) as string;
+
+      expect(result).toContain('Contents of parts/');
+      expect(result).toContain('base.scad');
+      expect(result).toContain('lid.scad');
+      expect(result).not.toContain('main.scad');
+      expect(result).not.toContain('📁');
+    });
+
+    it('lists header files inside subdirectories', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.list_folder_contents.execute({ path: 'lib' })) as string;
+
+      expect(result).toContain('Contents of lib/');
+      expect(result).toContain('constants.h');
+      expect(result).toContain('utils.scad');
+    });
+
+    it('strips trailing slash from path', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.list_folder_contents.execute({ path: 'parts/' })) as string;
+
+      expect(result).toContain('Contents of parts/');
+      expect(result).toContain('base.scad');
+    });
+
+    it('returns message for empty folder', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.list_folder_contents.execute({
+        path: 'nonexistent',
+      })) as string;
+
+      expect(result).toContain('No files found');
+    });
+
+    it('returns message for empty project', async () => {
+      const tools = buildTools(createCallbacks({ listProjectFiles: () => [] })) as Record<
+        string,
+        ExecutableTool
+      >;
+
+      const result = (await tools.list_folder_contents.execute({})) as string;
+
+      expect(result).toBe('No project files found.');
+    });
+  });
+
+  describe('read_file', () => {
+    it('reads project files by path', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = await tools.read_file.execute({ path: 'lib/utils.scad' });
+
+      expect(result).toBe('module helper() { cube(5); }');
+    });
+
+    it('reads header files by path', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = await tools.read_file.execute({ path: 'lib/constants.h' });
+
+      expect(result).toBe('wall = 2;');
+    });
+
+    it('includes available files when a file is missing', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.read_file.execute({ path: 'missing.scad' })) as string;
+
+      expect(result).toContain('❌ File not found: missing.scad');
+      expect(result).toContain('lib/utils.scad');
+      expect(result).toContain('main.scad');
+    });
+  });
+
+  describe('apply_edit', () => {
+    it('edits non-render-target file via editProjectFile', async () => {
+      const editProjectFile = jest.fn(() => null);
+      const tools = buildTools(
+        createCallbacks({ editProjectFile: editProjectFile as never })
+      ) as Record<string, ExecutableTool>;
+
+      const result = await tools.apply_edit.execute({
+        file_path: 'lib/utils.scad',
+        old_string: 'cube(5)',
+        new_string: 'cube(10)',
+      });
+
+      expect(editProjectFile).toHaveBeenCalledWith('lib/utils.scad', 'cube(5)', 'cube(10)');
+      expect(result).toEqual({
+        status: 'success',
+        message: 'Edit applied to lib/utils.scad.',
+      });
+    });
+
+    it('returns error from editProjectFile', async () => {
+      const tools = buildTools(
+        createCallbacks({
+          editProjectFile: () => 'old_string not found in the file',
+        })
+      ) as Record<string, ExecutableTool>;
+
+      const result = await tools.apply_edit.execute({
+        file_path: 'lib/utils.scad',
+        old_string: 'nonexistent',
+        new_string: 'replaced',
+      });
+
+      expect(result).toContain('❌ Failed to apply edit to lib/utils.scad');
+    });
+
+    it('edits render target with checkpoint when file_path omitted', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.apply_edit.execute({
+        old_string: 'cube(10)',
+        new_string: 'cube(20)',
+      })) as { status: 'success'; message: string; __checkpointId?: string };
+
+      expect(result).toMatchObject({
+        status: 'success',
+        message: 'Edit applied successfully.',
+      });
+      expect(result.__checkpointId).toBeTruthy();
+    });
+
+    it('reports error when old_string not found in render target', async () => {
+      const tools = buildTools(
+        createCallbacks({
+          editProjectFile: () => 'old_string not found in the file',
+        })
+      ) as Record<string, ExecutableTool>;
+
+      const result = (await tools.apply_edit.execute({
+        old_string: 'nonexistent_string',
+        new_string: 'replacement',
+      })) as string;
+
+      expect(result).toContain('❌ Failed to apply edit');
+    });
+  });
+
+  describe('get_diagnostics', () => {
+    it('validates with the shared multi-file render inputs', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      await tools.get_diagnostics.execute({});
+
+      expect(mockCheckSyntax).toHaveBeenCalledWith(
+        'use <lib/utils.scad>\ncube(10);',
+        expect.objectContaining({
+          auxiliaryFiles: {
+            'lib/utils.scad': 'module helper() { cube(5); }',
+          },
+          inputPath: 'main.scad',
+        })
+      );
+    });
+
+    it('formats returned diagnostics', async () => {
+      mockCheckSyntax.mockResolvedValue({
+        diagnostics: [
+          {
+            severity: 'warning',
+            line: 13,
+            col: undefined,
+            message: "WARNING: Can't open include file 'lib/base.scad'.",
+          },
+        ],
+      });
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.get_diagnostics.execute({})) as string;
+
+      expect(result).toContain('Current diagnostics:');
+      expect(result).toContain(
+        "[Warning] (line 13): WARNING: Can't open include file 'lib/base.scad'."
+      );
+    });
+  });
+
+  describe('create_file', () => {
+    it('creates a new project file', async () => {
+      const createProjectFile = jest.fn(() => true);
+      const tools = buildTools(
+        createCallbacks({ createProjectFile: createProjectFile as never })
+      ) as Record<string, ExecutableTool>;
+
+      const result = await tools.create_file.execute({
+        file_path: 'parts/base.scad',
+        content: 'module base() { cube(20); }',
+        rationale: 'split out base module',
+      });
+
+      expect(createProjectFile).toHaveBeenCalledWith(
+        'parts/base.scad',
+        'module base() { cube(20); }'
+      );
+      expect(result).toContain('✅ Created parts/base.scad');
+    });
+
+    it('returns error when file exists', async () => {
+      const tools = buildTools(createCallbacks({ createProjectFile: () => false })) as Record<
+        string,
+        ExecutableTool
+      >;
+
+      const result = await tools.create_file.execute({
+        file_path: 'main.scad',
+        content: '// duplicate',
+        rationale: 'test',
+      });
+
+      expect(result).toContain('❌ Failed to create main.scad');
+    });
+  });
+
+  describe('set_render_target', () => {
+    it('changes the render target', async () => {
+      const setRenderTarget = jest.fn(() => true);
+      const tools = buildTools(
+        createCallbacks({ setRenderTarget: setRenderTarget as never })
+      ) as Record<string, ExecutableTool>;
+
+      const result = await tools.set_render_target.execute({
+        file_path: 'lib/utils.scad',
+      });
+
+      expect(setRenderTarget).toHaveBeenCalledWith('lib/utils.scad');
+      expect(result).toContain('✅ Render target changed to lib/utils.scad');
+    });
+
+    it('returns error for missing file', async () => {
+      const tools = buildTools(createCallbacks({ setRenderTarget: () => false })) as Record<
+        string,
+        ExecutableTool
+      >;
+
+      const result = (await tools.set_render_target.execute({
+        file_path: 'nonexistent.scad',
+      })) as string;
+
+      expect(result).toContain('❌ File not found: nonexistent.scad');
+      expect(result).toContain('lib/utils.scad');
+      expect(result).toContain('main.scad');
+    });
+  });
+
+  describe('get_diagnostics', () => {
+    it('returns success when no errors', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.get_diagnostics.execute({})) as string;
+
+      expect(result).toContain('✅ No errors or warnings');
+    });
+  });
+
+  it('captures off-angle screenshots through the generic 3D preview callback', async () => {
+    const tools = buildTools(
+      createCallbacks({
+        get3dPreviewUrl: () => 'blob:preview-3d',
+      })
+    ) as Record<string, ExecutableTool>;
+
+    const result = (await tools.get_preview_screenshot.execute({
+      view: 'isometric',
+    })) as { image_data_url: string };
+
+    expect(result.image_data_url).toBe('data:image/png;base64,AAA=');
+    expect(mockCaptureOffscreen).toHaveBeenCalledWith(
+      'blob:preview-3d',
+      expect.objectContaining({
+        view: 'isometric',
+        sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE,
+        useModelColors: true,
+      })
+    );
+  });
+});
