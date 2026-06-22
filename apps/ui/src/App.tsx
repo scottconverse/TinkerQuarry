@@ -40,7 +40,7 @@ import {
 } from './stores/layoutStore';
 import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
 import { useAiAgent } from './hooks/useAiAgent';
-import { describeIntoStudio } from './services/engineDocument';
+import { describeIntoStudio, type EngineTurn } from './services/engineDocument';
 import { engine } from './services/engineClient';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
@@ -634,12 +634,21 @@ function App() {
   // is the handler the shipping describe UI calls; also exposed on window in dev for verification.
   // The engine rid of the last successful design is held so "Make it real" (slice) can act on it.
   const lastEngineRidRef = useRef<number | null>(null);
+  // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
+  // /api/design takes this as `history`. A fresh design (new part) resets it.
+  const engineHistoryRef = useRef<EngineTurn[]>([]);
   const handleEngineDescribe = useCallback(
-    async (prompt: string) => {
-      const result = await describeIntoStudio(prompt);
+    async (prompt: string, opts?: { refine?: boolean }) => {
+      if (!opts?.refine) engineHistoryRef.current = [];
+      const result = await describeIntoStudio(prompt, engineHistoryRef.current);
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
         lastEngineRidRef.current = result.rid ?? null;
+        engineHistoryRef.current = [
+          ...engineHistoryRef.current,
+          { role: 'user', content: prompt },
+          { role: 'assistant', content: result.gate },
+        ];
         // Surface the engine's pre-slice checks. Per PRD §6.7/§6.9, final "Ready to print" is EARNED
         // by a successful slice ("Make it real"), not claimed at design time — so soften the engine's
         // gate verdict here and point at the slice; the slice toast is where "Ready to print" appears.

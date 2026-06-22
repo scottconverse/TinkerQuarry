@@ -39,8 +39,19 @@ const NEW_DESIGN_PATH = 'design.scad';
 /** Describe a part → engine designs it → its SCAD becomes Studio's active document (renders + editable).
  *  Returns ok=false (with the gate summary) when the engine couldn't produce printable geometry
  *  (gate_failed / clarification_needed / model_unavailable) — the caller shows that instead. */
-export async function describeIntoStudio(prompt: string): Promise<EngineDocOutcome> {
-  const { result, ok } = await runEngineDesign(prompt);
+export interface EngineTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function describeIntoStudio(
+  prompt: string,
+  history?: EngineTurn[]
+): Promise<EngineDocOutcome> {
+  // `history` (prior turns) makes this a REFINE in context ("make it 10mm taller") — the engine's
+  // /api/design accepts it (webapp.py). Omitted = a fresh describe.
+  const opts = history && history.length ? { history } : {};
+  const { result, ok } = await runEngineDesign(prompt, opts);
   const gate = engineGateSummary(result);
   const rid = ridFromResult(result);
   if (!ok || rid == null) {
