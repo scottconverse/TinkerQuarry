@@ -21,11 +21,11 @@
 |---|---|---|
 | **Visual Correction Loop** (§6.3.1) | **missing** | The signature feature. Not in engine or SPA. PRD acceptance (wrong-face hole flagged) currently **fails**. |
 | **OpenSCAD Studio front-end absorbed** (§11, §13) | **in-progress** | **Phase 1 PASS (2026-06-22):** Studio forked into `tinkerquarry/apps/ui`, boots inside the repo and reaches the real engine `/api/health` — its Editor/Customizer/AI/3D-viewer (ortho/wireframe/shadows/pan) now present. Reskin = Phase 3, engine integration = Phase 2. Proof: [audits/phase1-proof.md](audits/phase1-proof.md). |
-| **Supplied design interface productized** (design spec) | **missing** | `Main Workspace.dc.html` exists only as the static prototype `frontend/index.html`; the real app is a different layout. |
-| **"Show me the code" / OpenSCAD editor** (§6.5) | **missing** | No code drawer; engine exposes no `.scad` over HTTP — needs new engine API too. |
-| **Rich 3D viewer** (§6.4) | **partial→missing** | Has orbit/zoom/3D-measure/build-plate. Missing: preset views, ortho, wireframe, shadows, section plane, 2D measure, 2D/SVG, pan, offscreen multi-view capture. |
-| **Right panel = Customize / Make it real** (design) | **missing** | Real app is a Parameters/Quality/Export inspector, not the design's flow. |
-| Real prompt → printable design (engine) | **verified** | Engine pipeline proven end-to-end (1,590 engine tests pass). |
+| **Supplied design interface productized** (design spec) | **in-progress** | **Phase 3:** real app is now the forked Studio (TinkerQuarry-branded, telemetry off, **3-column AI \| preview \| Customize** layout matching the design at desktop width). Pending: the **Make it real** rail (Phase 4 net-new) + full design polish. |
+| **"Show me the code" / OpenSCAD editor** (§6.5) | **present (front-end)** | Studio's Monaco editor is in the fork (Editor tab/column) — syntax, diagnostics, edit. Pending: wire user edits to re-enter the **engine** pipeline + expose `.scad` over the engine API (Phase 4/5). |
+| **Rich 3D viewer** (§6.4) | **present (front-end)** | The forked Studio viewer brings **preset views, ortho, wireframe, shadows, pan/orbit/zoom, measure, build-plate, offscreen multi-view capture** (the loop's inputs). Pending: feed it from the **engine** render + section-plane/2D-SVG verification (Phase 4). |
+| **Right panel = Customize / Make it real** (design) | **partial** | **Customize** is now its own right column (Phase 3). **Make it real** (orient→slice→print rail) is net-new, Phase 4. |
+| Real prompt → printable design — from the canonical repo | **verified** | **Phase 2 PASS:** `packages/engine` does design→gate→slice (31k-line G-code) + 38 sandbox tests pass, from `tinkerquarry`. [audits/phase2-proof.md](audits/phase2-proof.md). |
 
 ## P1 — required for v1
 
