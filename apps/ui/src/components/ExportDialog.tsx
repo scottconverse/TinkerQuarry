@@ -136,7 +136,7 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
               onValueChange={(v) => setFormat(v as ExportFormat)}
               disabled={isExporting}
             >
-              <SelectTrigger data-testid="export-format-select">
+              <SelectTrigger data-testid="export-format-select" aria-label="Export Format">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

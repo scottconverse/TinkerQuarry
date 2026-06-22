@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { act, screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { jest } from '@jest/globals';
 import { renderWithProviders } from './test-utils';
 
@@ -47,6 +48,27 @@ describe('ExportDialog default format', () => {
     renderWithProviders(<ExportDialog isOpen onClose={() => {}} source="" />);
     const trigger = screen.getByTestId('export-format-select');
     expect(trigger.textContent).toContain('STL');
+  });
+
+  it('has no serious or critical a11y violations when open (§10/§12)', async () => {
+    const { container } = renderWithProviders(
+      <ExportDialog isOpen onClose={() => {}} source="cube(10);" />
+    );
+    const results = await axe(container);
+    const seriousOrCritical = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious'
+    );
+    if (seriousOrCritical.length > 0) {
+      console.error(
+        'export-dialog a11y serious/critical:',
+        JSON.stringify(
+          seriousOrCritical.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
+          null,
+          2
+        )
+      );
+    }
+    expect(seriousOrCritical).toEqual([]);
   });
 
   it('defaults to SVG for 2D designs', () => {
