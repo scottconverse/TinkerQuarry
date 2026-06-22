@@ -2497,6 +2497,20 @@ function App() {
           )}
 
           <Button
+            data-testid="make-it-real-button"
+            variant="primary"
+            onClick={() => {
+              void handleMakeItReal();
+            }}
+            size="sm"
+            disabled={isRendering}
+            className="text-xs px-2 py-1"
+            title="Slice the current design into printable G-code"
+          >
+            Make it real
+          </Button>
+
+          <Button
             data-testid="export-button"
             variant="secondary"
             onClick={() => setShowExportDialog(true)}
