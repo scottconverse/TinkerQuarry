@@ -1,8 +1,19 @@
 # Recovery Sprint — Summary & Review Handoff
 
 **Date:** 2026-06-22 · **Sprint goal:** execute [Recovery Plan v2](../TinkerQuarry-Recovery-Plan-v2.md),
-gated phase-by-phase. **19 commits** (`22a283e…18a2e0f`). Anti-stall gate **stays armed** — only the
-human can release it; the agent cannot and did not disarm.
+gated phase-by-phase. **27 commits** (`22a283e…`). Anti-stall gate **stays armed** — only the human can
+release it; the agent cannot and did not disarm.
+
+## Headline: the core TinkerQuarry flow WORKS (Phase 4 B core, verified live)
+**Describe → local engine → printable geometry, rendered in Studio's viewer — no cloud, no provider
+wall.** `describeIntoStudio` (the WelcomeScreen describe surface) runs `/api/design`, pulls the engine's
+**self-contained** SCAD (`/api/source?inline=1` — `inline_library_includes` resolves library `use<>` so
+Studio's WASM can render template parts), sets it as the document, **auto-renders** it, and surfaces the
+engine's **readiness** verdict. **Proven live with screenshots:** described a 55 mm and a 70 mm coaster →
+each rendered in Studio's viewer at the right size; both LLM-codegen and template parts work. The
+**"Configure an AI provider" wall is removed** (PRD §6.1 local-first). Front end **599/599 green**,
+typecheck clean. This is the moment the two halves became one product. Detail:
+[phase4-architecture-decision.md](phase4-architecture-decision.md).
 
 ## What shipped (each with proof — builder ≠ self-grader)
 
@@ -30,16 +41,19 @@ not introduced here.
 3. **The signature feature's hard question is answered with evidence:** local vision can't critique
    spatially, so the loop is **cloud-optional** — decided by a spike, not a guess.
 
-## What's next — and what it needs from you
-The remaining work is substantial and multi-turn. The **safe, independent** pieces are done; what's left
-is deliberately **not** rushed solo:
-- **Phase 4 body (AI panel → engine + remove the "Configure an AI provider" wall):** coupled UI surgery
-  on Studio's AI panel (the wall removal only makes sense *with* the engine wiring). Warrants the
-  auditor's review of this foundation first, per your builder≠auditor process.
+## What's next
+The **Phase 4 B core is done + verified** (describe → engine → viewer, wall removed, readiness surfaced).
+Remaining:
+- **AI panel (refine layer) → engine:** the workspace AI panel still routes to the cloud agent; route it
+  to the engine too (dockview-wired `submitPrompt`) so refine is local-first like the entry describe.
+- **Make-it-real rail (§ design):** orient → slice → print, wired to the engine's `slice`/`send`.
 - **Readiness semantics ("Ready to print" only after a slice, §6.7/§6.9):** a core change to the engine's
   readiness model (`smart_mesh`/`pipeline`) with wide test impact — care-intensive, not an hour-N edit.
-- **Visual Correction Loop implementation (cloud-optional):** needs a **cloud vision API key** (you).
+- **Visual Correction Loop implementation (cloud-optional, Phase 6):** needs a **cloud vision API key** (you).
 - **Seven bundled libraries (§6.11):** needs **downloading/vendoring** third-party SCAD libs (your OK).
+- **Code drawer (Phase 5):** surface `/api/source` in the editor UI + wire edits back (behind the sandbox).
 
-**Recommended:** the auditor reviews the P1/P2/P4/P5/P6 gate-passes (all evidenced above) before I take
-on the coupled Phase-4-body surgery. The sprint remains armed until you release it.
+**Recommended:** the auditor reviews the gate-passes (P1/P2/P4-foundation/P4-B-core/P5/P6, all evidenced
+above with live screenshots + tests). The hard, uncertain work is done and proven; the next pieces
+(refine routing, make-it-real rail, cloud-vision loop, library vendoring) are clearer and lower-risk. The
+sprint remains armed until you release it.
