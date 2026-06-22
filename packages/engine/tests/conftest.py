@@ -74,7 +74,7 @@ def _cadquery_available() -> bool:
     return _cached("cadquery", lambda: find_cadquery_interpreter() is not None)
 
 
-def _browser_available() -> bool:
+def _browser_available(browser_channel: str | None = None) -> bool:
     # KC-20 (#25): the Playwright e2e suite needs both pytest-playwright importable AND a
     # downloaded, LAUNCHABLE Chromium. The browser is provisioned out-of-band (`playwright install
     # chromium`), never via requirements.lock — so a fresh clone / the hosted fork-PR smoke skips
@@ -86,8 +86,9 @@ def _browser_available() -> bool:
     # browser, a file lock) must NOT become a permanent skip that STRICT then converts to a baffling
     # whole-gate red (ENG-5). If both attempts error, we cache "unavailable" but print the reason so
     # a provisioned-box failure is visible, not a silent green-by-skip. (audit-team 2026-06-14.)
-    if "browser" in _MARKER_CACHE:
-        return _MARKER_CACHE["browser"]
+    cache_key = f"browser:{browser_channel or 'bundled'}"
+    if cache_key in _MARKER_CACHE:
+        return _MARKER_CACHE[cache_key]
     import time as _time
 
     last_exc: Exception | None = None
@@ -96,17 +97,19 @@ def _browser_available() -> bool:
             from playwright.sync_api import sync_playwright
 
             with sync_playwright() as p:
-                browser = p.chromium.launch()
+                launch_kwargs = {"channel": browser_channel} if browser_channel else {}
+                browser = p.chromium.launch(**launch_kwargs)
                 browser.close()
-            _MARKER_CACHE["browser"] = True
+            _MARKER_CACHE[cache_key] = True
             return True
         except Exception as e:  # noqa: BLE001 - any launch failure means "can't run e2e here"
             last_exc = e
             if attempt == 0:
                 _time.sleep(0.5)
-    _MARKER_CACHE["browser"] = False
+    _MARKER_CACHE[cache_key] = False
     print(
-        f"[conftest] Playwright Chromium probe failed twice ({type(last_exc).__name__}: "
+        f"[conftest] Playwright Chromium probe failed twice for "
+        f"{browser_channel or 'bundled browser'} ({type(last_exc).__name__}: "
         f"{last_exc}); e2e tests will SKIP.",
         file=sys.stderr,
     )
@@ -124,7 +127,9 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         pytest.skip("needs_manifold: manifold3d not installed")
     if item.get_closest_marker("needs_cadquery") and not _cadquery_available():
         pytest.skip("needs_cadquery: no CadQuery interpreter discoverable")
-    if item.get_closest_marker("needs_browser") and not _browser_available():
+    if item.get_closest_marker("needs_browser") and not _browser_available(
+        item.config.getoption("browser_channel")
+    ):
         pytest.skip("needs_browser: Playwright Chromium not installed (run: playwright install chromium)")
 
 from kimcad.config import Material, Printer  # noqa: E402

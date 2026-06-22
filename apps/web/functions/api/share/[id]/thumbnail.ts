@@ -7,6 +7,8 @@ import {
   writeShare,
 } from '../../../_lib/share';
 
+const MAX_THUMBNAIL_BYTES = 512 * 1024;
+
 function getBearerToken(request: Request): string | null {
   const header = request.headers.get('Authorization') || '';
   if (!header.startsWith('Bearer ')) {
@@ -83,8 +85,16 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return json({ error: 'Invalid thumbnail upload token.' }, { status: 401 });
   }
 
+  const contentLength = context.request.headers.get('Content-Length');
+  if (contentLength) {
+    const byteLength = Number(contentLength);
+    if (!Number.isFinite(byteLength) || byteLength > MAX_THUMBNAIL_BYTES) {
+      return json({ error: 'Thumbnail is too large.' }, { status: 413 });
+    }
+  }
+
   const arrayBuffer = await context.request.arrayBuffer();
-  if (arrayBuffer.byteLength > 512 * 1024) {
+  if (arrayBuffer.byteLength > MAX_THUMBNAIL_BYTES) {
     return json({ error: 'Thumbnail is too large.' }, { status: 413 });
   }
 

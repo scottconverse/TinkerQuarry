@@ -109,4 +109,35 @@ describe('/s/[[shareId]] metadata rewriting', () => {
     expect(response.headers.get('x-share-param-type')).toBe('array');
     expect(response.headers.get('x-share-param-raw')).toBe('abc12345');
   });
+
+  it('escapes share titles before inserting them into meta tag attributes', async () => {
+    const { env } = createMockEnv({
+      'share:abc12345': JSON.stringify({
+        id: 'abc12345',
+        code: 'compressed',
+        title: 'x" /><script>globalThis.__pwned=1</script><meta name="',
+        createdAt: '2026-03-29T18:00:00.000Z',
+        forkedFrom: null,
+        thumbnailKey: null,
+        thumbnailUploadTokenHash: null,
+        codeSize: 11,
+      }),
+    });
+
+    const response = await onRequestGet(
+      createPagesContext({
+        request: new Request('https://studio.test/s/abc12345'),
+        env: env as never,
+        params: { shareId: 'abc12345' },
+        next: async () => buildHtmlResponse(),
+      }) as never
+    );
+
+    const html = await response.text();
+    expect(html).toContain(
+      'content="x&quot; /&gt;&lt;script&gt;globalThis.__pwned=1&lt;/script&gt;&lt;meta name=&quot;'
+    );
+    expect(html).not.toContain('<script>globalThis.__pwned=1</script>');
+    expect(html).not.toContain('content="x" />');
+  });
 });

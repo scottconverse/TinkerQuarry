@@ -24,6 +24,15 @@ function formatRawParamValue(value: string | string[] | undefined): string {
   return 'missing';
 }
 
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function replaceMetaTag(
   html: string,
   selector: { attr: string; name: string },
@@ -34,7 +43,7 @@ function replaceMetaTag(
     `<meta\\s+${selector.attr}=["']${escapedName}["']\\s+content=["'][^"']*["']\\s*\\/?>`,
     'i'
   );
-  const replacement = `<meta ${selector.attr}="${selector.name}" content="${content}" />`;
+  const replacement = `<meta ${selector.attr}="${selector.name}" content="${escapeHtmlAttribute(content)}" />`;
   if (pattern.test(html)) {
     return html.replace(pattern, replacement);
   }

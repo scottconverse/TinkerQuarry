@@ -1,0 +1,10 @@
+{
+  "globals": {
+    "describeFn": "undefined",
+    "showWelcomeFn": "undefined"
+  },
+  "hasWindowLS": false,
+  "keys": null,
+  "showWelcome": true,
+  "typeofWindow": "object"
+}

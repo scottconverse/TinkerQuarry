@@ -271,4 +271,34 @@ describe('WelcomeScreen', () => {
     expect(screen.queryByText('Configure an AI provider to use the AI assistant')).toBeNull();
     expect(screen.getByText('Try an example:')).toBeTruthy();
   });
+
+  it('allows first-run local-engine builds without a cloud provider', async () => {
+    clearApiKey('openai');
+    clearApiKey('anthropic');
+    const onStartWithDraft = jest.fn();
+
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: 'make a small gear', attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={onStartWithDraft}
+        onStartManually={() => {}}
+        onOpenRecent={async () => 'opened'}
+        showRecentFiles={false}
+      />
+    );
+
+    expect(screen.queryByText('No AI provider configured')).toBeNull();
+    const buildButton = screen.getByRole('button', { name: 'Build' });
+    expect(buildButton).not.toBeDisabled();
+
+    fireEvent.click(buildButton);
+    expect(onStartWithDraft).toHaveBeenCalledTimes(1);
+  });
 });

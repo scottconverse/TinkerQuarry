@@ -68,7 +68,6 @@ export function WelcomeScreen({
   draftErrors,
   draftVisionBlockMessage,
   draftVisionWarningMessage,
-  canSubmitDraft,
   isProcessingAttachments,
   onDraftTextChange,
   onDraftFilesSelected,
@@ -137,6 +136,8 @@ export function WelcomeScreen({
   // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
   // describe surface is always available — there is no "configure a provider" wall.
   const hasApiKey: boolean = true;
+  const canSubmitLocalDraft = draft.text.trim().length > 0 && draftErrors.length === 0;
+  const showModelSelector = availableProviders.length > 0;
 
   // Shorten home directory to ~/ for display
   const displayPath = useMemo(() => {
@@ -220,7 +221,7 @@ export function WelcomeScreen({
                 draft={draft}
                 attachments={attachments}
                 isProcessingAttachments={isProcessingAttachments}
-                canSubmit={canSubmitDraft}
+                canSubmit={canSubmitLocalDraft}
                 blockedMessage={draftVisionBlockMessage}
                 warningMessage={draftVisionWarningMessage}
                 errors={draftErrors}
@@ -230,13 +231,15 @@ export function WelcomeScreen({
                 submitLabel="Build"
                 submitTitle="Build"
                 trailingControls={
-                  <ModelSelector
-                    currentModel={currentModel}
-                    currentProvider={currentProvider}
-                    availableProviders={availableProviders}
-                    onChange={(model, provider) => onModelChange?.(model, 'welcome', provider)}
-                    compact
-                  />
+                  showModelSelector ? (
+                    <ModelSelector
+                      currentModel={currentModel}
+                      currentProvider={currentProvider}
+                      availableProviders={availableProviders}
+                      onChange={(model, provider) => onModelChange?.(model, 'welcome', provider)}
+                      compact
+                    />
+                  ) : null
                 }
                 onTextChange={onDraftTextChange}
                 onFilesSelected={onDraftFilesSelected}

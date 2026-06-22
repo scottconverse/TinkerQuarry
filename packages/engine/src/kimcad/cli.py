@@ -30,6 +30,7 @@ from typing import Any
 from kimcad.config import Config
 
 _SUBCOMMANDS = {"design", "bench", "web", "shell", "models", "bakeoff"}
+_RESERVED_COMMAND_WORDS = {"serve"}
 
 
 def _force_utf8_output(stream: Any) -> None:
@@ -191,7 +192,10 @@ def _normalize_argv(argv: list[str]) -> list[str]:
     if not argv or argv[0] in _SUBCOMMANDS or argv[0].startswith("-"):
         return argv
     first = argv[0]
-    if " " not in first and difflib.get_close_matches(first, sorted(_SUBCOMMANDS), cutoff=0.6):
+    if " " not in first and (
+        first in _RESERVED_COMMAND_WORDS
+        or difflib.get_close_matches(first, sorted(_SUBCOMMANDS), cutoff=0.6)
+    ):
         return argv
     return ["design", *argv]
 
@@ -633,7 +637,7 @@ def main(argv: list[str] | None = None) -> int:
         if _is_model_unreachable(e):
             print(f"Error: {MODEL_UNAVAILABLE_MESSAGE}", file=sys.stderr)
             print(
-                "  Run `kimcad serve` to start the engine, then try again. "
+                "  Run `kimcad web` to start the local UI/API server, then try again. "
                 "`kimcad models` shows what's installed.",
                 file=sys.stderr,
             )

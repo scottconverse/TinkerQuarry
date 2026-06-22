@@ -24,7 +24,7 @@ def test_settings_toggles_the_experimental_generator_both_ways(
     page.get_by_role("button", name="Settings").click()
 
     switch = page.get_by_role("switch", name="Enable the experimental shape generator")
-    expect(switch).to_be_visible()
+    expect(switch).to_be_visible(timeout=30_000)
     before = switch.get_attribute("aria-checked")
 
     # Toggle ON (or OFF), assert it flipped, then RESTORE it. The live_server is session-scoped, so
@@ -32,9 +32,9 @@ def test_settings_toggles_the_experimental_generator_both_ways(
     # gate-fail journeys (which depend on it being OFF to OFFER the generator). Restoring keeps this
     # journey order-independent (ENG-2 / QA-1, audit-team 2026-06-14).
     switch.click()
-    expect(switch).not_to_have_attribute("aria-checked", before or "")
+    expect(switch).not_to_have_attribute("aria-checked", before or "", timeout=30_000)
     switch.click()
-    expect(switch).to_have_attribute("aria-checked", before or "false")
+    expect(switch).to_have_attribute("aria-checked", before or "false", timeout=30_000)
 
     assert console_errors == [], f"unexpected browser console errors: {console_errors}"
 

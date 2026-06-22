@@ -4,7 +4,7 @@ import { describe, it, expect } from '@jest/globals';
 /**
  * The first real LIVE-API integration test from the front-end suite. SCOPE (be honest): this makes
  * REAL HTTP calls to the running engine and asserts the REAL responses — it does NOT mount `App.tsx`,
- * click the UI, render React, or POST a fresh `/api/design`. It is NOT a browser/user-flow test; a
+ * click the UI or render React. It is NOT a browser/user-flow test; a
  * Playwright-style "describe → render → make it real" test is still missing. What it DOES do is guard
  * the API seams the rest of this suite only stubs — which is exactly how the §6.12 reopen bug shipped
  * GREEN (the unit test stubbed `/api/source`, the real endpoint 404'd). So a real-path break
@@ -18,15 +18,31 @@ import { describe, it, expect } from '@jest/globals';
 const BASE = process.env.TQ_ENGINE || 'http://127.0.0.1:8765';
 const TOKEN = process.env.TINKERQUARRY_DEV_TOKEN || 'tq-dev-token';
 
-async function getJson(path: string): Promise<{ ok: boolean; status: number; body: any }> {
+async function getJson(path: string): Promise<{ ok: boolean; status: number; body: unknown }> {
   const r = await fetch(BASE + path);
   return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) };
+}
+
+async function postJson(
+  path: string,
+  body: Record<string, unknown>
+): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const r = await fetch(BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-KimCad-Session': TOKEN },
+    body: JSON.stringify(body),
+  });
+  return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) };
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 function ridFromMeshUrl(u: unknown): number {
   return Number(String(u).split('?')[0].split('/').pop());
 }
 
-// Resolve reachability + a saved design at module load so we can pick it / it.skip cleanly.
+// Resolve reachability + seed a saved design at module load so the live test is clean-machine safe.
 let engineUp = false;
 let savedId: string | undefined;
 try {
@@ -34,6 +50,20 @@ try {
   if (engineUp) {
     const d = await fetch(BASE + '/api/designs').then((r) => r.json());
     savedId = d?.designs?.[0]?.id;
+    if (!savedId) {
+      const designed = await postJson('/api/design', { prompt: 'a small test gear' });
+      const rid = ridFromMeshUrl(getRecord(designed.body).mesh_url);
+      if (designed.ok && Number.isFinite(rid)) {
+        const saved = await postJson('/api/designs/save', {
+          design_id: rid,
+          name: 'Live integration seed',
+        });
+        const savedBody = getRecord(saved.body);
+        if (saved.ok && typeof savedBody.id === 'string') {
+          savedId = savedBody.id;
+        }
+      }
+    }
   }
 } catch {
   engineUp = false;
@@ -46,14 +76,15 @@ describe('engine integration (LIVE) — anchors the manual "verified LIVE" FE cl
     async () => {
       const reopened = await getJson(`/api/designs/${savedId}`);
       expect(reopened.ok).toBe(true);
-      const rid = ridFromMeshUrl(reopened.body.mesh_url);
+      const rid = ridFromMeshUrl(getRecord(reopened.body).mesh_url);
       expect(Number.isFinite(rid)).toBe(true);
 
       const src = await getJson(`/api/source/${rid}?inline=1`);
       // This was a real 404 before the reopen fix — and it shipped green because the FE stubbed it.
       expect(src.ok).toBe(true);
-      expect(typeof src.body.scad).toBe('string');
-      expect((src.body.scad as string).length).toBeGreaterThan(10);
+      const sourceBody = getRecord(src.body);
+      expect(typeof sourceBody.scad).toBe('string');
+      expect((sourceBody.scad as string).length).toBeGreaterThan(10);
     },
     30000
   );
@@ -66,7 +97,7 @@ describe('engine integration (LIVE) — anchors the manual "verified LIVE" FE cl
       // exit -51, an upstream relative-extruder/G92-E0 profile bug), exposing an over-claim that a
       // manual click had missed. 11/12 sampled printers slice; elegoo_neptune_4_max is the exception.
       const reopened = await getJson(`/api/designs/${savedId}`);
-      const rid = ridFromMeshUrl(reopened.body.mesh_url);
+      const rid = ridFromMeshUrl(getRecord(reopened.body).mesh_url);
 
       const r = await fetch(`${BASE}/api/slice/${rid}`, {
         method: 'POST',

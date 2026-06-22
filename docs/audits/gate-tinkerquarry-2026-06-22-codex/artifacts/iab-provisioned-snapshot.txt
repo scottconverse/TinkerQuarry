@@ -1,0 +1,18 @@
+- heading "What do you want to create?" [level=1]
+- textbox "Describe what you want to build..." [active]
+- button "Upload images":
+- generic: Drop up to 4 images
+- generic: No AI provider configured
+- button "Build" [disabled]
+- heading "Try an example:" [level=3]
+- button "Create a 3D printable mini lamp"
+- button "Design a parametric phone stand"
+- button "Make a custom gear with 20 teeth"
+- button "Create a simple mounting bracket"
+- button "Design a pencil holder with holes"
+- button "Open File":
+  - text: Open File
+- button "Open Folder":
+  - text: Open Folder
+- button "Start with empty project →"
+- region "Notifications alt+T"

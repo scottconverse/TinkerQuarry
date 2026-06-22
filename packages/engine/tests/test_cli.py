@@ -44,6 +44,7 @@ def test_normalize_guards_against_typod_subcommand():
     assert _normalize_argv(["benhc"]) == ["benhc"]  # ~ bench
     assert _normalize_argv(["wbe"]) == ["wbe"]  # ~ web
     assert _normalize_argv(["desgin"]) == ["desgin"]  # ~ design
+    assert _normalize_argv(["serve"]) == ["serve"]  # reserved old recovery typo; fail fast
     # a genuine one-word prompt that isn't close to any subcommand still routes to design
     assert _normalize_argv(["hook"]) == ["design", "hook"]
 
@@ -54,6 +55,14 @@ def test_typod_subcommand_exits_2_not_a_long_run():
     with pytest.raises(SystemExit) as exc:
         main(["benhc"])
     assert exc.value.code == 2  # argparse invalid-choice exit, no pipeline run
+
+
+def test_reserved_old_recovery_word_exits_2_not_a_long_run():
+    import pytest
+
+    with pytest.raises(SystemExit) as exc:
+        main(["serve"])
+    assert exc.value.code == 2
 
 
 def test_parser_design_requires_prompt():

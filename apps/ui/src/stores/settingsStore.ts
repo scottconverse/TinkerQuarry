@@ -152,7 +152,7 @@ const DEFAULT_SETTINGS: Settings = {
     defaultProjectDirectory: '',
   },
   mcp: {
-    enabled: true,
+    enabled: false,
     port: 32123,
   },
 };

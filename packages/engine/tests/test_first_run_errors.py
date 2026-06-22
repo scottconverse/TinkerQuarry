@@ -212,7 +212,7 @@ def test_cli_model_down_exits_2_with_guidance_no_traceback(monkeypatch, capsys, 
     assert code == 2
     assert "Traceback" not in err
     assert "isn't running" in err  # tester-007 Minor-1: vocabulary no longer says "Ollama"
-    assert "kimcad serve" in err  # actionable: names the exact recovery command
+    assert "kimcad web" in err  # actionable: names the exact recovery command
     assert "Ollama" not in err  # no brand leak in the user-facing message
 
 

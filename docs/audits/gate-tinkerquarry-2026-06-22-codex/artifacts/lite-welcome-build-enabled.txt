@@ -1,0 +1,12 @@
+What do you want to create?
+Drop up to 4 images
+Build
+Try an example:
+Create a 3D printable mini lamp
+Design a parametric phone stand
+Make a custom gear with 20 teeth
+Create a simple mounting bracket
+Design a pencil holder with holes
+Open File
+Open Folder
+Start with empty project →
