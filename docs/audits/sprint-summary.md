@@ -71,6 +71,15 @@ removed). Remaining:
   `coaster_with_rim(od=70)` form. The renderer accepts aux files (renderService), so a readable-source +
   virtual-library-files split is viable; deferred (needs a template describe to verify).
 - The 2-turn refine **conversation display** (above).
+- **Customizer (§6.6) for TEMPLATE parts:** Studio's Customizer parses top-level `name = value; //
+  [min:step:max]`. LLM-codegen parts already emit top-level params (e.g. `width = 20.0;`), so they're
+  Customizer-parseable; **template** parts emit a function call (`coaster_with_rim(od=60)`), which isn't.
+  The clean fix is `templates.emit_scad` hoisting each `ParamSpec` (it has name/min/max/step) to a
+  top-level customizer var and referencing it in the call — render/gate/slice are unaffected (OpenSCAD
+  evaluates identically; the gate validates the mesh), but **`emit_scad`'s text is asserted across
+  conftest + 5 test files → wide test impact**, so it's care-intensive (like the readiness rename), not a
+  rushed edit. (Live-verifying the Customizer panel also needs dockview interaction the headless preview
+  can't drive.)
 
 **Recommended:** the auditor reviews the gate-passes (P1/P2/P4-foundation/P4-B-core/P5/P6, all evidenced
 with live screenshots + tests; 603/603 front end, typecheck clean). The hard, uncertain work is **done and
