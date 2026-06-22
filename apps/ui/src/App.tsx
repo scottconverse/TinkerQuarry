@@ -47,7 +47,7 @@ import {
   pureTuneValues,
   type EngineTurn,
 } from './services/engineDocument';
-import { engine } from './services/engineClient';
+import { engine, type ConnectorInfo } from './services/engineClient';
 import { engineGateSummary } from './services/engineDesign';
 import { FirstRealPrintDialog } from './components/FirstRealPrintDialog';
 import { useHistory } from './hooks/useHistory';
@@ -679,6 +679,10 @@ function App() {
   const [printerKey, setPrinterKey] = useState<string>('');
   const [material, setMaterial] = useState<string>('');
   const [isOrienting, setIsOrienting] = useState(false);
+  const [engineConnectors, setEngineConnectors] = useState<ConnectorInfo[]>([]);
+  const [connectorName, setConnectorName] = useState('');
+  const [lastSlicedRid, setLastSlicedRid] = useState<number | null>(null);
+  const [printOutcomeRid, setPrintOutcomeRid] = useState<number | null>(null);
   // First-real-print caution (§6.10): the manufacturing-commit moment is heightened the first time.
   const [showFirstRealDialog, setShowFirstRealDialog] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
@@ -710,6 +714,7 @@ function App() {
         lastGateRef.current = result.gate || null;
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
+        setLastSlicedRid(null);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
           { role: 'user', content: prompt },
@@ -801,7 +806,9 @@ function App() {
         a.click();
         a.remove();
       }
+      setLastSlicedRid(rid);
     } else {
+      setLastSlicedRid(null);
       notifyError({
         operation: 'make it real',
         capture: false,
@@ -871,6 +878,7 @@ function App() {
           toastId: 'engine-orient',
           description: 'Cached slices were cleared; Make it real will use this pose.',
         });
+        setLastSlicedRid(null);
       } finally {
         setIsOrienting(false);
       }
@@ -886,6 +894,64 @@ function App() {
       settings.viewer.showModelColors,
     ]
   );
+
+  const handleSendToPrinter = useCallback(async () => {
+    const rid = lastEngineRidRef.current;
+    if (rid == null || lastSlicedRid !== rid) {
+      notifyError({
+        operation: 'send to printer',
+        capture: false,
+        displayMessage: 'Make it real first, then send the proven G-code.',
+        toastId: 'engine-send',
+      });
+      return;
+    }
+    if (!connectorName) {
+      notifyError({
+        operation: 'send to printer',
+        capture: false,
+        displayMessage: 'Choose a printer connection first.',
+        toastId: 'engine-send',
+      });
+      return;
+    }
+    notifySuccess('Sending…', { toastId: 'engine-send', description: connectorName });
+    const { ok, data } = await engine.send(rid, true, connectorName);
+    if (ok && data.sent) {
+      notifySuccess(data.simulated ? 'Simulated send complete' : 'Sent to printer', {
+        toastId: 'engine-send',
+        description: data.job_id ? `Job ${data.job_id}` : data.printer_state,
+      });
+      if (!data.simulated) {
+        setPrintOutcomeRid(rid);
+      }
+      return;
+    }
+    notifyError({
+      operation: 'send to printer',
+      capture: false,
+      displayMessage: data.note || data.error || 'Could not send this print.',
+      toastId: 'engine-send',
+    });
+  }, [connectorName, lastSlicedRid]);
+
+  const handlePrintOutcome = useCallback(async (outcome: 'clean' | 'issues' | 'failed' | 'skip') => {
+    const rid = printOutcomeRid;
+    if (rid == null) return;
+    const { ok, data } = await engine.outcome(rid, outcome);
+    if (ok && (data as { recorded?: boolean }).recorded !== false) {
+      notifySuccess('Print outcome recorded', { toastId: 'engine-outcome' });
+    } else if (outcome !== 'skip') {
+      notifyError({
+        operation: 'record print outcome',
+        capture: false,
+        displayMessage:
+          (data as { error?: string }).error || 'Could not record the print outcome.',
+        toastId: 'engine-outcome',
+      });
+    }
+    setPrintOutcomeRid(null);
+  }, [printOutcomeRid]);
 
   // Save the current engine design to "My Designs" (§6.12). Empty name → the engine auto-names it by
   // the original prompt (QA-004), so no dialog is needed.
@@ -937,6 +1003,7 @@ function App() {
         engineHistoryRef.current = [];
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
+        setLastSlicedRid(null);
         notifySuccess('Reopened', { toastId: 'engine-design', description: result.gate });
       } else {
         notifyError({
@@ -963,6 +1030,7 @@ function App() {
     lastGateRef.current = prev.gate;
     setLiveReadiness(prev.gate);
     setHasEngineDesign(true);
+    setLastSlicedRid(null);
     setEngineUndoStack((s) => s.slice(0, -1));
     notifySuccess('Reverted to the previous design', { toastId: 'engine-design' });
   }, [engineUndoStack, renderCodeDirect]);
@@ -1009,6 +1077,7 @@ function App() {
         if (r.ok && r.data.status === 'completed') {
           lastEngineScadRef.current = renderTargetContent;
           setLiveReadiness(engineGateSummary(r.data));
+          setLastSlicedRid(null);
         }
       });
     }, 700);
@@ -1053,6 +1122,30 @@ function App() {
       const mat =
         savedMat && chosen.materials?.includes(savedMat) ? savedMat : (chosen.materials?.[0] ?? '');
       setMaterial(mat);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load send connectors (§6.10). The built-in mock is labeled as simulated; real connectors may be
+  // present but unconfigured, in which case the send endpoint returns a typed setup note.
+  useEffect(() => {
+    let cancelled = false;
+    void engine.connectors().then((r) => {
+      if (cancelled || !r.ok) return;
+      const connectors = (r.data.connectors ?? []).filter(
+        (c): c is ConnectorInfo => typeof c.name === 'string' && c.name.length > 0
+      );
+      setEngineConnectors(connectors);
+      const saved = localStorage.getItem('tq-connector') || '';
+      const preferred =
+        connectors.find((c) => c.name === saved)?.name ??
+        connectors.find((c) => c.name === r.data.default)?.name ??
+        connectors[0]?.name ??
+        '';
+      setConnectorName(preferred);
+      if (preferred) localStorage.setItem('tq-connector', preferred);
     });
     return () => {
       cancelled = true;
@@ -2711,6 +2804,9 @@ function App() {
   const selectedLayerHeight = formatLayerHeight(selectedEnginePrinter?.layer_height_mm);
   const selectedPrinterBlocked = selectedEnginePrinter?.sliceable === false;
   const selectedPrinterNote = selectedEnginePrinter?.slice_note ?? null;
+  const selectedConnector = engineConnectors.find((c) => c.name === connectorName);
+  const canSendCurrentSlice =
+    hasEngineDesign && lastSlicedRid != null && lastSlicedRid === lastEngineRidRef.current;
 
   const content = shouldShowShareError ? (
     <div
@@ -3022,6 +3118,57 @@ function App() {
             Make it real
           </Button>
 
+          {hasEngineDesign && engineConnectors.length > 0 && (
+            <div
+              data-testid="send-profile"
+              className="hidden xl:inline-flex items-center gap-1 px-1 text-xs"
+              title="Send the proven G-code to a configured printer connection"
+            >
+              <select
+                data-testid="connector-select"
+                aria-label="Printer connection"
+                value={connectorName}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setConnectorName(name);
+                  localStorage.setItem('tq-connector', name);
+                }}
+                className="border rounded px-1 py-0.5 cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-primary)',
+                }}
+              >
+                {engineConnectors.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                    {c.simulated ? ' (simulated)' : c.configured === false ? ' (setup)' : ''}
+                  </option>
+                ))}
+              </select>
+              <Button
+                data-testid="send-to-printer-button"
+                variant="secondary"
+                onClick={() => {
+                  void handleSendToPrinter();
+                }}
+                size="sm"
+                disabled={!canSendCurrentSlice || !connectorName}
+                className="text-xs px-2 py-1"
+                title={
+                  canSendCurrentSlice
+                    ? selectedConnector?.simulated
+                      ? 'Send to the simulated printer connection'
+                      : 'Send this sliced G-code to the selected printer'
+                    : 'Make it real first'
+                }
+              >
+                Send
+              </Button>
+            </div>
+          )}
+
           <Button
             data-testid="export-button"
             variant="secondary"
@@ -3143,6 +3290,55 @@ function App() {
           }}
           onClose={() => setShowFirstRealDialog(false)}
         />
+      )}
+      {printOutcomeRid != null && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+          onClick={() => {
+            void handlePrintOutcome('skip');
+          }}
+        >
+          <div
+            data-testid="print-outcome-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="How did the print turn out?"
+            className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border-primary)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="px-6 py-4 text-sm font-medium"
+              style={{ borderBottom: '1px solid var(--border-primary)' }}
+            >
+              How did the print turn out?
+            </div>
+            <div className="px-6 py-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Recording the real result helps TinkerQuarry learn which checks predicted reality.
+            </div>
+            <div
+              className="flex flex-wrap justify-end gap-2 px-6 py-4"
+              style={{ borderTop: '1px solid var(--border-primary)' }}
+            >
+              <Button variant="ghost" onClick={() => void handlePrintOutcome('skip')}>
+                Skip
+              </Button>
+              <Button variant="secondary" onClick={() => void handlePrintOutcome('failed')}>
+                Failed
+              </Button>
+              <Button variant="secondary" onClick={() => void handlePrintOutcome('issues')}>
+                Issues
+              </Button>
+              <Button variant="primary" onClick={() => void handlePrintOutcome('clean')}>
+                Clean
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
       <ShareDialog
         isOpen={showShareDialog}

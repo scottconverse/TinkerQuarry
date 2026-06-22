@@ -18,13 +18,14 @@ What is real and worth trusting:
   describe-to-viewer and make-it-real download flow.
 - Manual build-plate orientation is wired in the UI and engine; changing pose invalidates stale
   slices/G-code before the next Make it real action.
+- Send-to-printer UI is wired after a successful slice, with connector selection and a post-print
+  outcome prompt for real hardware sends.
 - Engine coverage is substantial and real; front-end product flows are still mostly manually verified.
 - Source/license disclosure exists in-app for the current core components.
 
 What is still not done:
 
 - The Visual Correction Loop is not implemented.
-- Send-to-printer UI and post-print outcome UI are not implemented.
 - Bundled third-party SCAD libraries are vendored, with caveats noted below.
 - External-library admission is not wired to the engine sandbox.
 - Persistent per-iteration history, visual diff, and a full Explain view remain incomplete.

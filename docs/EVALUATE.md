@@ -35,11 +35,13 @@ Then open `http://localhost:1420`.
    preview should refresh; the next slice uses that pose.
 5. **Make it real**: confirm the first-real-print caution. The app should slice and download a
    `.gcode.3mf`.
-6. **Refine**: ask for a change such as `make it 80 mm across`.
-7. **Save / reopen / delete**: save the design, reopen it from My Designs, and delete it with the
+6. **Send**: choose a printer connection and send the sliced G-code. The built-in `mock` connector is
+   simulated; real hardware sends prompt for a print outcome.
+7. **Refine**: ask for a change such as `make it 80 mm across`.
+8. **Save / reopen / delete**: save the design, reopen it from My Designs, and delete it with the
    two-step confirm.
-8. **Undo**: after a refine, use Undo to restore the previous design.
-9. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
+9. **Undo**: after a refine, use Undo to restore the previous design.
+10. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
    currently offered.
 
 ## What Is Not Here Yet
@@ -47,8 +49,6 @@ Then open `http://localhost:1420`.
 - **Visual Correction Loop**: not implemented. It is not merely blocked on a cloud key; capture,
   critique, multi-round repair, best-candidate retention, convergence, and logging still need to be
   built. Local model research is continuing separately.
-- **Send-to-printer and post-print outcome UI**: engine/client methods exist, but there is no front-end
-  connector picker, send confirmation, live status, progress, or outcome prompt.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.

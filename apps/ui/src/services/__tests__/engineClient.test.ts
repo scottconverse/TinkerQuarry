@@ -67,6 +67,23 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     expect(calls[0].init.method).toBe('POST');
   });
 
+  it('lists connectors, sends sliced G-code, and records real print outcomes (§6.10)', async () => {
+    const c = new EngineClient();
+    await c.connectors();
+    expect(calls[0].url).toBe('/api/connectors');
+    expect(calls[0].init.method).toBe('GET');
+
+    await c.send(5, true, 'mock');
+    expect(calls[1].url).toBe('/api/send/5');
+    expect(calls[1].init.method).toBe('POST');
+    expect(JSON.parse(calls[1].init.body as string)).toEqual({ confirm: true, connector: 'mock' });
+
+    await c.outcome(5, 'issues');
+    expect(calls[2].url).toBe('/api/print-outcome/5');
+    expect(calls[2].init.method).toBe('POST');
+    expect(JSON.parse(calls[2].init.body as string)).toEqual({ outcome: 'issues' });
+  });
+
   it('POST design sends the JSON body and, when present, the session token', async () => {
     setToken('real-token-123');
     await new EngineClient().design('a box', { experimental: true });

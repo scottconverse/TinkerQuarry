@@ -98,6 +98,30 @@ export interface OrientResult {
   error?: string;
 }
 
+export interface ConnectorInfo {
+  name: string;
+  simulated?: boolean;
+  configured?: boolean;
+}
+
+export interface ConnectorsResult {
+  connectors?: ConnectorInfo[];
+  default?: string | null;
+}
+
+export interface SendResult {
+  sent?: boolean;
+  connector?: string;
+  simulated?: boolean;
+  job_id?: string;
+  state?: string;
+  printer_state?: string;
+  printer_detail?: string | null;
+  reason?: string;
+  note?: string;
+  error?: string;
+}
+
 export interface ApiResponse<T> {
   status: number;
   ok: boolean;
@@ -206,10 +230,13 @@ export class EngineClient {
     return this.req<OrientResult>('POST', `/orient/${rid}`, { axis, degrees });
   }
   send(rid: number, confirm: boolean, connector?: string) {
-    return this.req<Record<string, unknown>>('POST', `/send/${rid}`, { confirm, connector });
+    return this.req<SendResult>('POST', `/send/${rid}`, { confirm, connector });
   }
   outcome(rid: number, outcome: string) {
     return this.req<Record<string, unknown>>('POST', `/print-outcome/${rid}`, { outcome });
+  }
+  connectors() {
+    return this.req<ConnectorsResult>('GET', '/connectors');
   }
   /** Phase 5: the generated OpenSCAD source behind a design (read-only) — for the code drawer.
    *  `inline` resolves library `use/include` into self-contained SCAD so a renderer without the
