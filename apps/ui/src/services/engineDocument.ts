@@ -36,6 +36,35 @@ export function ridFromResult(r: DesignResult): number | undefined {
 
 const NEW_DESIGN_PATH = 'design.scad';
 
+/** Top-level Customizer slider values in a SCAD doc — the `name = value; // [...]` lines emit_scad
+ *  produces for a template part. */
+export function parseCustomizerValues(scad: string): Record<string, number> {
+  const re = /^([A-Za-z_]\w*)\s*=\s*(-?[\d.]+)\s*;\s*\/\/\s*\[/gm;
+  const out: Record<string, number> = {};
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(scad)) !== null) out[m[1]] = Number.parseFloat(m[2]);
+  return out;
+}
+
+/** If `current` differs from `original` ONLY in Customizer slider VALUES (a pure tune), return the
+ *  tuned values; otherwise null (a structural code edit, or no change). Safe by construction: a
+ *  structural edit can't normalize back to `original`, so it's never mistaken for a tune — the worst
+ *  case is a tune misread as an edit (caller falls back to warning, never slices the wrong geometry). */
+export function pureTuneValues(current: string, original: string): Record<string, number> | null {
+  const orig = parseCustomizerValues(original);
+  if (Object.keys(orig).length === 0) return null;
+  let normalized = current;
+  for (const name of Object.keys(orig)) {
+    normalized = normalized.replace(
+      new RegExp(`^(${name}\\s*=\\s*)-?[\\d.]+(\\s*;)`, 'm'),
+      `$1${orig[name]}$2`
+    );
+  }
+  if (normalized !== original) return null; // structural change — a real edit, not a tune
+  const cur = parseCustomizerValues(current);
+  return JSON.stringify(cur) === JSON.stringify(orig) ? null : cur; // null if nothing actually moved
+}
+
 /** Describe a part → engine designs it → its SCAD becomes Studio's active document (renders + editable).
  *  Returns ok=false (with the gate summary) when the engine couldn't produce printable geometry
  *  (gate_failed / clarification_needed / model_unavailable) — the caller shows that instead. */

@@ -1,5 +1,33 @@
-import { ridFromResult } from '../engineDocument';
+import { ridFromResult, parseCustomizerValues, pureTuneValues } from '../engineDocument';
 import type { DesignResult } from '../engineClient';
+
+const ORIGINAL = `width = 80; // [10:1:170]
+depth = 60; // [10:1:170]
+wall = 2; // [0.8:0.2:8]
+use <library/containers.scad>;
+snap_box(width=width, depth=depth, wall=wall);
+`;
+
+describe('engineDocument — customizer tune detection (re-render-on-tune)', () => {
+  it('parses top-level customizer slider values', () => {
+    expect(parseCustomizerValues(ORIGINAL)).toEqual({ width: 80, depth: 60, wall: 2 });
+  });
+
+  it('returns the tuned values when ONLY a slider value changed', () => {
+    const tuned = ORIGINAL.replace('width = 80;', 'width = 120;');
+    expect(pureTuneValues(tuned, ORIGINAL)).toEqual({ width: 120, depth: 60, wall: 2 });
+  });
+
+  it('returns null for a STRUCTURAL edit (never mistakes an edit for a tune)', () => {
+    const edited = ORIGINAL + '\ncube(5); // user-added';
+    expect(pureTuneValues(edited, ORIGINAL)).toBeNull();
+  });
+
+  it('returns null when nothing actually changed, or there are no sliders', () => {
+    expect(pureTuneValues(ORIGINAL, ORIGINAL)).toBeNull();
+    expect(pureTuneValues('cube(10);', 'cube(10);')).toBeNull(); // LLM part, no sliders
+  });
+});
 
 describe('engineDocument — ridFromResult (Phase 4 B core)', () => {
   it('prefers a top-level numeric rid', () => {

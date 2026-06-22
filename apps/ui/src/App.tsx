@@ -40,7 +40,7 @@ import {
 } from './stores/layoutStore';
 import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
 import { useAiAgent } from './hooks/useAiAgent';
-import { describeIntoStudio, type EngineTurn } from './services/engineDocument';
+import { describeIntoStudio, pureTuneValues, type EngineTurn } from './services/engineDocument';
 import { engine } from './services/engineClient';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
@@ -698,6 +698,23 @@ function App() {
         toastId: 'engine-slice',
       });
       return null;
+    }
+    // If the user TUNED a template's Customizer sliders, push the tuned values to the engine first so
+    // the slice is of the TUNED part, not the original. A structural code edit is not a pure tune
+    // (pureTuneValues returns null) and falls through to the stale-edit warning below — never sliced
+    // as if it were a tune.
+    const tuned = lastEngineScadRef.current
+      ? pureTuneValues(renderTargetContent, lastEngineScadRef.current)
+      : null;
+    if (tuned) {
+      notifySuccess('Applying changes…', {
+        toastId: 'engine-slice',
+        description: 'Re-rendering at your tuned values',
+      });
+      const r = await engine.render(rid, tuned);
+      if (r.ok && r.data.status === 'completed') {
+        lastEngineScadRef.current = renderTargetContent; // the engine now matches the tuned document
+      }
     }
     notifySuccess('Slicing…', { toastId: 'engine-slice', description: 'Preparing printable G-code' });
     const { ok, data } = await engine.slice(rid);
