@@ -91,7 +91,7 @@ const AiChatPanel: React.FC<IDockviewPanelProps> = () => {
     <PanelErrorBoundary panelId="ai-chat" panelName="AI Chat">
       <AiPromptPanel
         ref={ws.aiPromptPanelRef as React.Ref<AiPromptPanelRef>}
-        onSubmit={ws.submitDraft}
+        onSubmit={ws.onAiSubmit ?? ws.submitDraft}
         onTextChange={ws.setDraftText}
         onFilesSelected={(files) => {
           void ws.addDraftFiles(files, 'ai_panel');

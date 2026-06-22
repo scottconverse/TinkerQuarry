@@ -55,6 +55,9 @@ export interface WorkspaceState {
   currentModelVisionSupport: VisionSupport;
   availableProviders: AiProvider[];
   submitDraft: () => void;
+  /** TinkerQuarry: the AI panel's submit routed to the LOCAL ENGINE (refine-in-context), per the
+   *  local-first design. Falls back to `submitDraft` if unset. */
+  onAiSubmit?: () => void;
   setDraftText: (text: string) => void;
   addDraftFiles: (
     files: File[],

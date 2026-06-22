@@ -640,6 +640,12 @@ function App() {
   const handleEngineDescribe = useCallback(
     async (prompt: string, opts?: { refine?: boolean }) => {
       if (!opts?.refine) engineHistoryRef.current = [];
+      // The local engine plans + renders + gates — seconds, not instant. Show progress so the
+      // describe surface doesn't look frozen; the result toast replaces this (same toastId).
+      notifySuccess(opts?.refine ? 'Refining…' : 'Designing…', {
+        toastId: 'engine-design',
+        description: 'The engine is working on it — plan, geometry, readiness check.',
+      });
       const result = await describeIntoStudio(prompt, engineHistoryRef.current);
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
@@ -703,6 +709,16 @@ function App() {
     }
     return data;
   }, []);
+
+  // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
+  // as a refine-in-context turn (the WelcomeScreen entry already routes the first describe to the
+  // engine; this keeps follow-ups local-first too). Empty input is ignored.
+  const handleAiPanelSubmit = useCallback(() => {
+    const text = (draft.text ?? '').trim();
+    if (!text) return;
+    setDraftText('');
+    void handleEngineDescribe(text, { refine: true });
+  }, [draft.text, setDraftText, handleEngineDescribe]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -2264,6 +2280,7 @@ function App() {
       onOpenCustomizerAiRefine: handleOpenCustomizerAiRefine,
       onOpenEditorPanel: handleOpenEditorPanel,
       onOpenExportDialog: handleOpenExportDialog,
+      onAiSubmit: handleAiPanelSubmit,
     }),
     [
       renderTargetContent,
@@ -2321,6 +2338,7 @@ function App() {
       handleOpenCustomizerAiRefine,
       handleOpenEditorPanel,
       handleOpenExportDialog,
+      handleAiPanelSubmit,
     ]
   );
 
