@@ -628,13 +628,24 @@ function App() {
     loadModelAndProviders,
   } = useAiAgent();
 
-  // TinkerQuarry Phase 4 (B core): expose the local-engine describe path for live verification
-  // (dev only; mirrors Studio's __TEST_ hooks). The shipping UI trigger wires to describeIntoStudio.
+  // TinkerQuarry Phase 4 (B core): describe → engine → Studio document, then render the engine's
+  // (self-contained) SCAD directly so the viewer updates immediately (no content-watch timing). This
+  // is the handler the shipping describe UI calls; also exposed on window in dev for verification.
+  const handleEngineDescribe = useCallback(
+    async (prompt: string) => {
+      const result = await describeIntoStudio(prompt);
+      if (result.ok && result.scad) {
+        renderCodeDirect(result.scad);
+      }
+      return result;
+    },
+    [renderCodeDirect]
+  );
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    (window as unknown as { __TQ_DESCRIBE__?: typeof describeIntoStudio }).__TQ_DESCRIBE__ =
-      describeIntoStudio;
-  }, []);
+    (window as unknown as { __TQ_DESCRIBE__?: typeof handleEngineDescribe }).__TQ_DESCRIBE__ =
+      handleEngineDescribe;
+  }, [handleEngineDescribe]);
 
   // Tab management functions
   const createNewTab = useCallback(

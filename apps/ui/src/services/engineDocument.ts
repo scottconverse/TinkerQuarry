@@ -18,6 +18,8 @@ export interface EngineDocOutcome {
   rid?: number;
   /** The document path the engine's source was loaded into (when ok). */
   path?: string;
+  /** The self-contained SCAD set as the document — the caller renders this directly (no state-timing). */
+  scad?: string;
   error?: string;
 }
 
@@ -57,10 +59,10 @@ export async function describeIntoStudio(prompt: string): Promise<EngineDocOutco
   const path = state.renderTargetPath ?? listProjectFiles(state)[0];
   if (path && state.files[path]) {
     state.updateFileContent(path, data.scad);
-    return { ok: true, gate, rid, path };
+    return { ok: true, gate, rid, path, scad: data.scad };
   }
   // Empty workspace (no document yet): create one and make it the render target.
   state.addFile(NEW_DESIGN_PATH, data.scad);
   store.getState().setRenderTarget(NEW_DESIGN_PATH);
-  return { ok: true, gate, rid, path: NEW_DESIGN_PATH };
+  return { ok: true, gate, rid, path: NEW_DESIGN_PATH, scad: data.scad };
 }
