@@ -658,9 +658,14 @@ function App() {
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
-  // Plain-language slice profile (printer · material) shown BEFORE slicing so the user knows what
-  // "Make it real" will produce — not a surprise after the fact (§6.9). The engine's default.
-  const [sliceProfile, setSliceProfile] = useState<string | null>(null);
+  // Slice profile (§6.9): the printer + material "Make it real" will slice for, shown AND choosable
+  // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
+  // printer list comes from /api/options; the choice persists across sessions (localStorage).
+  const [enginePrinters, setEnginePrinters] = useState<
+    { key: string; name: string; materials?: string[] }[]
+  >([]);
+  const [printerKey, setPrinterKey] = useState<string>('');
+  const [material, setMaterial] = useState<string>('');
   // First-real-print caution (§6.10): the manufacturing-commit moment is heightened the first time.
   const [showFirstRealDialog, setShowFirstRealDialog] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
@@ -756,7 +761,7 @@ function App() {
       }
     }
     notifySuccess('Slicing…', { toastId: 'engine-slice', description: 'Preparing printable G-code' });
-    const { ok, data } = await engine.slice(rid);
+    const { ok, data } = await engine.slice(rid, printerKey || undefined, material || undefined);
     if (ok && data.sliced) {
       // The slice acts on the engine's design (the rid), so manual code edits since aren't included.
       // Be honest about that rather than silently slicing stale geometry.
@@ -918,17 +923,25 @@ function App() {
     return () => clearTimeout(handle);
   }, [renderTargetContent]);
 
-  // Resolve the engine's default slice profile (printer · material) once, for the pre-slice line (§6.9).
+  // Load the engine's printers + restore (or default) the user's slice-profile choice (§6.9).
   useEffect(() => {
     let cancelled = false;
     void engine.options().then((r) => {
       if (cancelled || !r.ok) return;
-      const printers = (r.data as { printers?: Array<{ name?: string; materials?: string[] }> })
-        .printers;
-      const p = printers?.[0];
-      if (!p?.name) return;
-      const mat = p.materials?.[0];
-      setSliceProfile(mat ? `${p.name} · ${mat.toUpperCase()}` : p.name);
+      const printers = (
+        r.data as { printers?: Array<{ key?: string; name?: string; materials?: string[] }> }
+      ).printers?.filter((p): p is { key: string; name: string; materials?: string[] } =>
+        Boolean(p.key && p.name)
+      );
+      if (!printers?.length) return;
+      setEnginePrinters(printers);
+      const savedKey = localStorage.getItem('tq-printer');
+      const chosen = printers.find((p) => p.key === savedKey) ?? printers[0];
+      setPrinterKey(chosen.key);
+      const savedMat = localStorage.getItem('tq-material');
+      const mat =
+        savedMat && chosen.materials?.includes(savedMat) ? savedMat : (chosen.materials?.[0] ?? '');
+      setMaterial(mat);
     });
     return () => {
       cancelled = true;
@@ -2762,14 +2775,63 @@ function App() {
             Save
           </Button>
 
-          {hasEngineDesign && sliceProfile && (
-            <span
+          {hasEngineDesign && enginePrinters.length > 0 && (
+            <div
               data-testid="slice-profile"
-              className="text-xs text-muted-foreground px-1 hidden sm:inline"
-              title="The print profile 'Make it real' will slice for"
+              className="hidden sm:inline-flex items-center gap-1 px-1 text-xs"
+              title="The printer + material 'Make it real' will slice for"
             >
-              {sliceProfile}
-            </span>
+              <select
+                data-testid="printer-select"
+                aria-label="Printer"
+                value={printerKey}
+                onChange={(e) => {
+                  const k = e.target.value;
+                  setPrinterKey(k);
+                  localStorage.setItem('tq-printer', k);
+                  const p = enginePrinters.find((x) => x.key === k);
+                  if (p && !p.materials?.includes(material)) {
+                    const m = p.materials?.[0] ?? '';
+                    setMaterial(m);
+                    localStorage.setItem('tq-material', m);
+                  }
+                }}
+                className="border rounded px-1 py-0.5 cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-primary)',
+                }}
+              >
+                {enginePrinters.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+              <select
+                data-testid="material-select"
+                aria-label="Material"
+                value={material}
+                onChange={(e) => {
+                  setMaterial(e.target.value);
+                  localStorage.setItem('tq-material', e.target.value);
+                }}
+                className="border rounded px-1 py-0.5 cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-primary)',
+                }}
+              >
+                {(enginePrinters.find((p) => p.key === printerKey)?.materials ?? []).map((m) => (
+                  <option key={m} value={m}>
+                    {m.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
           <Button
