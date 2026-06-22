@@ -171,7 +171,7 @@ export interface PlatformBridge {
 
   /**
    * Get the platform default base directory for new projects.
-   * Desktop: ~/Documents/OpenSCAD Studio/
+   * Desktop: ~/Documents/TinkerQuarry/
    * Web: returns null (no filesystem).
    */
   getDefaultProjectsDirectory(): Promise<string | null>;

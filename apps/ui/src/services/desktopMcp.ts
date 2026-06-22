@@ -586,7 +586,7 @@ async function handleProjectContext(): Promise<McpToolResponse> {
   if (renderTarget) {
     const file = state.files[renderTarget];
     if (file?.isDirty) {
-      parts.push('Render target has unsaved changes inside OpenSCAD Studio.');
+      parts.push('Render target has unsaved changes inside TinkerQuarry.');
     }
   }
 
@@ -992,7 +992,7 @@ export async function initializeDesktopMcpBridge(
 
       unlistenFocus = await currentWindow.onFocusChanged(() => {
         void syncDesktopMcpWindowContext({
-          title: document.title || 'OpenSCAD Studio',
+          title: document.title || 'TinkerQuarry',
           workspaceRoot: getProjectState().projectRoot,
           renderTargetPath: getProjectState().renderTargetPath,
           showWelcome: getWorkspaceState().showWelcome,
@@ -1003,7 +1003,7 @@ export async function initializeDesktopMcpBridge(
       await invoke('mcp_mark_window_bridge_ready');
 
       void syncDesktopMcpWindowContext({
-        title: document.title || 'OpenSCAD Studio',
+        title: document.title || 'TinkerQuarry',
         workspaceRoot: getProjectState().projectRoot,
         renderTargetPath: getProjectState().renderTargetPath,
         showWelcome: getWorkspaceState().showWelcome,
@@ -1166,5 +1166,5 @@ export function buildOpenCodeMcpConfig(port: number): string {
 }
 
 export function buildAgentSnippet(port: number): string {
-  return `Use the OpenSCAD Studio MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call get_or_create_workspace with the repo root before using Studio tools.`;
+  return `Use the TinkerQuarry MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call get_or_create_workspace with the repo root before using Studio tools.`;
 }

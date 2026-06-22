@@ -57,7 +57,7 @@ export function PrivacySettings({ settings, onPrivacyChange }: PrivacySettingsPr
               What we collect
             </Text>
             <Text variant="caption" className="mt-2 leading-5">
-              OpenSCAD Studio uses a persistent anonymous identifier on this device/browser to
+              TinkerQuarry uses a persistent anonymous identifier on this device/browser to
               understand product journeys over time. Product interactions may be autocaptured.
             </Text>
           </div>

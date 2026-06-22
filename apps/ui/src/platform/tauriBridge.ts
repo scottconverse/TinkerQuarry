@@ -353,7 +353,7 @@ export class TauriBridge implements PlatformBridge {
     try {
       const { documentDir, join } = await import('@tauri-apps/api/path');
       const docs = await documentDir();
-      return await join(docs, 'OpenSCAD Studio');
+      return await join(docs, 'TinkerQuarry');
     } catch (err) {
       console.error('[getDefaultProjectsDirectory] Error:', err);
       return null;

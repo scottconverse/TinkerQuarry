@@ -132,7 +132,7 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 - Group related controls with customizer tabs when helpful:
   - \`/* [Dimensions] */\`
   - \`/* [Options] */\`
-- Add optional OpenSCAD Studio presentation metadata immediately above important user-facing parameters:
+- Add optional TinkerQuarry presentation metadata immediately above important user-facing parameters:
   - \`// @studio {"label":"Width","description":"Overall outer width","unit":"mm","group":"Body","prominence":"primary"}\`
 - For longer user-editable text fields, prefer textarea metadata on string params:
   - \`// @studio {"label":"Engraving","input":"textarea","rows":5}\`

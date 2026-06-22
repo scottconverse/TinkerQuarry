@@ -175,7 +175,7 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
     <SettingsCard className="ph-no-capture">
       <SettingsCardHeader
         title="External Agents"
-        description="Expose one local OpenSCAD Studio MCP server for render-target switching, diagnostics, renders, preview screenshots, and exports. Each external agent session binds to a specific Studio workspace window."
+        description="Expose one local TinkerQuarry MCP server for render-target switching, diagnostics, renders, preview screenshots, and exports. Each external agent session binds to a specific Studio workspace window."
         action={
           <span
             className="text-xs px-2 py-0.5 rounded-full font-medium"

@@ -89,7 +89,7 @@ describe('SettingsDialog privacy copy', () => {
     jest.clearAllMocks();
     platformMock = {
       getLibraryPaths: jest.fn(async () => []),
-      getDefaultProjectsDirectory: jest.fn(async () => '/Users/test/Documents/OpenSCAD Studio'),
+      getDefaultProjectsDirectory: jest.fn(async () => '/Users/test/Documents/TinkerQuarry'),
       pickDirectory: jest.fn(async () => null),
       capabilities: { hasFileSystem: true },
     };

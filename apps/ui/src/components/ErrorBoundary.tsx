@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
     notifyError({
       operation: 'app-crash',
       error,
-      fallbackMessage: 'OpenSCAD Studio hit an unexpected error',
+      fallbackMessage: 'TinkerQuarry hit an unexpected error',
       logLabel: '[ErrorBoundary] App crash',
     });
   }
@@ -62,7 +62,7 @@ export class ErrorBoundary extends Component<Props, State> {
             Something went wrong
           </div>
           <p style={{ lineHeight: 1.6, marginBottom: '1rem' }}>
-            OpenSCAD Studio encountered an unexpected error and couldn&rsquo;t recover.
+            TinkerQuarry encountered an unexpected error and couldn&rsquo;t recover.
           </p>
           {this.state.error && (
             <pre
