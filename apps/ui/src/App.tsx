@@ -648,6 +648,9 @@ function App() {
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
+  // Plain-language slice profile (printer · material) shown BEFORE slicing so the user knows what
+  // "Make it real" will produce — not a surprise after the fact (§6.9). The engine's default.
+  const [sliceProfile, setSliceProfile] = useState<string | null>(null);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
   // /api/design takes this as `history`. A fresh design (new part) resets it.
   const engineHistoryRef = useRef<EngineTurn[]>([]);
@@ -857,6 +860,23 @@ function App() {
     }, 700);
     return () => clearTimeout(handle);
   }, [renderTargetContent]);
+
+  // Resolve the engine's default slice profile (printer · material) once, for the pre-slice line (§6.9).
+  useEffect(() => {
+    let cancelled = false;
+    void engine.options().then((r) => {
+      if (cancelled || !r.ok) return;
+      const printers = (r.data as { printers?: Array<{ name?: string; materials?: string[] }> })
+        .printers;
+      const p = printers?.[0];
+      if (!p?.name) return;
+      const mat = p.materials?.[0];
+      setSliceProfile(mat ? `${p.name} · ${mat.toUpperCase()}` : p.name);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Tab management functions
   const createNewTab = useCallback(
@@ -2671,6 +2691,16 @@ function App() {
           >
             Save
           </Button>
+
+          {hasEngineDesign && sliceProfile && (
+            <span
+              data-testid="slice-profile"
+              className="text-xs text-muted-foreground px-1 hidden sm:inline"
+              title="The print profile 'Make it real' will slice for"
+            >
+              {sliceProfile}
+            </span>
+          )}
 
           <Button
             data-testid="make-it-real-button"
