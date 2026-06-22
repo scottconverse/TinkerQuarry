@@ -2756,7 +2756,12 @@ def serve(
     # shell (injected into index.html) and sends it on state-changing requests; a drive-by
     # cross-origin POST can't read it, so it's refused. Per-boot (not persisted) so a token can't
     # leak across restarts.
-    session_token = secrets.token_urlsafe(32)
+    # TinkerQuarry (recovery Phase 4): in dev the front end is served by vite (not this server), so
+    # it can't read an injected token. Allow a fixed token via TINKERQUARRY_DEV_TOKEN so the vite
+    # proxy can inject `X-KimCad-Session`. Unset in production → a fresh unguessable per-boot token.
+    import os as _os_tok
+
+    session_token = _os_tok.environ.get("TINKERQUARRY_DEV_TOKEN") or secrets.token_urlsafe(32)
     try:
         httpd = _ExclusiveBindServer(
             (host, port),

@@ -40,10 +40,15 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host: host || false,
-    // TinkerQuarry Phase 1 (recovery): proxy the real KimCad engine API so the forked Studio app
-    // calls /api/health (and later /api/design, /api/render, /api/slice, ...) with no CORS.
+    // TinkerQuarry recovery: proxy the real KimCad engine API so the forked Studio app calls
+    // /api/* (health, design, render, slice, ...) with no CORS. Phase 4: inject the dev session
+    // token on state-changing POSTs (the engine, run with TINKERQUARRY_DEV_TOKEN, accepts it).
     proxy: {
-      '/api': { target: 'http://127.0.0.1:8765', changeOrigin: true },
+      '/api': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: true,
+        headers: { 'X-KimCad-Session': process.env.TINKERQUARRY_DEV_TOKEN || 'tq-dev-token' },
+      },
     },
     hmr: host
       ? {
