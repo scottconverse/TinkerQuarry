@@ -35,7 +35,7 @@
 | Area (PRD ref) | Status | Notes |
 |---|---|---|
 | AI tool-using agent + Explain mode + diff/undo (§6.3) | **partial (refine wired)** | The workspace AI panel's submit now routes to the **local engine as a refine-in-context turn** (`onAiSubmit` → `handleEngineDescribe({refine:true})`; engine `history` carries context). In-progress "Designing…/Refining…" toast. Still: single-shot (not a multi-tool agent loop), no Explain mode, no diff/undo; full 2-turn refine UX (conversation bubbles) pending. |
-| Customizer for LLM-codegen parts + clamped-value surfacing (§6.6) | **partial** | Template parts only; engine returns clamps, client drops them. |
+| Customizer for LLM-codegen + template parts (§6.6) | **wired (parser-verified)** | The engine now emits **Customizer sliders for template parts** — `emit_scad` hoists each param to `name = value; // [min:step:max]` (584 engine tests green; mesh/gate/slice unchanged). Studio's customizer **parser reads exactly that format** (its parser test uses `width = 60; // [40:1:120]`), so the parts are tunable. Pending: live panel-render check (headless preview can't drive the dockview tab) + writing tuned values back through the engine's `/api/render`. |
 | Manual orient override (§6.8) | **missing** | Auto-orient only. |
 | Slice profiles shown in plain language before slicing (§6.9) | **partial** | No pre-slice profile line / layer height. |
 | First-real-send caution state (§6.10) | **missing** | Confirm dialog identical 1st vs 100th print. |
