@@ -110,12 +110,30 @@ export class EngineClient {
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     const tok = sessionToken();
     if (tok) headers['X-KimCad-Session'] = tok; // engine CSRF gate (no-op for GETs / when absent)
-    const res = await fetch(this.base + path, {
-      method,
-      headers: Object.keys(headers).length ? headers : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    let res: Response;
+    try {
+      res = await fetch(this.base + path, {
+        method,
+        headers: Object.keys(headers).length ? headers : undefined,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      // Engine unreachable (not running / network error). Return a typed failure instead of throwing,
+      // so callers (describe, slice, …) surface a clear message rather than a silent rejection.
+      return {
+        status: 0,
+        ok: false,
+        data: { error: 'Could not reach the local engine. Is it running?' } as T,
+      };
+    }
     const data = (await res.json().catch(() => ({}))) as T;
+    // A healthy engine always returns a JSON `{error}` on failure. So a non-OK response with NO error
+    // body means we couldn't really reach it — the dev proxy answers ECONNREFUSED with a 500/502 and a
+    // non-JSON body (the `catch` above doesn't fire because the proxy, not fetch, failed). Give that a
+    // clear message instead of a confusing generic one.
+    if (!res.ok && !(data as { error?: unknown })?.error) {
+      (data as { error?: string }).error = 'Could not reach the local engine. Is it running?';
+    }
     return { status: res.status, ok: res.ok, data };
   }
 

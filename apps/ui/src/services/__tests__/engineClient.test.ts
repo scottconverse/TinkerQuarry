@@ -59,4 +59,13 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     expect(calls[0].url).toBe('/api/render/7');
     expect(header(calls[0].init, 'X-KimCad-Session')).toBeUndefined();
   });
+
+  it('returns a typed failure (not a throw) when the engine is unreachable', async () => {
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = (() =>
+      Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch;
+    const res = await new EngineClient().design('a box');
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(0);
+    expect(String(res.data.error)).toMatch(/reach the local engine/i);
+  });
 });
