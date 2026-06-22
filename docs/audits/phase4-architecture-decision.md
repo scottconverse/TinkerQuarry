@@ -80,8 +80,20 @@ Studio's renderer yields **`maxDim=70`** — the **screenshot shows the 70 mm ri
 viewer**. So BOTH LLM-codegen parts (name-tag) AND template parts (coaster) now render through the
 engine. Tests: `inline_library_includes` 2/2, source endpoint 3/3, services 7/7.
 
+## B core COMPLETE + fully verified live (2026-06-22)
+Productized and confirmed end-to-end in the running app:
+- **Entry describe → engine:** the WelcomeScreen describe routes to `handleEngineDescribe` (PRD §6.1
+  local-first); the **"Configure an AI provider" wall is removed** (WelcomeScreen test updated, 599/599).
+- **Auto-render:** `handleEngineDescribe` renders the engine's self-contained SCAD directly — viewer
+  updates with no manual step. Proven: `'a 20mm cube'` → `ok, gate:"Ready to print (92/100)"`,
+  **viewer maxDim=20 (cube rendered, screenshot)**.
+- **Readiness shown:** the verdict surfaces as a toast — **captured live: "Design ready" / "Ready to
+  print (92/100)"** (the earlier commit's note that the toast was uncaptured is now superseded — it
+  renders). Failure states (gate_failed / clarification / model_unavailable) show the plain-English reason.
+- **Template + LLM parts both render** (library inlining, above).
+
 ## Status
-De-risked AND partly built: the seam, engine, source API, glue+tests, the live proof the engine's SCAD
-renders in Studio's viewer, **and the B-core `describeIntoStudio` wiring verified end-to-end**. Next:
-resolve template-library rendering (above), add the shipping UI trigger + readiness display, drop the
-provider wall, then the A refine layer + cloud-optional visual loop (needs a key). Per builder≠auditor.
+**Phase 4 B core: done + fully verified.** Remaining: route the AI **refine** panel to the engine too
+(decision C's A layer), the **make-it-real** rail (orient→slice→print via the engine), the cloud-optional
+**visual loop** (needs a key), library vendoring, and the code drawer. Per builder≠auditor — all of the
+above is evidenced with live runs, screenshots, and tests for the auditor's review.
