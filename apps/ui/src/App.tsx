@@ -40,6 +40,7 @@ import {
 } from './stores/layoutStore';
 import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
 import { useAiAgent } from './hooks/useAiAgent';
+import { describeIntoStudio } from './services/engineDocument';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
@@ -626,6 +627,14 @@ function App() {
     updateUseModelColors,
     loadModelAndProviders,
   } = useAiAgent();
+
+  // TinkerQuarry Phase 4 (B core): expose the local-engine describe path for live verification
+  // (dev only; mirrors Studio's __TEST_ hooks). The shipping UI trigger wires to describeIntoStudio.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as { __TQ_DESCRIBE__?: typeof describeIntoStudio }).__TQ_DESCRIBE__ =
+      describeIntoStudio;
+  }, []);
 
   // Tab management functions
   const createNewTab = useCallback(

@@ -60,8 +60,25 @@ in the running app, and it's even lower-risk than Option B's render-store path:
 SCAD (`/api/source/<rid>`) → **set Studio's active document content to it** (Studio renders it normally) →
 surface the engine's gate/readiness (`engineGateSummary`) + drop the provider wall for the core describe.
 
+## B-core production wiring — BUILT + verified end-to-end (2026-06-22)
+`apps/ui/src/services/engineDocument.ts` → `describeIntoStudio(prompt)`: describe → `/api/design` →
+pull the engine's SCAD (`/api/source/<rid>`) → set Studio's active document via the documented
+`updateFileContent` store action (NO render-store surgery). Returns `{ ok, gate, rid, path }`.
+**Verified live in the running app:** `describeIntoStudio('a 60mm hexagonal coaster, 4mm thick')` →
+`{ ok:true, gate:"Ready to print (92/100)", rid:2, path:"main.scad" }`, and **Studio's editor now holds
+the engine's generated SCAD** (`use <library/dishes.scad>; coaster_with_rim(od=60, h=4, ...)`). Unit
+tests: `engineDocument` 4/4, `engineClient` 3/3, `engineDesign` 3/3; typecheck clean.
+
+### Open integration detail surfaced by live testing (the next concrete step)
+The engine's **template** parts emit `use <library/dishes.scad>;` — Studio's WASM renderer needs those
+library modules to render template SCAD. (Self-contained LLM-codegen SCAD — e.g. the earlier name-tag —
+renders directly, proven: `maxDim=50`.) **Fix options:** (a) the engine returns self-contained SCAD
+(inline the used modules) for the Studio path, or (b) provide the engine's `library/*.scad` to Studio's
+renderer as auxiliary files (`setTestAuxiliaryFiles` has a production equivalent). This is the genuine
+kind of integration detail that only real wiring surfaces — captured here for the next step.
+
 ## Status
-Everything around AND through this decision is now de-risked: the seam, the engine, the source API, the
-glue+tests, **and the live proof that the engine's SCAD renders in Studio's viewer**. The remaining work
-is the production wiring of describe→document→render + gate (well-understood, low-risk) + the A refine
-layer + the cloud-optional visual loop (needs a key). Grounded + reviewable, per builder≠auditor.
+De-risked AND partly built: the seam, engine, source API, glue+tests, the live proof the engine's SCAD
+renders in Studio's viewer, **and the B-core `describeIntoStudio` wiring verified end-to-end**. Next:
+resolve template-library rendering (above), add the shipping UI trigger + readiness display, drop the
+provider wall, then the A refine layer + cloud-optional visual loop (needs a key). Per builder≠auditor.
