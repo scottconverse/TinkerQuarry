@@ -34,7 +34,7 @@
 
 | Area (PRD ref) | Status | Notes |
 |---|---|---|
-| AI tool-using agent + Explain mode + diff/undo (§6.3) | **missing/partial** | "Refine" is single-shot, not an agent loop; no Explain mode. |
+| AI tool-using agent + Explain mode + diff/undo (§6.3) | **partial (refine wired)** | The workspace AI panel's submit now routes to the **local engine as a refine-in-context turn** (`onAiSubmit` → `handleEngineDescribe({refine:true})`; engine `history` carries context). In-progress "Designing…/Refining…" toast. Still: single-shot (not a multi-tool agent loop), no Explain mode, no diff/undo; full 2-turn refine UX (conversation bubbles) pending. |
 | Customizer for LLM-codegen parts + clamped-value surfacing (§6.6) | **partial** | Template parts only; engine returns clamps, client drops them. |
 | Manual orient override (§6.8) | **missing** | Auto-orient only. |
 | Slice profiles shown in plain language before slicing (§6.9) | **partial** | No pre-slice profile line / layer height. |
