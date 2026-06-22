@@ -749,9 +749,11 @@ function App() {
     const w = window as unknown as {
       __TQ_DESCRIBE__?: typeof handleEngineDescribe;
       __TQ_MAKE_REAL__?: typeof handleMakeItReal;
+      __TQ_SWITCH_PANEL__?: (id: string) => void;
     };
     w.__TQ_DESCRIBE__ = handleEngineDescribe;
     w.__TQ_MAKE_REAL__ = handleMakeItReal;
+    w.__TQ_SWITCH_PANEL__ = (id: string) => getDockviewApi()?.getPanel(id)?.api.setActive();
   }, [handleEngineDescribe, handleMakeItReal]);
 
   // Tab management functions
