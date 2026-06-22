@@ -108,8 +108,8 @@ python scripts/dev.py            # workspace :8753 + mock API :8766
 ## Project status
 
 **GauntletGate verdict: ✅ CLEAR TO ADVANCE** (0 Blocker / 0 Critical; a new user reaches the core
-feature). The full pipeline is proven end-to-end on real hardware; **405** front-end + **~1,554**
-engine + **19** glue tests pass. The one step deliberately left for the operator is sending to a
+feature). The full pipeline is proven end-to-end on real hardware; **405** front-end + **1,590**
+engine + **19** glue tests pass (0 failing). The one step deliberately left for the operator is sending to a
 **physical printer**. Evidence: [gate report](gate-tinkerquarry-2026-06-21/gate-report.md) ·
 honest build state: [docs/STATUS.md](docs/STATUS.md).
 

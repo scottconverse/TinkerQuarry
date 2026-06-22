@@ -229,7 +229,7 @@ def make_handler(api: MockKimCad):
 
 
 def _is_loopback(host: str) -> bool:
-    return host in ("127.0.0.1", "::1", "localhost", "")
+    return host in ("127.0.0.1", "::1", "localhost")  # NOT "" (binds all interfaces)
 
 
 def serve(host: str = "127.0.0.1", port: int = 8766) -> None:

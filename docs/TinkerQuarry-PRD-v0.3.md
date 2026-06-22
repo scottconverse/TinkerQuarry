@@ -501,9 +501,8 @@ environment; a live green run belongs on the 3.13 / pnpm toolchains.
 > toolchain. The walkthrough + full gate
 > (`gate-tinkerquarry-2026-06-21/gate-report.md`) ran the live describe→LLM→geometry→gate→slice
 > pipeline and the rebranded SPA in-browser; the Test Engineer lane measured **frontend 405/405,
-> glue 19/19, engine ~1,554 passing of ~1,667 collected** (the handful of remaining failures are
-> pre-existing env/profile drift, not product bugs). The "not re-executed here" caveat above is
-> historical.
+> glue 19/19, engine 1,590 passing / 0 failing of ~1,691 collected** (the round-1 env/profile
+> failures were fixed in round 2). The "not re-executed here" caveat above is historical.
 
 ---
 
