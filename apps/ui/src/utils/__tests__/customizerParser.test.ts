@@ -35,6 +35,32 @@ module part() {
     });
   });
 
+  it('parses the engine template emit_scad output into sliders (TinkerQuarry §6.6)', () => {
+    // Exactly what packages/engine src/kimcad/templates.py emit_scad now produces for a template part:
+    // each ParamSpec hoisted to `name = value; // [min:step:max]`, then the module called with the vars.
+    const code = `width = 80; // [10:1:170]
+depth = 60; // [10:1:170]
+wall = 2; // [0.8:0.2:8]
+use <library/containers.scad>;
+snap_box(width=width, depth=depth, wall=wall);
+`;
+    const params = parseCustomizerParams(code).flatMap((t) => t.params);
+    expect(params.find((p) => p.name === 'width')).toMatchObject({
+      name: 'width',
+      type: 'slider',
+      min: 10,
+      max: 170,
+      step: 1,
+    });
+    expect(params.find((p) => p.name === 'wall')).toMatchObject({
+      name: 'wall',
+      type: 'slider',
+      min: 0.8,
+      max: 8,
+      step: 0.2,
+    });
+  });
+
   it('binds valid @studio metadata to the next assignment', () => {
     const code = `
 /* [Dimensions] */
