@@ -1,6 +1,11 @@
 /** @jest-environment jsdom */
 
 import { jest } from '@jest/globals';
+import { fileURLToPath } from 'node:url';
+
+// `new URL(rel, import.meta.url).pathname` yields `/C:/…` on Windows (leading slash before the drive),
+// which jest.unstable_mockModule can't resolve. fileURLToPath produces a real OS path on every platform.
+const modPath = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url));
 
 const mockInvoke = jest.fn();
 const mockRequestRender = jest.fn();
@@ -42,19 +47,17 @@ let mockProjectState: {
   files: Record<string, MockProjectFile>;
 };
 
-const renderServiceModule = new URL('../renderService.ts', import.meta.url).pathname;
-const offscreenRendererModule = new URL('../offscreenRenderer.ts', import.meta.url).pathname;
-const studioToolingModule = new URL('../studioTooling.ts', import.meta.url).pathname;
-const projectStoreModule = new URL('../../stores/projectStore.ts', import.meta.url).pathname;
-const settingsStoreModule = new URL('../../stores/settingsStore.ts', import.meta.url).pathname;
-const workspaceStoreModule = new URL('../../stores/workspaceStore.ts', import.meta.url).pathname;
-const platformModule = new URL('../../platform/index.ts', import.meta.url).pathname;
-const renderRequestStoreModule = new URL('../../stores/renderRequestStore.ts', import.meta.url)
-  .pathname;
-const projectFilePathsModule = new URL('../../utils/projectFilePaths.ts', import.meta.url).pathname;
-const resolveWorkingDirDepsModule = new URL('../../utils/resolveWorkingDirDeps.ts', import.meta.url)
-  .pathname;
-const desktopMcpModule = new URL('../desktopMcp.ts', import.meta.url).pathname;
+const renderServiceModule = modPath('../renderService.ts');
+const offscreenRendererModule = modPath('../offscreenRenderer.ts');
+const studioToolingModule = modPath('../studioTooling.ts');
+const projectStoreModule = modPath('../../stores/projectStore.ts');
+const settingsStoreModule = modPath('../../stores/settingsStore.ts');
+const workspaceStoreModule = modPath('../../stores/workspaceStore.ts');
+const platformModule = modPath('../../platform/index.ts');
+const renderRequestStoreModule = modPath('../../stores/renderRequestStore.ts');
+const projectFilePathsModule = modPath('../../utils/projectFilePaths.ts');
+const resolveWorkingDirDepsModule = modPath('../../utils/resolveWorkingDirDeps.ts');
+const desktopMcpModule = modPath('../desktopMcp.ts');
 
 jest.unstable_mockModule('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
