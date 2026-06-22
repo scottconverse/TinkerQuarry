@@ -141,7 +141,9 @@ const DEFAULT_SETTINGS: Settings = {
     autoDiscoverSystem: true,
   },
   privacy: {
-    analyticsEnabled: true,
+    // TinkerQuarry (recovery Phase 3): telemetry OFF by default — strictly opt-in (PRD §12/§6.14).
+    // Studio shipped this `true`; the product is private-by-default.
+    analyticsEnabled: false,
   },
   project: {
     defaultProjectDirectory: '',

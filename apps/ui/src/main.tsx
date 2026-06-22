@@ -54,7 +54,7 @@ const INITIAL_WINDOW_STATE: BootstrapWindowState = {
 };
 
 function renderLoadingScreen(
-  title = 'Starting OpenSCAD Studio',
+  title = 'Starting TinkerQuarry',
   body = 'Loading the editor and desktop services for this window.'
 ) {
   return (
@@ -125,7 +125,7 @@ function renderBootstrapError(error: unknown) {
         }}
       >
         <h1 style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>
-          OpenSCAD Studio could not start
+          TinkerQuarry could not start
         </h1>
         <p style={{ lineHeight: 1.6, marginBottom: '1rem', color: '#93a1a1' }}>
           A required startup step failed, so the app cannot safely continue.
@@ -339,7 +339,7 @@ function BootstrapApp() {
 
       const projectState = getProjectState();
       await syncDesktopMcpWindowContext({
-        title: document.title || 'OpenSCAD Studio',
+        title: document.title || 'TinkerQuarry',
         workspaceRoot: args?.workspaceRoot ?? projectState.projectRoot,
         renderTargetPath: args?.renderTargetPath ?? projectState.renderTargetPath,
         showWelcome: nextState.mode === 'welcome',
@@ -609,7 +609,7 @@ function BootstrapApp() {
         reportStartupPhase('welcome_ready');
         if (platform.capabilities.hasFileSystem) {
           await syncDesktopMcpWindowContext({
-            title: document.title || 'OpenSCAD Studio',
+            title: document.title || 'TinkerQuarry',
             workspaceRoot: null,
             renderTargetPath: null,
             showWelcome: true,
@@ -699,7 +699,7 @@ function BootstrapApp() {
   }
 
   if (!platformReady || windowState.mode === 'booting') {
-    return renderLoadingScreen('Starting OpenSCAD Studio', bootDetail);
+    return renderLoadingScreen('Starting TinkerQuarry', bootDetail);
   }
 
   if (windowState.mode === 'opening_folder') {

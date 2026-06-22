@@ -245,7 +245,7 @@ export class WebBridge implements PlatformBridge {
   }
 
   setWindowTitle(): void {
-    document.title = 'OpenSCAD Studio';
+    document.title = 'TinkerQuarry';
   }
 
   onCloseRequested(handler: () => Promise<boolean>): () => void {

@@ -1877,7 +1877,7 @@ function App() {
         ? activeTab.name
         : 'Untitled Project';
     const dirtyIndicator = activeFileDirty ? '\u2022 ' : '';
-    const title = `${dirtyIndicator}${workspaceName} - OpenSCAD Studio`;
+    const title = `${dirtyIndicator}${workspaceName} - TinkerQuarry`;
     getPlatform().setWindowTitle(title);
 
     if (capabilities.hasFileSystem) {
