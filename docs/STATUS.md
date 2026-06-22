@@ -57,7 +57,7 @@
 | Security & privacy (per-boot session token, SCAD sandbox + worker, keyring masked secrets, **zero telemetry**) | **verified** |
 | Part-family browser + honesty tiers; clarify-once; stale-session reload | **implemented** |
 | Photo/sketch on-ramp (local vision seeding — `qwen2.5vl:3b` installed, seeding-only, NOT a visual loop) | **implemented** |
-| Tests: engine **1,590+ pass / 0 fail** (full prior run; +new `/api/source` test, webapp/security subsets green this session), **front end 592/592 green this session** (incl. new `engineDesign` 3/3 + `layoutStore` 3/3; 1 pre-existing upstream suite-collection quirk, not ours) | **verified** |
+| Tests: engine **1,590+ pass / 0 fail** (+ new `/api/source`, `inline_library_includes`, Customizer-`emit_scad` tests; emit-dependent suite 584 green this session), **front end 620/620 — ALL 86 suites green** (incl. new engineClient/engineDesign/engineDocument/customizer-parser tests; the lone failing suite `desktopMcp` — a Windows `import.meta.url`.pathname bug — was fixed) | **verified** |
 
 ## Proof-bar note
 
