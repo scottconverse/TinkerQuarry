@@ -731,6 +731,71 @@ def test_token_on_post_to_get_only_route_is_405_with_json_body(tmp_path):
         httpd.server_close()
 
 
+def test_tauri_desktop_origin_can_preflight_and_send_tokened_posts(tmp_path):
+    """The packaged desktop shell runs from Tauri's app origin, not the engine's origin.
+
+    It may call the loopback API only after a narrow preflight, and state-changing calls still
+    need the per-boot session token. A normal website origin remains refused.
+    """
+    import http.client
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    httpd = _serve_with_token(pipe, tmp_path, "desktop-token")
+    host, port = "127.0.0.1", httpd.server_address[1]
+
+    def _request(method, path, *, origin, headers=None, body=b"{}"):
+        conn = http.client.HTTPConnection(host, port, timeout=10)
+        try:
+            conn.request(
+                method,
+                path,
+                body=body if method == "POST" else None,
+                headers={"Origin": origin, **(headers or {})},
+            )
+            resp = conn.getresponse()
+            payload = resp.read()
+            return resp.status, dict(resp.getheaders()), payload
+        finally:
+            conn.close()
+
+    try:
+        status, headers, body = _request(
+            "OPTIONS",
+            "/api/settings",
+            origin="http://tauri.localhost",
+            headers={
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type,x-kimcad-session",
+            },
+            body=None,
+        )
+        assert status == 204
+        assert body == b""
+        assert headers["Access-Control-Allow-Origin"] == "http://tauri.localhost"
+        assert "X-KimCad-Session" in headers["Access-Control-Allow-Headers"]
+
+        status, headers, _body = _request(
+            "POST",
+            "/api/settings",
+            origin="http://tauri.localhost",
+            headers={"Content-Type": "application/json", "X-KimCad-Session": "desktop-token"},
+        )
+        assert status == 200
+        assert headers["Access-Control-Allow-Origin"] == "http://tauri.localhost"
+
+        status, _headers, _body = _request(
+            "OPTIONS",
+            "/api/settings",
+            origin="https://example.test",
+            headers={"Access-Control-Request-Method": "POST"},
+            body=None,
+        )
+        assert status == 403
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
 def test_session_token_is_injected_into_the_served_shell(tmp_path):
     """#31: GET / serves the SPA shell with the per-boot token substituted into the meta-tag
     placeholder, so the SPA reads + sends it; the literal placeholder never reaches the client."""

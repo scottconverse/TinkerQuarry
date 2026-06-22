@@ -3,7 +3,7 @@ mod history;
 mod mcp;
 mod types;
 
-use cmd::{update_editor_state, update_working_dir, EditorState, OpenScadBinaryState};
+use cmd::{update_editor_state, update_working_dir, EditorState, EngineState, OpenScadBinaryState};
 use history::HistoryState;
 use mcp::{
     record_window_startup_phase, remove_window, update_window_focus, McpServerState,
@@ -78,6 +78,7 @@ pub fn run() {
     let editor_state = EditorState::default();
     let history_state = HistoryState::new();
     let openscad_state = OpenScadBinaryState::default();
+    let engine_state = EngineState::default();
     let mcp_state = McpServerState::default();
     let window_mcp_state = mcp_state.clone();
 
@@ -88,6 +89,7 @@ pub fn run() {
         .manage(editor_state)
         .manage(history_state)
         .manage(openscad_state)
+        .manage(engine_state)
         .manage(mcp_state.clone())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -105,6 +107,7 @@ pub fn run() {
             cmd::render::render_init,
             cmd::render::render_native,
             cmd::render::render_cancel,
+            cmd::engine::ensure_engine,
             mcp::configure_mcp_server,
             mcp::get_mcp_server_status,
             mcp::mcp_submit_tool_response,

@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import { jest } from '@jest/globals';
 import { EngineClient } from '../engineClient';
 
 // Locks the security-relevant behavior of the engine client: state-changing POSTs carry the
@@ -22,6 +23,7 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
       } as Response);
     }) as typeof fetch;
     document.head.querySelector('meta[name="kimcad-session-token"]')?.remove();
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
   });
 
   function setToken(value: string) {
@@ -67,6 +69,23 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     expect(header(init, 'Content-Type')).toBe('application/json');
     expect(header(init, 'X-KimCad-Session')).toBe('real-token-123');
     expect(JSON.parse(init.body as string)).toEqual({ prompt: 'a box', experimental: true });
+  });
+
+  it('in packaged Tauri starts the native engine and targets its loopback API', async () => {
+    const invoke = jest.fn(async () => ({
+      apiBaseUrl: 'http://127.0.0.1:34567/api',
+      sessionToken: 'desktop-token-123',
+    }));
+    jest.unstable_mockModule('@tauri-apps/api/core', () => ({ invoke }));
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {},
+    });
+
+    await new EngineClient().design('a desktop box');
+    expect(invoke).toHaveBeenCalledWith('ensure_engine');
+    expect(calls[0].url).toBe('http://127.0.0.1:34567/api/design');
+    expect(header(calls[0].init, 'X-KimCad-Session')).toBe('desktop-token-123');
   });
 
   it('ignores an un-substituted "__…__" token placeholder (no header sent)', async () => {

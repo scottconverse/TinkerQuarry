@@ -877,6 +877,23 @@ def make_handler(
         store = get_settings_store()
         return store.all() if store is not None else {}
 
+    def desktop_cors_origin(origin: str | None) -> str | None:
+        """Allow the packaged Tauri shell to call the loopback engine directly.
+
+        Web builds stay same-origin via the Vite/engine proxy. This exception is intentionally
+        narrow: a random website on localhost still cannot pass the desktop-origin preflight.
+        """
+        if not origin:
+            return None
+        if origin in {
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "tauri://localhost",
+            "asset://localhost",
+        }:
+            return origin
+        return None
+
 
     class Handler(BaseHTTPRequestHandler):
         # QA-002: bound socket reads so a stalled/partial body (slowloris) can't pin a
@@ -916,7 +933,26 @@ def make_handler(
             if not getattr(self, "_head_only", False):
                 self.wfile.write(body)
 
-        do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _method_not_allowed
+        do_PUT = do_DELETE = do_PATCH = _method_not_allowed
+
+        def end_headers(self) -> None:
+            origin = desktop_cors_origin(self.headers.get("Origin"))
+            if origin is not None:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, X-KimCad-Session")
+                self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
+                self.send_header("Vary", "Origin")
+            super().end_headers()
+
+        def do_OPTIONS(self) -> None:
+            path = urlsplit(self.path).path
+            if not path.startswith("/api/"):
+                self._method_not_allowed()
+                return
+            if desktop_cors_origin(self.headers.get("Origin")) is None:
+                self._json(403, {"error": "CORS origin is not allowed."})
+                return
+            self._send(204, b"", "text/plain")
 
         def do_HEAD(self) -> None:
             # QA-001: HEAD on a GET resource returns the same status + headers as GET with NO

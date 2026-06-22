@@ -95,12 +95,40 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+interface DesktopEngineInfo {
+  apiBaseUrl: string;
+  sessionToken: string;
+}
+
+const DEFAULT_API_BASE = '/api';
+let desktopEnginePromise: Promise<DesktopEngineInfo | null> | null = null;
+
 /** The per-boot CSRF token the engine injects when it serves the page shell (or a dev token). */
 function sessionToken(): string | null {
   if (typeof document === 'undefined') return null;
   const el = document.querySelector('meta[name="kimcad-session-token"]');
   const v = el?.getAttribute('content') ?? '';
   return v && !v.startsWith('__') ? v : null; // ignore an un-substituted "__…__" placeholder
+}
+
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+async function desktopEngineInfo(): Promise<DesktopEngineInfo | null> {
+  if (!isTauriRuntime()) return null;
+  desktopEnginePromise ??= import('@tauri-apps/api/core')
+    .then(({ invoke }) => invoke<DesktopEngineInfo>('ensure_engine'))
+    .then((info) =>
+      info?.apiBaseUrl && info?.sessionToken
+        ? info
+        : Promise.reject(new Error('Tauri returned an incomplete engine configuration.'))
+    )
+    .catch(() => {
+      desktopEnginePromise = null;
+      return null;
+    });
+  return desktopEnginePromise;
 }
 
 export interface SavedDesignEntry {
@@ -113,16 +141,24 @@ export interface SavedDesignEntry {
 }
 
 export class EngineClient {
-  constructor(private readonly base: string = '/api') {}
+  constructor(private readonly base: string = DEFAULT_API_BASE) {}
 
   private async req<T>(method: string, path: string, body?: unknown): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    const tok = sessionToken();
+    let base = this.base;
+    let tok = sessionToken();
+    if (base === DEFAULT_API_BASE) {
+      const desktop = await desktopEngineInfo();
+      if (desktop) {
+        base = desktop.apiBaseUrl;
+        tok ??= desktop.sessionToken;
+      }
+    }
     if (tok) headers['X-KimCad-Session'] = tok; // engine CSRF gate (no-op for GETs / when absent)
     let res: Response;
     try {
-      res = await fetch(this.base + path, {
+      res = await fetch(base + path, {
         method,
         headers: Object.keys(headers).length ? headers : undefined,
         body: body !== undefined ? JSON.stringify(body) : undefined,
