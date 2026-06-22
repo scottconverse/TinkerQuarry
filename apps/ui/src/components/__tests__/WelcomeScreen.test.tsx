@@ -123,7 +123,7 @@ describe('WelcomeScreen', () => {
     ]);
   });
 
-  it('keeps the desktop no-provider welcome state focused on built-in AI setup only', async () => {
+  it('shows the describe surface with no cloud provider (TinkerQuarry local-first; no provider wall)', async () => {
     clearApiKey('openai');
     clearApiKey('anthropic');
     mockGetPlatform.mockReturnValue({
@@ -149,7 +149,9 @@ describe('WelcomeScreen', () => {
       />
     );
 
-    expect(screen.getByText('Configure an AI provider to use the AI assistant')).toBeTruthy();
-    expect(screen.queryByText('Claude Code')).toBeNull();
+    // Local-first: the bundled engine is the brain, so the describe surface is shown and the old
+    // "Configure an AI provider" wall is gone even with no cloud key configured.
+    expect(screen.queryByText('Configure an AI provider to use the AI assistant')).toBeNull();
+    expect(screen.getByText('Try an example:')).toBeTruthy();
   });
 });

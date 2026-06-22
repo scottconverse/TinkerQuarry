@@ -1396,12 +1396,19 @@ function App() {
       }
       hideWelcomeScreen();
 
-      // Create project directory before submitting AI draft
+      // TinkerQuarry (PRD §6.1 local-first; decision C): the initial describe goes to the LOCAL
+      // ENGINE (describe → geometry + readiness), not a cloud chat agent. The conversational agent is
+      // the optional refine/explain layer. Fall back to the agent only when there's no prompt text.
+      const prompt = (draftOverride?.text ?? draft.text ?? '').trim();
       void initProjectDirectory().then(() => {
-        void submitDraft(draftOverride);
+        if (prompt) {
+          void handleEngineDescribe(prompt);
+        } else {
+          void submitDraft(draftOverride);
+        }
       });
     },
-    [hideWelcomeScreen, setDraft, submitDraft, initProjectDirectory]
+    [hideWelcomeScreen, setDraft, submitDraft, initProjectDirectory, handleEngineDescribe, draft.text]
   );
 
   const handleStartManually = useCallback(() => {

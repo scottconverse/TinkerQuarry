@@ -5,7 +5,7 @@ import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
 import { TbFileText, TbFolder, TbFolderOpen } from 'react-icons/tb';
 import { getPlatform } from '../platform';
-import { useHasApiKey, type AiProvider } from '../stores/apiKeyStore';
+import { type AiProvider } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
 import {
   loadRecentFiles,
@@ -87,7 +87,9 @@ export function WelcomeScreen({
 }: WelcomeScreenProps) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
-  const hasApiKey = useHasApiKey();
+  // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
+  // describe surface is always available — there is no "configure a provider" wall.
+  const hasApiKey: boolean = true;
 
   // Shorten home directory to ~/ for display
   const displayPath = useMemo(() => {
