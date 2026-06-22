@@ -69,13 +69,16 @@ pull the engine's SCAD (`/api/source/<rid>`) → set Studio's active document vi
 the engine's generated SCAD** (`use <library/dishes.scad>; coaster_with_rim(od=60, h=4, ...)`). Unit
 tests: `engineDocument` 4/4, `engineClient` 3/3, `engineDesign` 3/3; typecheck clean.
 
-### Open integration detail surfaced by live testing (the next concrete step)
-The engine's **template** parts emit `use <library/dishes.scad>;` — Studio's WASM renderer needs those
-library modules to render template SCAD. (Self-contained LLM-codegen SCAD — e.g. the earlier name-tag —
-renders directly, proven: `maxDim=50`.) **Fix options:** (a) the engine returns self-contained SCAD
-(inline the used modules) for the Studio path, or (b) provide the engine's `library/*.scad` to Studio's
-renderer as auxiliary files (`setTestAuxiliaryFiles` has a production equivalent). This is the genuine
-kind of integration detail that only real wiring surfaces — captured here for the next step.
+### Template-library rendering — SOLVED + visually verified (2026-06-22)
+The engine's **template** parts emit `use <library/dishes.scad>;`, which Studio's WASM renderer lacks.
+Fixed via **self-contained SCAD (option a)**: `openscad_runner.inline_library_includes` resolves
+`use/include <library/*.scad>` by inlining the trusted library files (recursive, deduped,
+traversal-checked — same sandbox discipline), exposed as `GET /api/source/<rid>?inline=1`;
+`describeIntoStudio` fetches the inlined form. **Proven live:** the coaster's source goes 87 B →
+**69,966 B self-contained (no `use <library>`, contains `module coaster_with_rim`)**, and feeding it to
+Studio's renderer yields **`maxDim=70`** — the **screenshot shows the 70 mm rimmed coaster in Studio's
+viewer**. So BOTH LLM-codegen parts (name-tag) AND template parts (coaster) now render through the
+engine. Tests: `inline_library_includes` 2/2, source endpoint 3/3, services 7/7.
 
 ## Status
 De-risked AND partly built: the seam, engine, source API, glue+tests, the live proof the engine's SCAD

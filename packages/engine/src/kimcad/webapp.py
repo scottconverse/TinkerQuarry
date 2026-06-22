@@ -1335,7 +1335,14 @@ def make_handler(
             if not scad:
                 self._json(404, {"error": "source not found"})
                 return
-            self._json(200, {"rid": rid, "scad": scad})
+            # `?inline=1`: return self-contained SCAD (library `use/include` resolved), so a renderer
+            # without the engine's library/ on disk (the absorbed front end's WASM) can render it.
+            inline = parse_qs(urlsplit(self.path).query).get("inline", ["0"])[0] in ("1", "true")
+            if inline:
+                from .openscad_runner import inline_library_includes
+
+                scad = inline_library_includes(scad)
+            self._json(200, {"rid": rid, "scad": scad, "inlined": inline})
 
         def _reject_oversized_body(self, declared: int, message: str) -> None:
             """Send a typed 413 for an over-limit request body WITHOUT leaving undrained bytes

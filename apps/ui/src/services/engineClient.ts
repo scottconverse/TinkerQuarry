@@ -115,9 +115,12 @@ export class EngineClient {
   outcome(rid: number, outcome: string) {
     return this.req<Record<string, unknown>>('POST', `/print-outcome/${rid}`, { outcome });
   }
-  /** Phase 5: the generated OpenSCAD source behind a design (read-only) — for the code drawer. */
-  source(rid: number) {
-    return this.req<{ rid: number; scad: string }>('GET', `/source/${rid}`);
+  /** Phase 5: the generated OpenSCAD source behind a design (read-only) — for the code drawer.
+   *  `inline` resolves library `use/include` into self-contained SCAD so a renderer without the
+   *  engine's library/ on disk (Studio's WASM) can render it. */
+  source(rid: number, inline = false) {
+    const q = inline ? '?inline=1' : '';
+    return this.req<{ rid: number; scad: string; inlined?: boolean }>('GET', `/source/${rid}${q}`);
   }
 
   // --- catalog / status (no token needed) ---

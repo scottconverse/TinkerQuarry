@@ -45,7 +45,9 @@ export async function describeIntoStudio(prompt: string): Promise<EngineDocOutco
     return { ok: false, gate, rid, error: result.error ?? String(result.status ?? 'no design') };
   }
 
-  const { ok: srcOk, data } = await engine.source(rid);
+  // Inlined = self-contained SCAD (library use/include resolved), so Studio's WASM viewer renders
+  // template parts too (LLM-codegen parts are already self-contained).
+  const { ok: srcOk, data } = await engine.source(rid, true);
   if (!srcOk || !data?.scad) {
     return { ok: false, gate, rid, error: 'engine returned no source' };
   }

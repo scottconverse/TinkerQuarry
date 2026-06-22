@@ -182,6 +182,35 @@ def inject_library_uses(
     return "\n".join(added) + "\n" + code, added
 
 
+def inline_library_includes(
+    code: str, library_dir: Path = LIBRARY_DIR, _seen: set[str] | None = None
+) -> str:
+    """Return self-contained SCAD: each ``use/include <library/FILE.scad>`` is replaced by that
+    library file's content (recursively; each file inlined at most once), so the SCAD renders with no
+    ``library/`` dir on disk — e.g. in the absorbed front end's bundled OpenSCAD-WASM (TinkerQuarry
+    Phase 4). Security mirrors the sandbox: ONLY files inside the approved ``library/`` path are
+    inlined (traversal-checked); any other include is left untouched (the render sandbox strips it).
+    A self-contained input is returned unchanged."""
+    seen = _seen if _seen is not None else set()
+
+    def repl(m: "re.Match[str]") -> str:
+        path = m.group(2).strip()
+        if not _approved_library_path(path):
+            return m.group(0)  # non-library include: leave it (sandbox handles it at render)
+        name = path[len(_APPROVED_PREFIX) :]
+        if name in seen:
+            return "  // (library/" + name + " already inlined)"
+        seen.add(name)
+        try:
+            content = (library_dir / name).read_text(encoding="utf-8")
+        except OSError:
+            return m.group(0)  # unreadable: leave the original line so the failure is honest
+        inlined = inline_library_includes(content, library_dir, seen)
+        return f"// >>> inlined library/{name}\n{inlined}\n// <<< library/{name}"
+
+    return _USE_INCLUDE_RE.sub(repl, code)
+
+
 def ensure_terminated(code: str) -> tuple[str, bool]:
     """Append a missing ``;`` when the code ends with an unterminated call.
 

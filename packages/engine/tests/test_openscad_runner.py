@@ -276,3 +276,23 @@ def test_render_timeout(tmp_path, monkeypatch):
     monkeypatch.setattr(osr.subprocess, "run", _run)
     with pytest.raises(RenderTimeout):
         render_scad("cube(5);", binary=_stub_binary(tmp_path), out_dir=tmp_path, timeout_s=1)
+
+
+def test_inline_library_includes_makes_template_scad_self_contained():
+    """TinkerQuarry Phase 4: a template part's `use <library/...>` is resolved into self-contained
+    SCAD (the library module is inlined) so a renderer without library/ on disk can render it."""
+    code = "use <library/dishes.scad>;\ncoaster_with_rim(od=60, h=4);\n"
+    out = osr.inline_library_includes(code)
+    assert "use <library/dishes.scad>" not in out  # the include was resolved away
+    assert "module coaster_with_rim" in out  # the library's module is now inlined
+    assert "coaster_with_rim(od=60, h=4)" in out  # the original call is preserved
+
+
+def test_inline_library_includes_leaves_self_contained_and_unapproved_untouched():
+    """A self-contained part is unchanged; a traversal/external include is NOT inlined (sandbox
+    discipline) and is left as-is for the render sandbox to handle."""
+    self_contained = "width = 50;\ncube([width, 30, 10]);\n"
+    assert osr.inline_library_includes(self_contained) == self_contained
+    traversal = "use <library/../../etc/passwd>;\ncube(1);\n"
+    out = osr.inline_library_includes(traversal)
+    assert "../../etc/passwd" in out  # not inlined — left untouched, never read
