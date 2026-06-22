@@ -6,10 +6,13 @@
 "done"/"CLEAR TO ADVANCE" claim.
 
 > **One-line truth:** TinkerQuarry is **a partial implementation**, not a finished product. There is a
-> strong, real **KimCad manufacturing engine** and a convincing **design prototype** — but the product's
-> defining front-end (the absorbed OpenSCAD-Studio editor/viewer/customizer and the **Visual Correction
-> Loop**) is **not built**, and the shipping UI is KimCad's own SPA reskinned, **not** the supplied
-> TinkerQuarry design. Recovery is in progress per
+> strong, real **KimCad manufacturing engine** (now forked into `packages/engine`) and the
+> **OpenSCAD-Studio front end is now absorbed** into `tinkerquarry/apps/ui` (TinkerQuarry-branded,
+> telemetry off, 3-column layout) — so the old "shipping KimCad's reskinned SPA" gap is **closed**. The
+> **engine↔front-end seam is proven** (authenticated `describe→/api/design→mesh`, plus a `/api/source`
+> code endpoint). **Still not built:** the **Visual Correction Loop** (the signature feature — and per the
+> vision spike it must ship **cloud-optional**), and the wiring of Studio's viewer/editor/customizer onto
+> the engine. Recovery is in progress per
 > [TinkerQuarry-Recovery-Plan-v2.md](TinkerQuarry-Recovery-Plan-v2.md).
 
 **Status legend:** `missing` (not built) · `partial` (some of it / engine-only / stub) · `implemented`
@@ -19,10 +22,10 @@
 
 | Area (PRD ref) | Status | Notes |
 |---|---|---|
-| **Visual Correction Loop** (§6.3.1) | **missing** | The signature feature. Not in engine or SPA. PRD acceptance (wrong-face hole flagged) currently **fails**. |
-| **OpenSCAD Studio front-end absorbed** (§11, §13) | **in-progress** | **Phase 1 PASS (2026-06-22):** Studio forked into `tinkerquarry/apps/ui`, boots inside the repo and reaches the real engine `/api/health` — its Editor/Customizer/AI/3D-viewer (ortho/wireframe/shadows/pan) now present. Reskin = Phase 3, engine integration = Phase 2. Proof: [audits/phase1-proof.md](audits/phase1-proof.md). |
+| **Visual Correction Loop** (§6.3.1) | **missing (architecture decided)** | The signature feature; not built yet. **Vision spike done (2026-06-22):** local `qwen2.5vl:3b` **fails** spatial critique — 0/3 planted errors caught (it confirms features that aren't there), failing the PRD wrong-face acceptance → **v1 loop must ship cloud-optional** (PRD §14 #1). Proof: [audits/vision-spike.md](audits/vision-spike.md). |
+| **OpenSCAD Studio front-end absorbed** (§11, §13) | **in-progress** | **Phase 1 PASS (2026-06-22):** Studio forked into `tinkerquarry/apps/ui`, boots inside the repo and reaches the real engine `/api/health`. **Phase 4 foundation:** typed `engineClient` + authenticated dev wiring; `describe→/api/design→mesh` proven end-to-end (38 KB STL); `engineDesign` glue (engine result → viewer fields). Pending: wire Studio's surfaces onto it. Proof: [audits/phase1-proof.md](audits/phase1-proof.md), [audits/phase4-progress.md](audits/phase4-progress.md). |
 | **Supplied design interface productized** (design spec) | **in-progress** | **Phase 3:** real app is now the forked Studio (TinkerQuarry-branded, telemetry off, **3-column AI \| preview \| Customize** layout matching the design at desktop width). Pending: the **Make it real** rail (Phase 4 net-new) + full design polish. |
-| **"Show me the code" / OpenSCAD editor** (§6.5) | **present (front-end)** | Studio's Monaco editor is in the fork (Editor tab/column) — syntax, diagnostics, edit. Pending: wire user edits to re-enter the **engine** pipeline + expose `.scad` over the engine API (Phase 4/5). |
+| **"Show me the code" / OpenSCAD editor** (§6.5) | **present + read-source wired** | Studio's Monaco editor is in the fork. **Phase 5:** engine now exposes the generated source — `GET /api/source/<rid>` returns the real `.scad` (verified live + unit test); `engineClient.source()` added. Pending: surface it in the code drawer + wire **edits** back through the engine pipeline (behind the SCAD sandbox). |
 | **Rich 3D viewer** (§6.4) | **present (front-end)** | The forked Studio viewer brings **preset views, ortho, wireframe, shadows, pan/orbit/zoom, measure, build-plate, offscreen multi-view capture** (the loop's inputs). Pending: feed it from the **engine** render + section-plane/2D-SVG verification (Phase 4). |
 | **Right panel = Customize / Make it real** (design) | **partial** | **Customize** is now its own right column (Phase 3). **Make it real** (orient→slice→print rail) is net-new, Phase 4. |
 | Real prompt → printable design — from the canonical repo | **verified** | **Phase 2 PASS:** `packages/engine` does design→gate→slice (31k-line G-code) + 38 sandbox tests pass, from `tinkerquarry`. [audits/phase2-proof.md](audits/phase2-proof.md). |
@@ -54,7 +57,7 @@
 | Security & privacy (per-boot session token, SCAD sandbox + worker, keyring masked secrets, **zero telemetry**) | **verified** |
 | Part-family browser + honesty tiers; clarify-once; stale-session reload | **implemented** |
 | Photo/sketch on-ramp (local vision seeding — `qwen2.5vl:3b` installed, seeding-only, NOT a visual loop) | **implemented** |
-| Tests: engine **1,590 pass / 0 fail**, frontend **407**, glue **19** | **verified** |
+| Tests: engine **1,590+ pass / 0 fail** (full prior run; +new `/api/source` test, webapp/security subsets green this session), **front end 592/592 green this session** (incl. new `engineDesign` 3/3 + `layoutStore` 3/3; 1 pre-existing upstream suite-collection quirk, not ours) | **verified** |
 
 ## Proof-bar note
 
@@ -64,8 +67,8 @@ the canonical app per the recovery plan's Definition of Done.
 
 ## Run (today, honest)
 
-- **Engine, real, headless:** from `KimCadClaude/`: `.venv313\Scripts\kimcad.exe design "a 90 mm dish" --slice`
-- **Real engine UI (KimCad's SPA, pre-absorption):** from `KimCadClaude/`: `.venv313\Scripts\kimcad.exe web`
-- **Offline prototype + mock (design preview only, NOT product):** from `tinkerquarry/`: `python scripts/dev.py`
-
-*(A single canonical `tinkerquarry` run command lands in Phase 1, once the Studio base boots here.)*
+- **The real app (forked Studio + forked engine), dev:**
+  1. Engine: from `tinkerquarry/packages/engine/`: `TINKERQUARRY_DEV_TOKEN=tq-dev-token .venv\Scripts\kimcad.exe web --port 8765`
+  2. Front end: from `tinkerquarry/apps/ui/`: `pnpm dev` (vite :1420; proxies `/api`→engine with the dev token).
+  - The page boots TinkerQuarry-branded, pings `/api/health`, shows the 3-column layout; `describe→/api/design→mesh` and `/api/source` work over the proxy. **Not yet wired:** Studio's surfaces onto the engine (Phase 4 body).
+- **Engine, real, headless (canonical repo):** from `tinkerquarry/packages/engine/`: `.venv\Scripts\kimcad.exe design "a 90 mm dish" --slice`
