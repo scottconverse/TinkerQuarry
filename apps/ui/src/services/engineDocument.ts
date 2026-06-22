@@ -112,8 +112,8 @@ export async function describeIntoStudio(
 }
 
 /** Set `scad` as the workspace's active document: replace the render-target file's content, or create
- *  one in an empty workspace. Returns the document path. Shared by describe and reopen. */
-function setEngineDocument(scad: string): string {
+ *  one in an empty workspace. Returns the document path. Shared by describe, reopen, and undo. */
+export function setEngineDocument(scad: string): string {
   const store = getProjectStore();
   const state = store.getState();
   const path = state.renderTargetPath ?? listProjectFiles(state)[0];

@@ -43,6 +43,7 @@ import { useAiAgent } from './hooks/useAiAgent';
 import {
   describeIntoStudio,
   reopenIntoStudio,
+  setEngineDocument,
   pureTuneValues,
   type EngineTurn,
 } from './services/engineDocument';
@@ -644,6 +645,14 @@ function App() {
   // The exact SCAD the engine last set as the document — to detect manual edits before slicing
   // (slicing acts on the engine's rid server-side, so post-edit code isn't reflected yet).
   const lastEngineScadRef = useRef<string | null>(null);
+  // The current design's readiness string, mirrored as a ref so the undo stack can capture it without
+  // a stale closure when a new design overwrites the current one.
+  const lastGateRef = useRef<string | null>(null);
+  // §6.3 undo: a session stack of prior engine designs. Each describe/refine/reopen pushes the design
+  // it replaces, so the user can step back instantly instead of re-describing (a 60–90s round-trip).
+  const [engineUndoStack, setEngineUndoStack] = useState<
+    { scad: string; rid: number; gate: string | null }[]
+  >([]);
   // Whether an engine design exists yet — drives the "Make it real" button's enabled state.
   const [hasEngineDesign, setHasEngineDesign] = useState(false);
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
@@ -669,8 +678,18 @@ function App() {
       const result = await describeIntoStudio(prompt, engineHistoryRef.current);
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
+        // §6.3 undo: remember the design we're about to replace so the user can step back instantly.
+        if (lastEngineRidRef.current != null && lastEngineScadRef.current) {
+          const prev = {
+            scad: lastEngineScadRef.current,
+            rid: lastEngineRidRef.current,
+            gate: lastGateRef.current,
+          };
+          setEngineUndoStack((s) => [...s, prev]);
+        }
         lastEngineRidRef.current = result.rid ?? null;
         lastEngineScadRef.current = result.scad ?? null;
+        lastGateRef.current = result.gate || null;
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
         engineHistoryRef.current = [
@@ -806,8 +825,18 @@ function App() {
       if (result.ok && result.scad) {
         hideWelcomeScreen();
         renderCodeDirect(result.scad);
+        // §6.3 undo: stepping into a saved design also pushes the one it replaces.
+        if (lastEngineRidRef.current != null && lastEngineScadRef.current) {
+          const prev = {
+            scad: lastEngineScadRef.current,
+            rid: lastEngineRidRef.current,
+            gate: lastGateRef.current,
+          };
+          setEngineUndoStack((s) => [...s, prev]);
+        }
         lastEngineRidRef.current = result.rid ?? null;
         lastEngineScadRef.current = result.scad;
+        lastGateRef.current = result.gate || null;
         engineHistoryRef.current = [];
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
@@ -823,6 +852,23 @@ function App() {
     },
     [renderCodeDirect, hideWelcomeScreen]
   );
+
+  // §6.3 undo: step back to the design that preceded the latest describe/refine/reopen. Restores the
+  // document (so the viewer + editor + Customizer reflect it) and the engine rid (so "Make it real"
+  // slices it), without a fresh engine round-trip.
+  const handleUndoEngine = useCallback(() => {
+    if (!engineUndoStack.length) return;
+    const prev = engineUndoStack[engineUndoStack.length - 1];
+    setEngineDocument(prev.scad);
+    renderCodeDirect(prev.scad);
+    lastEngineScadRef.current = prev.scad;
+    lastEngineRidRef.current = prev.rid;
+    lastGateRef.current = prev.gate;
+    setLiveReadiness(prev.gate);
+    setHasEngineDesign(true);
+    setEngineUndoStack((s) => s.slice(0, -1));
+    notifySuccess('Reverted to the previous design', { toastId: 'engine-design' });
+  }, [engineUndoStack, renderCodeDirect]);
 
   // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
   // as a refine-in-context turn (the WelcomeScreen entry already routes the first describe to the
@@ -841,12 +887,16 @@ function App() {
       __TQ_MAKE_REAL__?: typeof handleMakeItReal;
       __TQ_SWITCH_PANEL__?: (id: string) => void;
       __TQ_SHOW_WELCOME__?: () => void;
+      __TQ_REOPEN__?: typeof handleReopenDesign;
+      __TQ_UNDO__?: typeof handleUndoEngine;
     };
     w.__TQ_DESCRIBE__ = handleEngineDescribe;
     w.__TQ_MAKE_REAL__ = handleMakeItReal;
     w.__TQ_SWITCH_PANEL__ = (id: string) => getDockviewApi()?.getPanel(id)?.api.setActive();
     w.__TQ_SHOW_WELCOME__ = showWelcomeScreen;
-  }, [handleEngineDescribe, handleMakeItReal, showWelcomeScreen]);
+    w.__TQ_REOPEN__ = handleReopenDesign;
+    w.__TQ_UNDO__ = handleUndoEngine;
+  }, [handleEngineDescribe, handleMakeItReal, showWelcomeScreen, handleReopenDesign, handleUndoEngine]);
 
   // Live readiness while tuning: when the document is a pure Customizer tune of the engine's design,
   // re-gate it on the engine (debounced) so the readiness reflects the tuned values — and keep the
@@ -2683,6 +2733,19 @@ function App() {
                 Render (⌘↵)
               </Button>
             </>
+          )}
+
+          {engineUndoStack.length > 0 && (
+            <Button
+              data-testid="undo-design-button"
+              variant="ghost"
+              onClick={handleUndoEngine}
+              size="sm"
+              className="text-xs px-2 py-1"
+              title="Revert to the previous design (undo the last describe/refine)"
+            >
+              Undo
+            </Button>
           )}
 
           <Button
