@@ -137,13 +137,18 @@ export function addPresetPanels(
       });
       const aiFpPreview = api.getPanel('preview');
       if (aiFpPreview) {
+        // TinkerQuarry (recovery Phase 3): the supplied design is 3-column — AI (left) ·
+        // 3D preview (center) · Customize (right). Make the customizer its OWN right column
+        // (was a tab in the preview group). The "Make it real" rail (orient/slice/print) is the
+        // net-new right-rail addition wired to the engine in Phase 4.
         api.addPanel({
           id: 'customizer',
           component: 'customizer',
           title: 'Customizer',
-          position: { referenceGroup: aiFpPreview.group.id },
-          inactive: true,
+          position: { referencePanel: 'preview', direction: 'right' },
+          initialWidth: 380,
         });
+        // Console stays an inactive tab in the center (preview) group.
         api.addPanel({
           id: 'console',
           component: 'console',

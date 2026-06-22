@@ -82,15 +82,17 @@ function createMockApi(): MockDockview & DockviewApi {
 }
 
 describe('layoutStore addPresetPanels', () => {
-  it('places the AI-first console in the preview tab group', () => {
+  it('lays AI-first out as 3 columns: AI/editor | preview/console | customizer (TinkerQuarry design)', () => {
     const api = createMockApi();
 
     addPresetPanels(api, 'ai-first');
 
-    expect(api.groups).toHaveLength(2);
+    // 3 columns now (was 2): AI (with editor tab) | preview (with console tab) | Customize.
+    expect(api.groups).toHaveLength(3);
     expect(api.getPanel('ai-chat')?.group.id).toBe(api.getPanel('editor')?.group.id);
-    expect(api.getPanel('preview')?.group.id).toBe(api.getPanel('customizer')?.group.id);
     expect(api.getPanel('preview')?.group.id).toBe(api.getPanel('console')?.group.id);
+    // The customizer ("Customize") is its OWN right column, not a tab in the preview group.
+    expect(api.getPanel('customizer')?.group.id).not.toBe(api.getPanel('preview')?.group.id);
   });
 
   it('uses a single preview+customizer tab group on mobile', () => {
