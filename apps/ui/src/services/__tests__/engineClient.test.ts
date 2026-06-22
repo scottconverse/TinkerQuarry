@@ -42,6 +42,22 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     expect(header(calls[0].init, 'X-KimCad-Session')).toBeUndefined();
   });
 
+  it('slice sends the chosen printer + material in the body (§6.9 picker)', async () => {
+    await new EngineClient().slice(5, 'elegoo_neptune_4_max', 'petg');
+    expect(calls[0].url).toBe('/api/slice/5');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({
+      printer: 'elegoo_neptune_4_max',
+      material: 'petg',
+    });
+  });
+
+  it('deleteDesign hits the right path with POST (§6.12 manage)', async () => {
+    await new EngineClient().deleteDesign('abc123');
+    expect(calls[0].url).toBe('/api/designs/abc123/delete');
+    expect(calls[0].init.method).toBe('POST');
+  });
+
   it('POST design sends the JSON body and, when present, the session token', async () => {
     setToken('real-token-123');
     await new EngineClient().design('a box', { experimental: true });
