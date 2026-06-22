@@ -115,6 +115,10 @@ export class EngineClient {
   outcome(rid: number, outcome: string) {
     return this.req<Record<string, unknown>>('POST', `/print-outcome/${rid}`, { outcome });
   }
+  /** Phase 5: the generated OpenSCAD source behind a design (read-only) — for the code drawer. */
+  source(rid: number) {
+    return this.req<{ rid: number; scad: string }>('GET', `/source/${rid}`);
+  }
 
   // --- catalog / status (no token needed) ---
   health() {

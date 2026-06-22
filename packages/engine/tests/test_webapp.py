@@ -2452,6 +2452,23 @@ def _template_box_pipeline():
     return _pipeline(FakeProvider(plan), _box_renderer((80, 60, 40)))
 
 
+def test_source_endpoint_returns_generated_scad(tmp_path):
+    """TinkerQuarry Phase 5: /api/source/<rid> returns the generated OpenSCAD behind a live design
+    (the code-drawer prerequisite); an unknown id is a clean 404 with no state leak."""
+    with _serve_with_designs(_template_box_pipeline(), tmp_path / "web", tmp_path / "store") as (h, p):
+        st, design = _jreq(h, p, "POST", "/api/design", {"prompt": "a box"})
+        assert st == 200 and design["status"] == "completed"
+        rid = int(design["mesh_url"].rsplit("/", 1)[-1])
+
+        st, src = _jreq(h, p, "GET", f"/api/source/{rid}")
+        assert st == 200
+        assert src["rid"] == rid
+        assert isinstance(src["scad"], str) and src["scad"].strip()  # real generated source
+
+        st, miss = _jreq(h, p, "GET", "/api/source/99999")
+        assert st == 404 and "not found" in miss["error"].lower()
+
+
 def test_designs_full_round_trip(tmp_path):
     with _serve_with_designs(_template_box_pipeline(), tmp_path / "web", tmp_path / "store") as (h, p):
         st, design = _jreq(h, p, "POST", "/api/design", {"prompt": "a box"})

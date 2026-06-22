@@ -294,6 +294,11 @@ def _design_snapshot(
         "gate_status": report.get("gate_status", ""),
         "readiness_score": readiness.get("score") if isinstance(readiness, dict) else None,
         "template_family": payload.get("template"),
+        # TinkerQuarry Phase 5: the generated OpenSCAD source, so the code drawer can show the
+        # exact .scad behind the live geometry. In-memory only (reg.snapshot, evicted in lockstep);
+        # not persisted via store.save (which takes only ``payload``). Read-only here — it's the
+        # engine's OWN generated source; the edit/rerun path stays behind the SCAD sandbox.
+        "scad": getattr(result, "scad", None),
     }
 
 
@@ -1055,6 +1060,11 @@ def make_handler(
                 # Stage 8 Slice 4: download the editable-CAD (STEP) export of a CadQuery part.
                 self._serve_step(urlsplit(self.path).path.rsplit("/", 1)[-1])
                 return
+            if self.path.startswith("/api/source/"):
+                # TinkerQuarry Phase 5: the generated OpenSCAD source behind a design (read-only;
+                # the code drawer renders it). Source of truth is the live snapshot per rid.
+                self._serve_source(urlsplit(self.path).path.rsplit("/", 1)[-1])
+                return
             # MS-3: poll the live phase of an in-flight design (planning/generating/rendering/
             # validating). Always 200 — an unknown or finished id returns a null phase, so the
             # client's poller never errors. Distinct from "/api/designs" (the saved-designs list).
@@ -1309,6 +1319,23 @@ def make_handler(
             # ENG-006: stream from disk (Content-Length from stat()) instead of read_bytes() —
             # an imported mesh can be up to 64 MiB; buffering it per concurrent request spikes RSS.
             self._stream_file(mesh_path, content_type)
+
+        def _serve_source(self, raw_id: str) -> None:
+            # TinkerQuarry Phase 5: return the generated OpenSCAD source for a live design id, so the
+            # code drawer can show the exact .scad behind the geometry. Read-only; mirrors _serve_mesh's
+            # id-parse + locked-snapshot read. Unknown/finished/evicted id → 404 (never leaks state).
+            try:
+                rid = int(raw_id)
+            except ValueError:
+                self._json(404, {"error": "source not found"})
+                return
+            with reg.lock:
+                snap = reg.snapshot.get(rid)
+            scad = (snap or {}).get("scad")
+            if not scad:
+                self._json(404, {"error": "source not found"})
+                return
+            self._json(200, {"rid": rid, "scad": scad})
 
         def _reject_oversized_body(self, declared: int, message: str) -> None:
             """Send a typed 413 for an over-limit request body WITHOUT leaving undrained bytes

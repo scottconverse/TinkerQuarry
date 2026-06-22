@@ -7,3 +7,4 @@ Owner: (assign). Upstream: KimCadClaude @ 0962260.
 - (none yet — Phase 2 fork baseline)
 - Phase 2 fix: copied top-level library/ (SCAD template modules) that the initial src-only fork missed.
 - Phase 4: webapp.py accepts TINKERQUARRY_DEV_TOKEN env (dev session token for the vite-proxied front end); unset -> per-boot random token (prod unchanged).
+- Phase 5: snapshot captures result.scad (in-memory); GET /api/source/<rid> returns the generated OpenSCAD for the code drawer (read-only; edit/rerun stays behind the SCAD sandbox).
