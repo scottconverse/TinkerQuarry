@@ -25,7 +25,19 @@
 - Note: `/api/design` returns the id via `mesh_url` (`/api/mesh/1`), not a top-level `rid` — engineClient
   will read the id from there / the response; minor shape adaptation when wiring.
 
+## Verification (this checkpoint — 13 commits, Phases 0–4-foundation)
+- **Frontend suite: 592/592 tests pass** (incl. the new `engineDesign` 3/3 + `layoutStore` 3/3). One
+  *suite* (`desktopMcp.test.ts`) fails to *collect* on a mock module-resolution error — **pre-existing
+  in upstream openscad-studio** (the original repo reports `0 total` for it too), not a fork/this-work
+  regression; a test-infra cleanup item.
+- **Forked engine webapp security tests: 13/13 pass** (token/session/health/model-status) after the
+  `TINKERQUARRY_DEV_TOKEN` change — session-token CSRF unbroken.
+- Plus the gated proofs: Phase 1 (boot+health), Phase 2 (design→gate→slice + 38 sandbox tests), Phase 4
+  (authenticated POST + describe→mesh).
+
 ## Honest status
-The **seam is real and proven** (authenticated front-end ↔ engine, describe→geometry over HTTP). What
-remains is rewiring Studio's existing UI surfaces (AI panel, viewer, customizer) onto `engineClient`,
-which is the substantial body of Phase 4.
+The **seam is real and proven** (authenticated front-end ↔ engine, describe→geometry over HTTP), and the
+whole tree is green. What remains is rewiring Studio's existing UI surfaces (AI panel → `runEngineDesign`,
+viewer → engine `mesh_url`, customizer → engine `params`) onto `engineClient`/`engineDesign` — the
+substantial, careful body of Phase 4, plus the net-new Make-it-real rail and Phases 5–11. Per the
+builder≠auditor discipline, the P1/P2/P4 gate-passes are flagged for the auditor's review.
