@@ -30,6 +30,19 @@ describe('describeIntoStudio — orchestration (Phase 4 B core)', () => {
     expect(getProjectState().files['main.scad'].content).toBe('cube(5);');
   });
 
+  it('surfaces the engine dimensional headline as a lightweight Explain (§6.3)', async () => {
+    const out = await describeIntoStudio('a 70x50x30 box', undefined, {
+      run: stubRun({
+        status: 'completed',
+        mesh_url: '/api/mesh/5',
+        report: { headline: 'Dimensions match: 70.0 × 50.0 × 30.0 mm.' },
+      }),
+      source: stubSource('box(70,50,30);'),
+    });
+    expect(out.ok).toBe(true);
+    expect(out.headline).toBe('Dimensions match: 70.0 × 50.0 × 30.0 mm.');
+  });
+
   it('leaves the document untouched and reports the reason when there is no printable design', async () => {
     const out = await describeIntoStudio('???', undefined, {
       run: stubRun({ status: 'gate_failed', error: 'walls too thin' }, false),

@@ -15,6 +15,9 @@ export interface EngineDocOutcome {
   ok: boolean;
   /** Plain-English readiness/gate summary (verdict + score + any failing/warning checks). */
   gate: string;
+  /** Plain-English "what the engine made" line — the dimensional outcome, e.g. "Dimensions match:
+   * 70.0 × 50.0 × 30.0 mm." Surfaced to the user as a lightweight Explain (§6.3). */
+  headline?: string;
   rid?: number;
   /** The document path the engine's source was loaded into (when ok). */
   path?: string;
@@ -92,6 +95,7 @@ export async function describeIntoStudio(
   const opts = history && history.length ? { history } : {};
   const { result, ok } = await run(prompt, opts);
   const gate = engineGateSummary(result);
+  const headline = result.report?.headline || undefined;
   const rid = ridFromResult(result);
   if (!ok || rid == null) {
     return { ok: false, gate, rid, error: result.error ?? String(result.status ?? 'no design') };
@@ -104,7 +108,7 @@ export async function describeIntoStudio(
     return { ok: false, gate, rid, error: 'engine returned no source' };
   }
 
-  return { ok: true, gate, rid, path: setEngineDocument(data.scad), scad: data.scad };
+  return { ok: true, gate, headline, rid, path: setEngineDocument(data.scad), scad: data.scad };
 }
 
 /** Set `scad` as the workspace's active document: replace the render-target file's content, or create
@@ -134,5 +138,12 @@ export async function reopenIntoStudio(id: string): Promise<EngineDocOutcome> {
   if (rid == null) return { ok: false, gate: '', error: 'Reopened design has no id.' };
   const src = await engine.source(rid, true);
   if (!src.ok || !src.data?.scad) return { ok: false, gate: '', rid, error: 'Reopened design has no source.' };
-  return { ok: true, gate: engineGateSummary(data), rid, path: setEngineDocument(src.data.scad), scad: src.data.scad };
+  return {
+    ok: true,
+    gate: engineGateSummary(data),
+    headline: data.report?.headline || undefined,
+    rid,
+    path: setEngineDocument(src.data.scad),
+    scad: src.data.scad,
+  };
 }

@@ -682,9 +682,13 @@ function App() {
         // by a successful slice ("Make it real"), not claimed at design time — so soften the engine's
         // gate verdict here and point at the slice; the slice toast is where "Ready to print" appears.
         const preSlice = result.gate.replace(/ready to print/gi, 'Looks printable');
+        // Lightweight Explain (§6.3): lead with the engine's plain-English "what I made" line — the
+        // dimensional outcome (e.g. "Dimensions match: 70.0 × 50.0 × 30.0 mm.") — so the user can
+        // confirm the engine understood the request and built it to size, then the readiness + CTA.
+        const explain = result.headline ? `${result.headline} ` : '';
         notifySuccess('Design ready', {
           toastId: 'engine-design',
-          description: `${preSlice} · Make it real to slice`,
+          description: `${explain}${preSlice} · Make it real to slice`,
         });
       } else {
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
