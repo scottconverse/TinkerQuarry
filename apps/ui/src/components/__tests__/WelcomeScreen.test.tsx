@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
 import { renderWithProviders } from './test-utils';
@@ -55,6 +55,41 @@ describe('WelcomeScreen', () => {
 
   afterEach(() => {
     localStorage.clear();
+  });
+
+  it('shows the My Designs section and reopens a saved design on click (§6.12)', async () => {
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: jest.fn(async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/designs')) {
+          return createJsonResponse({
+            designs: [{ id: 'd1', name: 'My Coaster', object_type: 'coaster' }],
+          });
+        }
+        return createJsonResponse({ data: [] });
+      }),
+    });
+    const onReopenDesign = jest.fn();
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: '', attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onReopenDesign={onReopenDesign}
+        onOpenRecent={async () => 'opened'}
+      />
+    );
+    const button = await screen.findByText('My Coaster');
+    fireEvent.click(button);
+    expect(onReopenDesign).toHaveBeenCalledWith('d1');
   });
 
   it('shows the model selector inline with the welcome composer actions when an API key is configured', async () => {

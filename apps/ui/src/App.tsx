@@ -824,11 +824,13 @@ function App() {
       __TQ_DESCRIBE__?: typeof handleEngineDescribe;
       __TQ_MAKE_REAL__?: typeof handleMakeItReal;
       __TQ_SWITCH_PANEL__?: (id: string) => void;
+      __TQ_SHOW_WELCOME__?: () => void;
     };
     w.__TQ_DESCRIBE__ = handleEngineDescribe;
     w.__TQ_MAKE_REAL__ = handleMakeItReal;
     w.__TQ_SWITCH_PANEL__ = (id: string) => getDockviewApi()?.getPanel(id)?.api.setActive();
-  }, [handleEngineDescribe, handleMakeItReal]);
+    w.__TQ_SHOW_WELCOME__ = showWelcomeScreen;
+  }, [handleEngineDescribe, handleMakeItReal, showWelcomeScreen]);
 
   // Tab management functions
   const createNewTab = useCallback(
