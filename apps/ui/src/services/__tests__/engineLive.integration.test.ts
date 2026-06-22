@@ -2,11 +2,13 @@
 import { describe, it, expect } from '@jest/globals';
 
 /**
- * The FIRST real front-end ↔ engine integration test. Everything else in this suite stubs `fetch`
- * or injects canned deps — which is exactly how the §6.12 reopen bug shipped GREEN (the unit test
- * stubbed `/api/source`, the real endpoint 404'd). This test makes REAL HTTP calls to the live engine
- * and asserts the REAL responses, so a real-path break (response-shape drift, a dropped field, a 404)
- * is actually caught.
+ * The first real LIVE-API integration test from the front-end suite. SCOPE (be honest): this makes
+ * REAL HTTP calls to the running engine and asserts the REAL responses — it does NOT mount `App.tsx`,
+ * click the UI, render React, or POST a fresh `/api/design`. It is NOT a browser/user-flow test; a
+ * Playwright-style "describe → render → make it real" test is still missing. What it DOES do is guard
+ * the API seams the rest of this suite only stubs — which is exactly how the §6.12 reopen bug shipped
+ * GREEN (the unit test stubbed `/api/source`, the real endpoint 404'd). So a real-path break
+ * (response-shape drift, a dropped field, a 404) is actually caught here.
  *
  * It is environment-gated: if the engine isn't reachable (e.g. CI), the cases are `it.skip` — they show
  * as SKIPPED, never as a false pass. To run it: start the engine
