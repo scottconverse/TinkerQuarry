@@ -702,6 +702,16 @@ function App() {
         toastId: 'engine-slice',
         description: `${data.estimate ?? ''}${data.printer ? ` · ${data.printer}` : ''}`.trim(),
       });
+      // The payoff: hand the user the printable G-code (the engine serves it as a download). Triggered
+      // by their explicit "Make it real" click — the expected output, like Export gives an STL.
+      if (data.gcode_url) {
+        const a = document.createElement('a');
+        a.href = data.gcode_url;
+        a.download = data.gcode_filename ?? 'part.gcode.3mf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
     } else {
       notifyError({
         operation: 'make it real',
