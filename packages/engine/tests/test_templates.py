@@ -314,7 +314,8 @@ def test_emit_scad_reflects_changed_values_without_a_renderer():
     fam = default_registry().family("snap_box")
     s80 = emit_scad(fam, clamp_values(fam, {"width": 80, "depth": 60, "height": 40, "wall": 2}))
     s120 = emit_scad(fam, clamp_values(fam, {"width": 120, "depth": 60, "height": 40, "wall": 2}))
-    assert "width=80" in s80 and "width=120" in s120 and s80 != s120
+    # The value lives in the hoisted top-level Customizer variable (`width = 80; // [min:step:max]`).
+    assert "width = 80;" in s80 and "width = 120;" in s120 and s80 != s120
 
 
 def test_drawer_divider_compartments_capped_to_length():
@@ -380,22 +381,44 @@ def test_derive_honors_gap_constraint():
 def test_emit_is_deterministic_and_uses_the_library_module():
     fam = default_registry().family("snap_box")
     scad = emit_scad(fam, {"width": 80, "depth": 60, "height": 40, "wall": 2})
-    assert scad == "use <library/containers.scad>;\nsnap_box(width=80, depth=60, height=40, wall=2);\n"
+    # Sliders hoisted to top-level Customizer vars (`name = value; // [min:step:max]`); the module is
+    # called with those vars so the source is Customizer-friendly. Render is identical (OpenSCAD
+    # evaluates the vars to the same values) — proven by the bbox/render tests, not the text here.
+    assert "width = 80; // [10:1:170]" in scad
+    assert "use <library/containers.scad>;" in scad
+    assert "snap_box(width=width, depth=depth, height=height, wall=wall);" in scad
 
 
 def test_emit_includes_fixed_args_and_formats_integers():
     fam = default_registry().family("drawer_divider")
     scad = emit_scad(fam, {"length": 150, "depth": 80, "height": 50, "compartments": 3})
     assert "use <library/organizers.scad>;" in scad
-    assert "compartments=3" in scad and "compartments=3.0" not in scad
-    assert "panel_t=2" in scad  # fixed arg present
+    assert "compartments = 3;" in scad and "compartments = 3.0;" not in scad  # integer formatting
+    assert "compartments=compartments" in scad  # the call references the slider var
+    assert "panel_t=2" in scad  # fixed arg stays literal in the call
 
 
 def test_emit_passes_wall_hook_fixed_geometry():
     fam = default_registry().family("wall_hook")
     scad = emit_scad(fam, {"plate_w": 25, "plate_h": 60, "arm_proj": 35})
-    for token in ("plate_w=25", "plate_h=60", "arm_proj=35", "plate_t=4", "arm_rise=20"):
-        assert token in scad
+    # Sliders hoisted to top-level vars; fixed geometry stays literal in the module call.
+    for header in ("plate_w = 25;", "plate_h = 60;", "arm_proj = 35;"):
+        assert header in scad
+    for call_token in ("plate_w=plate_w", "plate_t=4", "arm_rise=20"):
+        assert call_token in scad
+
+
+def test_emit_hoists_sliders_as_customizer_variables():
+    """TinkerQuarry §6.6: template params become top-level Customizer sliders
+    (`name = value; // [min:step:max]`, the syntax Studio's customizer parser reads) so the absorbed
+    front end can tune a template part; the module call references the vars (render unchanged)."""
+    fam = default_registry().family("snap_box")
+    scad = emit_scad(fam, {"width": 80, "depth": 60, "height": 40, "wall": 2})
+    lines = scad.splitlines()
+    assert any(ln.startswith("width = 80; // [") and ln.count(":") == 2 for ln in lines)  # min:step:max
+    assert any(ln.startswith("wall = 2; // [") for ln in lines)  # the float param also gets a slider
+    assert "snap_box(width=width" in scad  # the call uses the slider vars, not literals
+    assert scad.index("width = 80;") < scad.index("snap_box(")  # header precedes the call
 
 
 @pytest.mark.parametrize("value,integer,expected", [

@@ -201,11 +201,23 @@ class TemplateMatch:
 
 def emit_scad(family: TemplateFamily, values: dict[str, float]) -> str:
     """Deterministically emit the OpenSCAD that builds ``family`` at ``values`` — a pure
-    string substitution, no model call. ``use``s the library file and calls the module
-    with every slider parameter (named) plus the family's fixed args."""
-    args = [f"{p.name}={_fmt(values[p.name], integer=p.integer)}" for p in family.params]
+    string substitution, no model call.
+
+    TinkerQuarry: each slider parameter is hoisted to a top-level **Customizer variable**
+    (``name = value; // [min:step:max]`` — the OpenSCAD/Studio Customizer slider syntax), and the
+    module is called with those variables. OpenSCAD evaluates this identically to passing the literal
+    values, so the rendered mesh — and therefore the gate and slice — are byte-for-byte unchanged;
+    only the *source text* differs, so the absorbed front end shows live sliders for template parts.
+    Fixed args stay literal (they're not user-tunable)."""
+    header = "\n".join(
+        f"{p.name} = {_fmt(values[p.name], integer=p.integer)}; "
+        f"// [{_fmt(p.min, integer=p.integer)}:{_fmt(p.step, integer=p.integer)}:{_fmt(p.max, integer=p.integer)}]"
+        for p in family.params
+    )
+    args = [f"{p.name}={p.name}" for p in family.params]
     args += [f"{k}={_fmt(v)}" for k, v in family.fixed_args.items()]
-    return f"use <library/{family.library_file}>;\n{family.module}({', '.join(args)});\n"
+    body = f"use <library/{family.library_file}>;\n{family.module}({', '.join(args)});\n"
+    return f"{header}\n{body}" if header else body
 
 
 def _apply_gaps(family: TemplateFamily, values: dict[str, float]) -> dict[str, float]:

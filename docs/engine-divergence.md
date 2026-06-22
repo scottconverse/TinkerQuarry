@@ -9,3 +9,4 @@ Owner: (assign). Upstream: KimCadClaude @ 0962260.
 - Phase 4: webapp.py accepts TINKERQUARRY_DEV_TOKEN env (dev session token for the vite-proxied front end); unset -> per-boot random token (prod unchanged).
 - Phase 5: snapshot captures result.scad (in-memory); GET /api/source/<rid> returns the generated OpenSCAD for the code drawer (read-only; edit/rerun stays behind the SCAD sandbox).
 - Phase 4: openscad_runner.inline_library_includes (recursive, deduped, traversal-checked) + GET /api/source/<rid>?inline=1 -> self-contained SCAD so the absorbed front end's WASM can render template parts.
+- Phase 4 (§6.6): templates.emit_scad hoists each slider ParamSpec to a top-level Customizer var (name = value; // [min:step:max]) and calls the module with the vars -> the absorbed front end gets live sliders for template parts; render/gate/slice byte-identical (OpenSCAD evaluates the vars the same).
