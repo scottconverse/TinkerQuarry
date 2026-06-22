@@ -39,7 +39,7 @@
 | Manual orient override (§6.8) | **missing** | Auto-orient only. |
 | Slice profiles shown in plain language before slicing (§6.9) | **partial** | No pre-slice profile line / layer height. |
 | First-real-send caution state (§6.10) | **missing** | Confirm dialog identical 1st vs 100th print. |
-| "Ready to print" only after a successful slice (§6.7/§6.9) | **needs-fix** | Verdict shows "Ready to print" at gate-pass, before the slice proof. |
+| "Ready to print" only after a successful slice (§6.7/§6.9) | **addressed (UI)** | Design-time toast now reframes the gate verdict as a **pre-slice check** ("Looks printable (92/100) · Make it real to slice"); **"Ready to print" appears only on the Make-it-real slice toast.** The deeper engine `smart_mesh` verdict rename (wide test impact) remains optional. |
 | Seven bundled OpenSCAD libraries (BOSL2…) (§6.11) | **missing** | Not vendored. |
 | External-library admission (§6.11) | **missing** | Dead registry, no sandbox admission, no UI. |
 | Export `.scad` / `.png` / `.svg` / `.dxf` (§6.13) | **missing** | Only STL/STEP/3MF. (CadQuery now installed → STEP testable.) |

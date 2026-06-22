@@ -640,8 +640,14 @@ function App() {
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
         lastEngineRidRef.current = result.rid ?? null;
-        // Surface the engine's manufacturing readiness (verdict + score + any warnings).
-        notifySuccess('Design ready', { toastId: 'engine-design', description: result.gate });
+        // Surface the engine's pre-slice checks. Per PRD §6.7/§6.9, final "Ready to print" is EARNED
+        // by a successful slice ("Make it real"), not claimed at design time — so soften the engine's
+        // gate verdict here and point at the slice; the slice toast is where "Ready to print" appears.
+        const preSlice = result.gate.replace(/ready to print/gi, 'Looks printable');
+        notifySuccess('Design ready', {
+          toastId: 'engine-design',
+          description: `${preSlice} · Make it real to slice`,
+        });
       } else {
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
         // reason; this is a designed outcome, not a crash, so don't capture it as an error.
