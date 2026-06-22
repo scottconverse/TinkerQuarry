@@ -5,6 +5,11 @@ Produced by an adversarial multi-agent workflow (28 agents) tasked with FALSIFYI
 independently re-verified before counting. This is the verbatim synthesis; it supersedes any rosier
 wording elsewhere in the docs.
 
+**Path note:** the git repo root is `C:\Users\Scott\Desktop\CODE\tinkerquarry`. Some absolute
+citations below read `C:\...\CODE\apps\...` or `C:\...\CODE\packages\...` — they are **missing the
+`tinkerquarry\` segment** (the audit agents assumed `CODE` was the root). The **relative paths and
+`file:line` references are correct**; prepend `tinkerquarry\` to any absolute path that 404s.
+
 ---
 
 I have everything I need in the confirmed findings. Here is the un-spun assessment.
