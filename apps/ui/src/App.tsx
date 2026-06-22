@@ -634,6 +634,9 @@ function App() {
   // is the handler the shipping describe UI calls; also exposed on window in dev for verification.
   // The engine rid of the last successful design is held so "Make it real" (slice) can act on it.
   const lastEngineRidRef = useRef<number | null>(null);
+  // The exact SCAD the engine last set as the document — to detect manual edits before slicing
+  // (slicing acts on the engine's rid server-side, so post-edit code isn't reflected yet).
+  const lastEngineScadRef = useRef<string | null>(null);
   // Whether an engine design exists yet — drives the "Make it real" button's enabled state.
   const [hasEngineDesign, setHasEngineDesign] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
@@ -652,6 +655,7 @@ function App() {
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
         lastEngineRidRef.current = result.rid ?? null;
+        lastEngineScadRef.current = result.scad ?? null;
         setHasEngineDesign(true);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
@@ -698,9 +702,16 @@ function App() {
     notifySuccess('Slicing…', { toastId: 'engine-slice', description: 'Preparing printable G-code' });
     const { ok, data } = await engine.slice(rid);
     if (ok && data.sliced) {
+      // The slice acts on the engine's design (the rid), so manual code edits since aren't included.
+      // Be honest about that rather than silently slicing stale geometry.
+      const edited =
+        lastEngineScadRef.current != null &&
+        renderTargetContent.trim() !== lastEngineScadRef.current.trim();
+      const note = edited ? " · note: your code edits aren't in this slice — re-describe to include them" : '';
       notifySuccess('Ready to print', {
         toastId: 'engine-slice',
-        description: `${data.estimate ?? ''}${data.printer ? ` · ${data.printer}` : ''}`.trim(),
+        description:
+          `${data.estimate ?? ''}${data.printer ? ` · ${data.printer}` : ''}${note}`.trim(),
       });
       // The payoff: hand the user the printable G-code (the engine serves it as a download). Triggered
       // by their explicit "Make it real" click — the expected output, like Export gives an STL.
@@ -721,7 +732,7 @@ function App() {
       });
     }
     return data;
-  }, []);
+  }, [renderTargetContent]);
 
   // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
   // as a refine-in-context turn (the WelcomeScreen entry already routes the first describe to the
