@@ -31,13 +31,15 @@ Then open `http://localhost:1420`.
 2. **Tune**: open the Customizer tab and drag a parameter slider. Geometry should re-render and the
    make-it-real readiness should update.
 3. **Pick your printer**: choose a printer and material from the toolbar dropdowns.
-4. **Make it real**: confirm the first-real-print caution. The app should slice and download a
+4. **Orient**: use the X/Y/Z ±90 controls if the build-plate pose needs a manual override. The
+   preview should refresh; the next slice uses that pose.
+5. **Make it real**: confirm the first-real-print caution. The app should slice and download a
    `.gcode.3mf`.
-5. **Refine**: ask for a change such as `make it 80 mm across`.
-6. **Save / reopen / delete**: save the design, reopen it from My Designs, and delete it with the
+6. **Refine**: ask for a change such as `make it 80 mm across`.
+7. **Save / reopen / delete**: save the design, reopen it from My Designs, and delete it with the
    two-step confirm.
-7. **Undo**: after a refine, use Undo to restore the previous design.
-8. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
+8. **Undo**: after a refine, use Undo to restore the previous design.
+9. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
    currently offered.
 
 ## What Is Not Here Yet
@@ -47,7 +49,6 @@ Then open `http://localhost:1420`.
   built. Local model research is continuing separately.
 - **Send-to-printer and post-print outcome UI**: engine/client methods exist, but there is no front-end
   connector picker, send confirmation, live status, progress, or outcome prompt.
-- **Manual orientation override**: auto-orient only.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.

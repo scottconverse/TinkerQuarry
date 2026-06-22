@@ -16,6 +16,8 @@ What is real and worth trusting:
 - The manufacturing engine can design, gate, orient, slice, save, reopen, and serve generated source.
 - The front end boots as the TinkerQuarry Studio app and is wired to the local engine for the core
   describe-to-viewer and make-it-real download flow.
+- Manual build-plate orientation is wired in the UI and engine; changing pose invalidates stale
+  slices/G-code before the next Make it real action.
 - Engine coverage is substantial and real; front-end product flows are still mostly manually verified.
 - Source/license disclosure exists in-app for the current core components.
 
@@ -23,7 +25,6 @@ What is still not done:
 
 - The Visual Correction Loop is not implemented.
 - Send-to-printer UI and post-print outcome UI are not implemented.
-- Manual orientation override is not implemented.
 - Bundled third-party SCAD libraries are vendored, with caveats noted below.
 - External-library admission is not wired to the engine sandbox.
 - Persistent per-iteration history, visual diff, and a full Explain view remain incomplete.
