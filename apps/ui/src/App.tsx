@@ -40,7 +40,12 @@ import {
 } from './stores/layoutStore';
 import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
 import { useAiAgent } from './hooks/useAiAgent';
-import { describeIntoStudio, pureTuneValues, type EngineTurn } from './services/engineDocument';
+import {
+  describeIntoStudio,
+  reopenIntoStudio,
+  pureTuneValues,
+  type EngineTurn,
+} from './services/engineDocument';
 import { engine } from './services/engineClient';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
@@ -750,6 +755,58 @@ function App() {
     }
     return data;
   }, [renderTargetContent]);
+
+  // Save the current engine design to "My Designs" (§6.12). Empty name → the engine auto-names it by
+  // the original prompt (QA-004), so no dialog is needed.
+  const handleSaveDesign = useCallback(async () => {
+    const rid = lastEngineRidRef.current;
+    if (rid == null) {
+      notifyError({
+        operation: 'save design',
+        capture: false,
+        displayMessage: 'Describe a part first, then save it.',
+        toastId: 'engine-save',
+      });
+      return;
+    }
+    const { ok, data } = await engine.saveDesign(rid, '');
+    if (ok && data.saved) {
+      notifySuccess('Saved to My Designs', { toastId: 'engine-save', description: data.name });
+    } else {
+      notifyError({
+        operation: 'save design',
+        capture: false,
+        displayMessage: 'Could not save right now — your work is still here.',
+        toastId: 'engine-save',
+      });
+    }
+  }, []);
+
+  // Reopen a saved design (§6.12): pull it back into the workspace as the active document, the same
+  // end state as a fresh describe (viewer renders it, Customizer sliders work). Used by the
+  // WelcomeScreen "My Designs" surface.
+  const handleReopenDesign = useCallback(
+    async (id: string) => {
+      const result = await reopenIntoStudio(id);
+      if (result.ok && result.scad) {
+        hideWelcomeScreen();
+        renderCodeDirect(result.scad);
+        lastEngineRidRef.current = result.rid ?? null;
+        lastEngineScadRef.current = result.scad;
+        engineHistoryRef.current = [];
+        setHasEngineDesign(true);
+        notifySuccess('Reopened', { toastId: 'engine-design', description: result.gate });
+      } else {
+        notifyError({
+          operation: 'reopen design',
+          capture: false,
+          displayMessage: result.error || 'Could not reopen that design.',
+          toastId: 'engine-design',
+        });
+      }
+    },
+    [renderCodeDirect, hideWelcomeScreen]
+  );
 
   // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
   // as a refine-in-context turn (the WelcomeScreen entry already routes the first describe to the
@@ -2474,6 +2531,7 @@ function App() {
         onDraftRemoveAttachment={removeDraftAttachment}
         onStartWithDraft={handleStartWithDraft}
         onStartManually={handleStartManually}
+        onReopenDesign={handleReopenDesign}
         onOpenRecent={handleOpenRecent}
         onOpenFile={handleOpenFile}
         onOpenFolder={() => {
@@ -2571,6 +2629,20 @@ function App() {
               </Button>
             </>
           )}
+
+          <Button
+            data-testid="save-design-button"
+            variant="secondary"
+            onClick={() => {
+              void handleSaveDesign();
+            }}
+            size="sm"
+            disabled={!hasEngineDesign}
+            className="text-xs px-2 py-1"
+            title={hasEngineDesign ? 'Save this design to My Designs' : 'Describe a part first'}
+          >
+            Save
+          </Button>
 
           <Button
             data-testid="make-it-real-button"

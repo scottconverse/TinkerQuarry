@@ -13,6 +13,7 @@ import {
   saveRecentFiles,
   type RecentFile,
 } from '../utils/recentFiles';
+import { engine, type SavedDesignEntry } from '../services/engineClient';
 import { isOpenScadProjectFilePath } from '../../../../packages/shared/src/openscadProjectFiles';
 
 export type RecentFileOpenResult = 'opened' | 'removed' | 'cancelled';
@@ -30,6 +31,8 @@ interface WelcomeScreenProps {
   onDraftRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
   onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
+  /** Reopen a saved engine design (§6.12 "My Designs"). */
+  onReopenDesign?: (id: string) => void;
   onOpenRecent: (path: string, type?: 'file' | 'folder') => Promise<RecentFileOpenResult>;
   onOpenFile?: () => void;
   onOpenFolder?: () => void;
@@ -72,6 +75,7 @@ export function WelcomeScreen({
   onDraftRemoveAttachment,
   onStartWithDraft,
   onStartManually,
+  onReopenDesign,
   onOpenRecent,
   onOpenFile,
   onOpenFolder,
@@ -87,6 +91,18 @@ export function WelcomeScreen({
 }: WelcomeScreenProps) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
+  // §6.12 "My Designs": the engine's saved designs, the "recent surface on entry".
+  const [savedDesigns, setSavedDesigns] = useState<SavedDesignEntry[]>([]);
+  useEffect(() => {
+    if (!onReopenDesign) return;
+    let cancelled = false;
+    void engine.listDesigns().then((r) => {
+      if (!cancelled && r.ok && Array.isArray(r.data.designs)) setSavedDesigns(r.data.designs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onReopenDesign]);
   // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
   // describe surface is always available — there is no "configure a provider" wall.
   const hasApiKey: boolean = true;
@@ -278,6 +294,26 @@ export function WelcomeScreen({
             </Text>
           </div>
         ) : null}
+
+        {onReopenDesign && savedDesigns.length > 0 && (
+          <div className="space-y-3 -mt-2" data-testid="welcome-my-designs">
+            <Text variant="section-heading" weight="medium" color="secondary">
+              My Designs:
+            </Text>
+            <div className="flex flex-wrap gap-2">
+              {savedDesigns.slice(0, 12).map((d) => (
+                <Button
+                  key={d.id}
+                  variant="secondary"
+                  onClick={() => onReopenDesign(d.id)}
+                  title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ''}`}
+                >
+                  {d.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
           <div className="space-y-3 -mt-2">
