@@ -78,6 +78,7 @@ export interface SliceResult {
   estimate_detail?: {
     time?: string;
     layers?: number;
+    layer_height_mm?: number | null;
     filament_g?: number;
     filament_cm3?: number;
   };
@@ -190,6 +191,19 @@ export class EngineClient {
   /** Permanently delete a saved design from the local "My Designs" store. */
   deleteDesign(id: string) {
     return this.req<{ ok?: boolean }>('POST', `/designs/${encodeURIComponent(id)}/delete`);
+  }
+  /** Rename a saved design in the local "My Designs" store. */
+  renameDesign(id: string, name: string) {
+    return this.req<{ ok?: boolean }>('POST', `/designs/${encodeURIComponent(id)}/rename`, {
+      name,
+    });
+  }
+  /** Duplicate a saved design and return the new saved-design id. */
+  duplicateDesign(id: string) {
+    return this.req<{ ok?: boolean; id?: string | null }>(
+      'POST',
+      `/designs/${encodeURIComponent(id)}/duplicate`
+    );
   }
 
   // --- catalog / status (no token needed) ---

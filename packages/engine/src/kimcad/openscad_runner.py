@@ -164,15 +164,21 @@ def inject_library_uses(
     module_map = module_map if module_map is not None else _library_module_map()
     if not module_map:
         return code, []
-    already_used = {
-        m.group(2).rsplit("/", 1)[-1]
+    already_used_paths = {
+        m.group(2)
         for m in _USE_INCLUDE_RE.finditer(code)
         if m.group(2).startswith(_APPROVED_PREFIX)
     }
+    already_used_names = {path.rsplit("/", 1)[-1] for path in already_used_paths}
     defined_locally = set(re.findall(r"\bmodule\s+(\w+)", code))
     needed: list[str] = []
     for name, file in module_map.items():
-        if name in defined_locally or file in already_used or file in needed:
+        if (
+            name in defined_locally
+            or file in already_used_paths
+            or file.rsplit("/", 1)[-1] in already_used_names
+            or file in needed
+        ):
             continue
         if re.search(rf"\b{re.escape(name)}\s*\(", code):
             needed.append(file)

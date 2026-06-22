@@ -174,3 +174,74 @@ modules:
       - "gridfinity_baseplate(grid_x=2, grid_y=2, height=6)  // Gridfinity-compatible baseplate: 42 mm cells each with a bin-foot cradle; bbox = [42*grid_x, 42*grid_y, height]"
       - "hex_nut_blank(hex_af=19, height=10, bore_d=13, fn=64)  // hex nut blank, thread relief only (smooth bore, no thread); bbox = [hex_af/cos(30), hex_af, height]"
       - "threaded_bolt(head_af=13, head_h=8, shaft_d=8, shaft_l=40, fn=64)  // hex-head bolt blank, thread relief only (smooth shaft, no thread); bbox = [head_af/cos(30), head_af, head_h + shaft_l]"
+
+  - file: vendor/BOSL2/std.scad
+    summary: >-
+      Vendored BOSL2 standard library (BSD-2-Clause). Use for advanced shapes,
+      transforms, attachments, rounding, screws, gears, and mechanical helpers when
+      a first-party TinkerQuarry module is not a better fit. Requires OpenSCAD 2021.01+.
+    signatures:
+      - "cuboid(size, rounding=0, anchor=CENTER)"
+      - "cyl(h, d, rounding=0, anchor=CENTER)"
+      - "tube(h, od, id, wall, anchor=CENTER)"
+
+  - file: vendor/Round-Anything/polyround.scad
+    summary: >-
+      Vendored Round-Anything (MIT). Use for 2D rounded polygons and rounded
+      extrusions when TinkerQuarry's simple fillet helpers are not expressive enough.
+    signatures:
+      - "polyRound(points, fn=5)"
+      - "polyRoundExtrude(points, length, r1=0, r2=0, fn=10)"
+
+  - file: vendor/YAPP_Box/YAPPgenerator_v3.scad
+    summary: >-
+      Vendored YAPP_Box (MIT), a comprehensive parametric project/enclosure box
+      generator. Prefer TinkerQuarry's simple enclosure() for basic boxes; use YAPP
+      when the request needs detailed PCB enclosure features.
+
+  - file: vendor/catchnhole/catchnhole.scad
+    summary: >-
+      Vendored Catch'n'Hole (MIT). Use for bolt clearance, bolt heads, countersinks,
+      and nutcatch cutouts. Requires OpenSCAD JSON import support.
+    signatures:
+      - "bolt(name, length, kind=\"headless\")"
+      - "bolt_head(name, kind)"
+      - "nutcatch_parallel(name)"
+      - "nutcatch_sidecut(name)"
+
+  - file: vendor/gridfinity-rebuilt-openscad/gridfinity-rebuilt-lite.scad
+    summary: >-
+      Vendored gridfinity-rebuilt-openscad (MIT), with its GPLv3 external
+      threads-scad dependency excluded. Use for Gridfinity bins/baseplates when
+      the first-party lightweight gridfinity helpers are insufficient; thumbscrew
+      features are disabled until a clean-room thread library exists.
+
+  - file: vendor/MCAD/regular_shapes.scad
+    summary: >-
+      Vendored MCAD classic OpenSCAD library (LGPL-2.1-or-later and compatible
+      notices). Use for classic mechanical primitives and helper geometry not
+      covered by first-party modules.
+
+  - file: vendor/tq-threads/tq_threads.scad
+    summary: >-
+      Vendored tq-threads (MIT), pinned to post-v0.2.0 review-fix commit
+      73aa7c0a1ed741bd09dc6747505f6a85ad1421ae. A clean-room printable
+      screw-thread library for ISO metric and Unified threads. Use for threaded
+      rods, tapped holes, bolts, nuts, washers, countersunk screws,
+      clearance/counterbore/countersink holes, standoffs, couplers, and coarse
+      bottle/wood-style threads.
+    signatures:
+      - "tq_thread_preset(name, length, internal=false, clearance=0.4)"
+      - "tq_thread(d, pitch, length, internal=false, starts=1, hand=\"right\", clearance=0.4)"
+      - "tq_thread_tpi(d, tpi, length, internal=false, clearance=0.4)"
+      - "tq_threaded_hole(d, pitch, depth, through=true)"
+      - "tq_thread_cutter(d, pitch, length, through=true)"
+      - "tq_bolt(d, pitch, length, head=\"socket\", shank=0)"
+      - "tq_countersunk_bolt(d, pitch, length, shank=0)"
+      - "tq_nut(d, pitch, clearance=0.4)"
+      - "tq_washer(size)"
+      - "tq_clearance_hole(size, depth, fit=\"medium\")"
+      - "tq_recessed_clearance_hole(size, depth, fit=\"medium\")"
+      - "tq_countersunk_clearance_hole(size, depth, angle=90)"
+      - "tq_rod_coupler(d, pitch, length)"
+      - "tq_bottle_thread(d, pitch, length, internal=false)"

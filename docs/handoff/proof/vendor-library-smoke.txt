@@ -1,0 +1,32 @@
+Command:
+  Rendered one tiny cube while including/using each vendored library through kimcad.openscad_runner.render_scad.
+
+OpenSCAD:
+  C:\Users\Scott\Desktop\CODE\_tools\openscad\openscad-2021.01\openscad.com
+
+Results:
+  PASS bosl2 bosl2.stl 1535 bytes
+  PASS round_anything round_anything.stl 1535 bytes
+  PASS yapp yapp.stl 1535 bytes
+  PASS catchnhole catchnhole.stl 1535 bytes
+  PASS gridfinity gridfinity.stl 1535 bytes
+  PASS mcad mcad.stl 1535 bytes
+  PASS tq_threads smoke.stl 4229488 bytes
+
+tq-threads smoke:
+  include <library/vendor/tq-threads/tq_threads.scad>;
+  $fn = 24;
+  tq_thread_preset("M8", 8);
+  translate([16,0,0]) tq_nut(8, 1.25);
+  translate([32,0,0]) difference() { cube([12,12,8], center=true); tq_threaded_hole(6, 1.0, 8); }
+  translate([48,0,0]) tq_bolt(6, 1.0, 14, drive="none");
+
+  OpenSCAD output:
+    Simple: yes
+    Vertices: 10933
+    Facets: 19376
+    Volumes: 5
+
+Targeted tests:
+  .\packages\engine\.venv\Scripts\python.exe -m pytest packages\engine\tests\test_vendor_libraries.py packages\engine\tests\test_openscad_runner.py -q
+  32 passed in 0.68s

@@ -12,6 +12,7 @@ from kimcad.pipeline import Pipeline
 from kimcad.webapp import (
     DemoProvider,
     _estimate_detail_with_weight,
+    _process_layer_height_mm,
     design_response,
     make_handler,
     slice_registered_mesh,
@@ -602,6 +603,7 @@ def test_web_options_lists_printers_with_sliceable_flag():
     assert by_key["bambu_p2s"]["sliceable"] is True
     assert by_key["bambu_a1"]["sliceable"] is True
     assert by_key["elegoo_neptune_4_max"]["sliceable"] is True
+    assert by_key["bambu_p2s"]["layer_height_mm"] is None or by_key["bambu_p2s"]["layer_height_mm"] > 0
     assert any(m["key"] == "pla" for m in opts["materials"])
     assert opts["default_printer"] == "bambu_p2s"
     assert opts["default_material"] == "pla"
@@ -1723,6 +1725,18 @@ def test_weight_omitted_when_no_density_or_no_volume():
         _FakeProof({"filament_cm3": 0.0, "filament_g": None}), _Mat(1.24)
     )
     assert zero_vol["filament_g"] is None and zero_vol["filament_g_estimated"] is False
+
+
+def test_process_layer_height_prefers_profile_json(tmp_path):
+    p = tmp_path / "Fine.json"
+    p.write_text('{"layer_height": ["0.16"]}', encoding="utf-8")
+    assert _process_layer_height_mm(p) == 0.16
+
+
+def test_process_layer_height_falls_back_to_profile_name(tmp_path):
+    p = tmp_path / "0.20mm Standard @BBL P2S.json"
+    p.write_text("{}", encoding="utf-8")
+    assert _process_layer_height_mm(p) == 0.20
 
 
 def test_slice_unexpected_error_is_clean_500(tmp_path, monkeypatch):

@@ -193,6 +193,11 @@ function revokeBlobUrl(url: string | null | undefined) {
   URL.revokeObjectURL(url);
 }
 
+function formatLayerHeight(mm: unknown): string {
+  if (typeof mm !== 'number' || !Number.isFinite(mm) || mm <= 0) return '';
+  return `${mm.toFixed(2).replace(/\.?0+$/, '')} mm layers`;
+}
+
 function useMacDownloadUrl() {
   const [arch, setArch] = useState<MacArch>(() => getInitialMacDownloadArch());
 
@@ -662,7 +667,7 @@ function App() {
   // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
   // printer list comes from /api/options; the choice persists across sessions (localStorage).
   const [enginePrinters, setEnginePrinters] = useState<
-    { key: string; name: string; materials?: string[] }[]
+    { key: string; name: string; materials?: string[]; layer_height_mm?: number | null }[]
   >([]);
   const [printerKey, setPrinterKey] = useState<string>('');
   const [material, setMaterial] = useState<string>('');
@@ -769,6 +774,10 @@ function App() {
         lastEngineScadRef.current != null &&
         renderTargetContent.trim() !== lastEngineScadRef.current.trim();
       const note = edited ? " · note: your code edits aren't in this slice — re-describe to include them" : '';
+      const layerHeight = formatLayerHeight(data.estimate_detail?.layer_height_mm);
+      if (layerHeight) {
+        data.estimate = [data.estimate ?? '', layerHeight].filter(Boolean).join(' - ');
+      }
       notifySuccess('Ready to print', {
         toastId: 'engine-slice',
         description:
@@ -793,7 +802,7 @@ function App() {
       });
     }
     return data;
-  }, [renderTargetContent]);
+  }, [material, printerKey, renderTargetContent]);
 
   // Save the current engine design to "My Designs" (§6.12). Empty name → the engine auto-names it by
   // the original prompt (QA-004), so no dialog is needed.
@@ -929,9 +938,21 @@ function App() {
     void engine.options().then((r) => {
       if (cancelled || !r.ok) return;
       const printers = (
-        r.data as { printers?: Array<{ key?: string; name?: string; materials?: string[] }> }
-      ).printers?.filter((p): p is { key: string; name: string; materials?: string[] } =>
-        Boolean(p.key && p.name)
+        r.data as {
+          printers?: Array<{
+            key?: string;
+            name?: string;
+            materials?: string[];
+            layer_height_mm?: number | null;
+          }>;
+        }
+      ).printers?.filter(
+        (p): p is {
+          key: string;
+          name: string;
+          materials?: string[];
+          layer_height_mm?: number | null;
+        } => Boolean(p.key && p.name)
       );
       if (!printers?.length) return;
       setEnginePrinters(printers);
@@ -2596,6 +2617,9 @@ function App() {
     </div>
   ) : null;
 
+  const selectedEnginePrinter = enginePrinters.find((p) => p.key === printerKey);
+  const selectedLayerHeight = formatLayerHeight(selectedEnginePrinter?.layer_height_mm);
+
   const content = shouldShowShareError ? (
     <div
       className="flex h-screen items-center justify-center"
@@ -2831,6 +2855,14 @@ function App() {
                   </option>
                 ))}
               </select>
+              {selectedLayerHeight && (
+                <>
+                  <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+                  <span data-testid="slice-layer-height" style={{ color: 'var(--text-secondary)' }}>
+                    {selectedLayerHeight}
+                  </span>
+                </>
+              )}
             </div>
           )}
 

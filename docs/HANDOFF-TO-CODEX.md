@@ -21,7 +21,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
 ### What changed in this run
 - Forked KimCad engine into `packages/engine`; absorbed OpenSCAD-Studio into `apps/ui` (branded,
   telemetry off). Wired the describe→engine→Studio-viewer loop; added Customizer-for-templates,
-  refine-in-context, version history (save/list/reopen/delete), undo, live-readiness, offline banner
+  refine-in-context, version history (save/list/reopen/delete/rename/duplicate), undo, live-readiness, offline banner
   (§9), first-real-print caution (§6.10 partial), printer/material picker (§6.9), a lightweight
   Explain toast, an accessibility sweep (jest-axe, 8 surfaces).
 - **Fixed a real shipped bug:** the §6.12 reopen dropped the SCAD on the engine → `/api/source` 404 →
@@ -46,10 +46,10 @@ chat history**. Written to be accurate over flattering. Cross-references:
   unbuilt. Acceptance test (wrong-face hole) cannot be run. (§5 documents the intended build.)
 - **Send-to-printer UI + post-print outcome (§6.10):** `engine.send`/`engine.outcome` exist in
   `engineClient.ts`, **0 callers**. "Make it real" only downloads a file.
-- **Manual orient override (§6.8); 7 bundled SCAD libraries (§6.11); external-library admission (§6.11);
+- **Manual orient override (§6.8); external-library admission (§6.11);
   per-iteration "what was tried" log (§6.12); tool-using "watch-it-work" agent (§6.3).**
 - **Partial:** user-invoked Explain mode (only a toast); model picker (a toggle); diff/rollback
-  (whole-design undo only, session-only); slice-profile layer-height line; printer status/progress UI;
+  (whole-design undo only, session-only); printer status/progress UI;
   first-run tool-health gate (unverified — no `FirstRunWizard` exists; managed model-download onboarding
   does).
 
@@ -244,26 +244,30 @@ for local vs cloud; only the critique model + the honest mode label differ.
 
 ---
 
-## 6. Seven-library vendoring packet
+## 6. SCAD-library vendoring packet
 
-**Status: none vendored.** `packages/engine/library/` holds only KimCad's ~15 first-party `.scad`
-modules. The PRD/recovery-plan calls for bundling these seven with attribution + auto-wired includes,
-behind the (also-missing) external-library admission flow.
+**Status: seven libraries vendored.** `packages/engine/library/vendor/` now contains BOSL2,
+Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt-openscad, MCAD, and `tq-threads` with
+attribution and pinned commits/tags. The manifest advertises them, sandbox admission is tested, and
+real OpenSCAD smoke renders passed. Dan Kirshner `threads.scad` remains excluded for GPLv3
+compatibility reasons; `tq-threads` pinned to post-`v0.2.0` commit `73aa7c0` is the clean-room MIT replacement.
 
-> **VERIFY before vendoring:** the URLs below are the canonical upstreams I'm confident about, but the
-> **exact license text, SPDX id, and a pinned commit/tag MUST be confirmed at vendoring time** — do not
-> trust the license column as gospel; open each repo's LICENSE and pick a specific commit. I have not
-> fetched these live, so treat license fields as "likely, verify."
+> **2026-06-22 licensing decision:** TinkerQuarry remains GPL-2.0-only. Bundle only GPLv2-compatible
+> libraries. Do **not** vendor Dan Kirshner `threads.scad` because the available source is
+> GPL-3.0-or-later; use `tq-threads` or another GPLv2-compatible substitute.
+> Before vendoring any approved library, pin a commit/tag and record the exact upstream URL, license text,
+> SPDX id, and attribution.
 
-| Library | Upstream (verify) | License (VERIFY exact) | Notes / compatibility |
+| Library | Upstream | License | Notes / compatibility |
 |---|---|---|---|
-| **BOSL2** | github.com/BelfrySCAD/BOSL2 | BSD-2-Clause (likely) | Large; needs recent OpenSCAD. Heavy; consider selective include paths. |
-| **Round-Anything** | github.com/Irev-Dev/Round-Anything | verify (MIT/GPL?) | Small; rounding/fillet helpers. |
-| **threads.scad** | dkprojects.net / Dan Kirshner (also mirrored on GitHub) | verify (GPL?) | Single file; ISO threads. Confirm redistribution terms carefully. |
-| **YAPP_Box** | github.com/mrWheel/YAPP_Box | verify (MIT?) | Parametric enclosures. |
-| **Catch'n'Hole** | search "Catch n Hole OpenSCAD" — confirm canonical repo | verify | Captive nut/bolt helper; **confirm the exact project + author first.** |
-| **gridfinity-rebuilt** | github.com/kennetek/gridfinity-rebuilt-openscad | verify (MIT?) | Gridfinity bins; large. |
-| **MCAD** | github.com/openscad/MCAD | LGPL-2.1 (likely) | The classic OpenSCAD lib; bundled with many distros. |
+| **BOSL2** | github.com/BelfrySCAD/BOSL2 | BSD-2-Clause | Approved to vendor after pinning a commit. Large; consider selective include paths. |
+| **Round-Anything** | github.com/Irev-Dev/Round-Anything | MIT | Approved to vendor after pinning a commit. |
+| **YAPP_Box** | github.com/mrWheel/YAPP_Box | MIT | Approved to vendor after pinning a commit. |
+| **Catch'n'Hole** | github.com/mmalecki/catchnhole | MIT | Approved to vendor after pinning a commit. |
+| **gridfinity-rebuilt** | github.com/kennetek/gridfinity-rebuilt-openscad | MIT | Approved to vendor after pinning a commit. |
+| **MCAD** | github.com/openscad/MCAD | LGPL-2.1 | Approved to vendor after pinning a commit and preserving LGPL notices/source. |
+| **tq-threads** | github.com/scottconverse/tq-threads | MIT | Vendored at commit `73aa7c0` (post-`v0.2.0` review fixes) as the clean-room thread replacement. |
+| **Dan Kirshner threads.scad** | dkprojects.net / mirrored source | GPL-3.0-or-later | **Do not bundle** in this GPL-2.0-only repo. |
 
 **Proposed repo location:** `packages/engine/library/vendor/<lib-name>/` (kept separate from KimCad's
 first-party modules so attribution + provenance stay clear). Add a `packages/engine/library/vendor/
@@ -324,6 +328,13 @@ ATTRIBUTION.md` with, per library: upstream URL, pinned commit, license, and the
 ---
 
 ## 8. Docs cleanup checklist (stale / contradictory — for Codex to fix)
+
+> **Codex takeover update, 2026-06-22:** the highest-risk cleanup items are now fixed inline:
+> `README.md` and `docs/EVALUATE.md` were rewritten for the current canonical repo, `docs/STATUS.md`
+> was updated with the settled GPL/thread-library decision, and
+> `docs/audits/v1-coverage-2026-06-22.md` no longer repeats the stale code-drawer,
+> `FirstRunWizard.tsx`, or one-snapshot version-history claims. Remaining checklist items below should
+> be read as historical handoff notes unless still demonstrably true.
 
 > Per the handoff request these are **identified, not yet fixed** (no product changes were made beyond
 > producing this note). Nothing was deleted.

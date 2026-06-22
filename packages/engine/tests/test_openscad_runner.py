@@ -52,6 +52,13 @@ def test_inject_adds_missing_library_use():
     assert added == ["use <library/fillets.scad>;"]
 
 
+def test_inject_recognizes_nested_vendor_library_use():
+    code = "use <library/vendor/BOSL2/std.scad>;\ncuboid([10, 10, 10]);"
+    out, added = inject_library_uses(code, {"cuboid": "vendor/BOSL2/std.scad"})
+    assert out == code
+    assert added == []
+
+
 def test_inject_is_noop_when_use_present():
     code = "use <library/fillets.scad>;\nrounded_box(80, 60, 40);"
     out, added = inject_library_uses(code, _MAP)
@@ -286,6 +293,17 @@ def test_inline_library_includes_makes_template_scad_self_contained():
     assert "use <library/dishes.scad>" not in out  # the include was resolved away
     assert "module coaster_with_rim" in out  # the library's module is now inlined
     assert "coaster_with_rim(od=60, h=4)" in out  # the original call is preserved
+
+
+def test_inline_library_includes_supports_tq_threads_vendor_library():
+    code = (
+        "include <library/vendor/tq-threads/tq_threads.scad>;\n"
+        'tq_thread_preset("M8", 12);\n'
+    )
+    out = osr.inline_library_includes(code)
+    assert "include <library/vendor/tq-threads/tq_threads.scad>" not in out
+    assert "module tq_thread" in out
+    assert 'tq_thread_preset("M8", 12)' in out
 
 
 def test_inline_library_includes_leaves_self_contained_and_unapproved_untouched():

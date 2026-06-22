@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  render:
+    name: Render-proof (fast suite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+          openscad --version
+
+      - name: Fast suite (preset assertions + smoke grid)
+        run: |
+          set -e
+          openscad -o fast.stl tq_threads_fast_tests.scad 2> fast.log || (cat fast.log; exit 1)
+          echo "--- OpenSCAD output ---"; cat fast.log
+          # fail on any manifold warning or error
+          if grep -Ei "WARNING|ERROR|not a valid 2-manifold" fast.log; then
+            echo "::error::OpenSCAD reported a warning/error"; exit 1
+          fi
+          test -s fast.stl
+          echo "Fast suite passed."
+
+      - name: Smoke-render a few examples
+        run: |
+          set -e
+          for id in bolt nut washer csk_bolt coupler; do
+            openscad -o "ex_$id.stl" -D "SHOW=\"$id\"" tq_threads_examples.scad 2> "ex_$id.log"
+            grep -Ei "WARNING|ERROR|not a valid 2-manifold" "ex_$id.log" && exit 1 || true
+            test -s "ex_$id.stl"
+          done
+          echo "Example smoke renders passed."
+
+      - name: Upload STL artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-output
+          path: "*.stl"
+          if-no-files-found: ignore

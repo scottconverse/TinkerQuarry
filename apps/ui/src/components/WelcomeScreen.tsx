@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { ModelSelectionSurface } from '../analytics/runtime';
-import { Button, Text } from './ui';
+import { Button, IconButton, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
-import { TbFileText, TbFolder, TbFolderOpen } from 'react-icons/tb';
+import { TbCopy, TbFileText, TbFolder, TbFolderOpen, TbPencil } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { type AiProvider } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
@@ -110,6 +110,29 @@ export function WelcomeScreen({
     const r = await engine.deleteDesign(id);
     setConfirmDeleteId(null);
     if (r.ok) setSavedDesigns((s) => s.filter((x) => x.id !== id));
+  };
+  const handleRenameDesign = async (design: SavedDesignEntry) => {
+    const nextName = window.prompt('Rename design', design.name)?.trim();
+    if (!nextName || nextName === design.name) return;
+    const r = await engine.renameDesign(design.id, nextName);
+    if (r.ok) {
+      setSavedDesigns((s) =>
+        s.map((x) => (x.id === design.id ? { ...x, name: nextName } : x))
+      );
+    }
+  };
+  const handleDuplicateDesign = async (design: SavedDesignEntry) => {
+    const r = await engine.duplicateDesign(design.id);
+    if (!r.ok || !r.data.id) return;
+    setSavedDesigns((s) => [
+      {
+        ...design,
+        id: r.data.id!,
+        name: `${design.name} (copy)`,
+        created_at: new Date().toISOString(),
+      },
+      ...s,
+    ]);
   };
   // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
   // describe surface is always available — there is no "configure a provider" wall.
@@ -317,17 +340,18 @@ export function WelcomeScreen({
                     style={{ borderColor: 'var(--border-primary)' }}
                   >
                     <span style={{ color: 'var(--text-secondary)' }}>Delete &ldquo;{d.name}&rdquo;?</span>
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       data-testid={`confirm-delete-${d.id}`}
                       onClick={() => void handleDeleteDesign(d.id)}
                       className="font-medium"
-                      style={{ color: '#e5484d' }}
                     >
                       Delete
-                    </button>
-                    <button onClick={() => setConfirmDeleteId(null)} style={{ color: 'var(--text-tertiary)' }}>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div key={d.id} className="inline-flex items-stretch">
@@ -339,16 +363,39 @@ export function WelcomeScreen({
                     >
                       {d.name}
                     </Button>
-                    <button
+                    <IconButton
+                      size="sm"
+                      variant="toolbar"
+                      data-testid={`rename-design-${d.id}`}
+                      onClick={() => void handleRenameDesign(d)}
+                      aria-label={`Rename ${d.name}`}
+                      title={`Rename "${d.name}"`}
+                      className="rounded-none border-l-0"
+                    >
+                      <TbPencil size={14} aria-hidden="true" />
+                    </IconButton>
+                    <IconButton
+                      size="sm"
+                      variant="toolbar"
+                      data-testid={`duplicate-design-${d.id}`}
+                      onClick={() => void handleDuplicateDesign(d)}
+                      aria-label={`Duplicate ${d.name}`}
+                      title={`Duplicate "${d.name}"`}
+                      className="rounded-none border-l-0"
+                    >
+                      <TbCopy size={14} aria-hidden="true" />
+                    </IconButton>
+                    <IconButton
+                      size="sm"
+                      variant="toolbar"
                       data-testid={`delete-design-${d.id}`}
                       onClick={() => setConfirmDeleteId(d.id)}
                       aria-label={`Delete ${d.name}`}
                       title={`Delete "${d.name}"`}
-                      className="px-2 rounded-r-md border border-l-0 text-sm"
-                      style={{ borderColor: 'var(--border-primary)', color: 'var(--text-tertiary)' }}
+                      className="rounded-l-none border-l-0"
                     >
                       ×
-                    </button>
+                    </IconButton>
                   </div>
                 )
               )}

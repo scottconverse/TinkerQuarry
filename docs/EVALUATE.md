@@ -1,79 +1,66 @@
-# Evaluate TinkerQuarry in ~2 minutes
+# Evaluate TinkerQuarry in about 2 minutes
 
 A no-spin walkthrough so you can judge the real product yourself, not a description of it.
 
-> **Read first (verification honesty):** the **engine** has real automated tests. The **front-end**
-> steps below were **manually click-checked once** during the sprint — they are **not** covered by
-> automated browser tests (there's one live *API* integration test, `engineLive.integration.test.ts`,
-> not an `App.tsx`/Playwright flow). So treat this as "here's how to see it work yourself," not "this
-> is guaranteed by a test suite." See [STATUS.md](STATUS.md) and
-> [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md).
+> **Verification honesty:** the engine has real automated tests. The front-end steps below were
+> manually click-checked during the sprint; they are not covered by automated browser tests. There is
+> one live API integration test, `engineLive.integration.test.ts`, but no Playwright or `App.tsx` user
+> flow test yet.
 
-## Run it
+## Run It
 
-Two terminals (PowerShell). The engine is the local "brain"; the front end is the absorbed
-OpenSCAD-Studio UI wired to it.
+Two PowerShell terminals:
 
 ```powershell
-# 1) Engine (local manufacturing engine — port 8765)
+# 1. Engine
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
 $env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"
 .\.venv\Scripts\kimcad.exe web --port 8765
 
-# 2) Front end (Vite dev server — port 1420; proxies /api -> the engine)
+# 2. Front end
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
 pnpm dev
 ```
 
-Then open **http://localhost:1420**. (If a dev server is already running from the sprint, just
-open that URL.)
+Then open `http://localhost:1420`.
 
-## Try the loop (each step is a real capability — engine-tested; FE manually checked)
+## Try The Loop
 
-1. **Describe** — in the prompt box: `a 70 mm round drink coaster, 4 mm tall`. Wait for the local
-   engine (it's an on-box LLM + real CAD, so seconds-to-a-minute, not instant). The part renders in
-   the 3D viewer; the toast leads with the engine's own check, e.g.
-   *"Dimensions match: 70.0 × … mm. Looks printable (92/100)."*
-2. **Tune** — open the **Customizer** tab; drag a slider (e.g. diameter). The geometry re-renders;
-   the **Make it real** button's tooltip keeps the readiness live.
-3. **Pick your printer** — the toolbar shows two dropdowns (printer · material) before slicing — 29
-   printers (Bambu/Creality/Prusa/Elegoo/Qidi/…). Pick yours; it persists.
-4. **Make it real** — first time, a one-time caution appears (check fit/material). Confirm → it
-   slices to **real G-code for the printer you picked** and downloads a `.gcode.3mf`.
-5. **Refine** — in the AI panel: `make it 80 mm across`. The engine re-designs in context.
-6. **Save / reopen / delete** — Save the design; it appears under **My Designs** on the welcome
-   screen; reopen it (loads back into the viewer); the × deletes it (two-step confirm).
-7. **Undo** — after a refine, the **Undo** button reverts to the previous design instantly.
-8. **Export** — the Export dialog writes STL / OBJ / 3MF / SVG / DXF; File ▸ Save writes the `.scad`.
-   (**PNG is NOT offered** — an earlier doc wrongly listed it.) The export *byte* path is only
-   mock-tested; the click was manual.
+1. **Describe**: enter `a 70 mm round drink coaster, 4 mm tall`. The local engine should design the
+   part, gate it, and render it in the Studio viewer.
+2. **Tune**: open the Customizer tab and drag a parameter slider. Geometry should re-render and the
+   make-it-real readiness should update.
+3. **Pick your printer**: choose a printer and material from the toolbar dropdowns.
+4. **Make it real**: confirm the first-real-print caution. The app should slice and download a
+   `.gcode.3mf`.
+5. **Refine**: ask for a change such as `make it 80 mm across`.
+6. **Save / reopen / delete**: save the design, reopen it from My Designs, and delete it with the
+   two-step confirm.
+7. **Undo**: after a refine, use Undo to restore the previous design.
+8. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
+   currently offered.
 
-## What is NOT here yet (the honest, complete list)
+## What Is Not Here Yet
 
-Measured against the PRD — not "polish," genuinely unbuilt or partial:
+- **Visual Correction Loop**: not implemented. It is not merely blocked on a cloud key; capture,
+  critique, multi-round repair, best-candidate retention, convergence, and logging still need to be
+  built. Local model research is continuing separately.
+- **Send-to-printer and post-print outcome UI**: engine/client methods exist, but there is no front-end
+  connector picker, send confirmation, live status, progress, or outcome prompt.
+- **Manual orientation override**: auto-orient only.
+- **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
+  MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
+  smoke-render proof. Dan Kirshner `threads.scad` remains excluded.
+- **External-library admission**: the PRD consent -> sandbox-copy -> include-path -> sanitization flow
+  is not wired to the engine.
+- **Explain/diff/iteration history**: current Explain is a readiness toast; Undo is whole-design
+  session revert; persistent per-iteration history and visual/structural diff remain incomplete.
+- **Automated browser-level coverage**: no Playwright or `App.tsx` test for describe -> render ->
+  make-it-real.
 
-- **The signature Visual Correction Loop (§6.3.1)** — render → vision-critique → auto-fix → rounds.
-  **0 lines of code.** It is *not* merely "blocked on a cloud key": even with a key, the whole loop
-  (capture, critique call, multi-round, best-candidate, convergence, logging) must be **built**. The
-  local-vision spike proved a 7B model can't do the critique (`docs/audits/vision-spike.md`).
-- **Send-to-printer + post-print outcome (§6.10 / v1)** — the engine endpoints and client methods
-  (`engine.send`, `engine.outcome`) exist but have **no front-end at all**: no connector picker, no
-  status, no confirm-send, no progress, no outcome prompt. "Make it real" only **downloads** a file.
-- **External-library admission (§6.11)** — the PRD's consent → sandbox-copy → include-path →
-  sanitization flow does **not** exist. (Studio's inherited "custom paths" feed its own WASM renderer,
-  not the engine sandbox, with no consent or copy — it is *not* this feature.)
-- **7 bundled SCAD libraries (BOSL2, Round-Anything, threads.scad, YAPP_Box, Catch'n'Hole,
-  gridfinity-rebuilt, MCAD)** — not vendored.
-- **Manual orientation override (§6.8)** — auto-orient only; orientation is a read-only field.
-- **User-invoked Explain mode, a tool-using agent loop, visual/structural diff with rollback, and a
-  per-iteration "what was tried" log (§6.3 / §6.12)** — missing or only partially approximated (the
-  current "Explain" is a readiness toast; "undo" is whole-design revert, not a diff).
-- **Automated browser-level FE coverage** — no Playwright/`App.tsx` "describe → render → make it real"
-  test. The one live API integration test is a start, not that.
+## Where The Truth Lives
 
-## Where the truth lives
-
-- [STATUS.md](STATUS.md) — the per-feature matrix (current + honest; supersedes any older "done").
-- [TinkerQuarry-Recovery-Plan-v2.md](TinkerQuarry-Recovery-Plan-v2.md) — the plan this sprint executed.
-- `git log --grep Recovery --oneline` — the recovery commits (engine work has automated proof; most
-  front-end commits carry a manual screenshot/eval, not an automated test — see the honesty note).
+- [STATUS.md](STATUS.md)
+- [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md)
+- [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md)
+- [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md)

@@ -1,65 +1,107 @@
 # TinkerQuarry
 
-**Status: partial implementation — real-product recovery in progress. Not done.**
+**Status: real-product recovery in progress. Not done.**
 
-TinkerQuarry's goal: describe a 3D-printable part in plain English (or a photo/sketch) and get a
-checked, print-ready file, locally — with an AI **Visual Correction Loop** that looks at the rendered
-model and fixes spatial errors. See the spec: [docs/prd/TinkerQuarry-PRD-v0.3.md](docs/prd/TinkerQuarry-PRD-v0.3.md)
-and the design: [docs/design/Main Workspace.dc.html](docs/design/Main%20Workspace.dc.html).
+TinkerQuarry is a local-first CAD-to-print application: describe a part in plain English, tune it,
+inspect the generated OpenSCAD, and produce a checked printable file. The intended differentiator is a
+Visual Correction Loop that looks at rendered views of the generated model and fixes spatial mistakes.
 
-## Honest state (read before trusting anything here)
+The current repo is the canonical product repo. The engine is forked into `packages/engine`; the
+OpenSCAD Studio front end is forked into `apps/ui`.
 
-This repo currently contains a **high-fidelity static prototype** (`frontend/index.html`), a
-**dependency-free mock API** (`backend/mock_api.py`), connector glue, docs, and tests. The real
-manufacturing engine lives in the sibling repo `KimCadClaude` and is strong. **But the product the PRD
-and the supplied design specify is not built:**
+## Honest State
 
-- The **Visual Correction Loop** (the signature feature) is **not implemented**.
-- **OpenSCAD Studio's front-end was not absorbed** — the running UI is KimCad's own SPA reskinned, not
-  the supplied TinkerQuarry design.
-- The **"show me the code" drawer**, the **rich 3D viewer**, **bundled/external libraries**, and the
-  **About/Licenses** surface are missing or partial.
+What is real and worth trusting:
 
-The full, evidence-backed picture is the **canonical status matrix**:
-**[docs/STATUS.md](docs/STATUS.md)**. The recovery is governed by
-**[docs/TinkerQuarry-Recovery-Plan-v2.md](docs/TinkerQuarry-Recovery-Plan-v2.md)** (audit-approved).
-Per-area audits + gap report: [docs/audits/](docs/audits/).
+- The manufacturing engine can design, gate, orient, slice, save, reopen, and serve generated source.
+- The front end boots as the TinkerQuarry Studio app and is wired to the local engine for the core
+  describe-to-viewer and make-it-real download flow.
+- Engine coverage is substantial and real; front-end product flows are still mostly manually verified.
+- Source/license disclosure exists in-app for the current core components.
 
-> **Do not treat the prototype or the mock API as proof the product works.** They demonstrate the design
-> intent and the API seam shapes only. "Done" means real, non-mock behavior in the canonical app, per the
-> recovery plan's Definition of Done.
+What is still not done:
 
-## What's genuinely real (and worth keeping)
+- The Visual Correction Loop is not implemented.
+- Send-to-printer UI and post-print outcome UI are not implemented.
+- Manual orientation override is not implemented.
+- Bundled third-party SCAD libraries are vendored, with caveats noted below.
+- External-library admission is not wired to the engine sandbox.
+- Persistent per-iteration history, visual diff, and a full Explain view remain incomplete.
+- Browser-level front-end integration coverage is still missing.
 
-- The **KimCad manufacturing engine**: prompt → design → printability gate → auto-orient → real
-  OrcaSlicer slice (motion-bearing G-code proof) → printer send. Fail-closed safety, 6 connectors.
-- **Local-first onboarding** with a complete managed model-download flow.
-- **Security & privacy**: per-boot session token, SCAD sandbox + arm's-length worker, OS-keyring masked
-  secrets, **zero telemetry**.
-- Tests: **1,590** engine / **407** frontend / **19** glue pass.
+For the current detailed truth, read:
 
-## Repository decision (canonical)
+- [docs/STATUS.md](docs/STATUS.md)
+- [docs/EVALUATE.md](docs/EVALUATE.md)
+- [docs/HANDOFF-TO-CODEX.md](docs/HANDOFF-TO-CODEX.md)
+- [docs/audits/honesty-audit-2026-06-22.md](docs/audits/honesty-audit-2026-06-22.md)
 
-- **`tinkerquarry`** is the **product repo of record.**
-- **`KimCadClaude`** is a **separate product** for a different audience; its engine is **forked** into
-  `tinkerquarry/packages/engine` during recovery (see the plan's D3).
-- **`openscad-studio`** is the **upstream front-end base to fork**, not inspiration.
+## Run
 
-## Run (today)
+Use two PowerShell terminals.
 
-```
-# offline design prototype + mock API (design preview only — NOT product proof):
-python scripts/dev.py            # workspace :8753 + mock API :8766
-
-# the real engine (KimCad's SPA, pre-absorption) lives in the sibling repo:
-#   cd ../KimCadClaude && .venv313/Scripts/kimcad.exe web
+```powershell
+# Terminal 1: engine
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
+$env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"
+.\.venv\Scripts\kimcad.exe web --port 8765
 ```
 
-A single canonical `tinkerquarry` run command arrives in **Phase 1** of the recovery plan, once the
-forked OpenSCAD-Studio base boots inside this repo against the real engine.
+```powershell
+# Terminal 2: front end
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+pnpm dev
+```
+
+Then open `http://localhost:1420`.
+
+## Tests
+
+```powershell
+# Front-end unit suite
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js
+
+# Front-end typecheck
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+.\node_modules\.bin\tsc --noEmit
+
+# Live API integration test; requires the engine running on port 8765
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js engineLive.integration
+
+# Engine suite, excluding e2e collection that needs Playwright installed in the venv
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
+.\.venv\Scripts\python.exe -m pytest tests\ --ignore=tests\e2e -q
+```
+
+See [docs/HANDOFF-TO-CODEX.md](docs/HANDOFF-TO-CODEX.md) for proof logs, known caveats, and environment
+setup.
+
+## Repository Decision
+
+- `tinkerquarry` is the product repo of record.
+- `KimCadClaude` remains a separate product for a different audience.
+- `openscad-studio` is the upstream front-end base already forked into `apps/ui`.
+
+## Library Decision
+
+TinkerQuarry remains **GPL-2.0-only**. Bundled libraries must be GPLv2-compatible.
+
+Vendored under `packages/engine/library/vendor` with pinned commits and attribution:
+
+- BOSL2
+- Round-Anything
+- YAPP_Box
+- Catch'n'Hole
+- gridfinity-rebuilt-openscad
+- MCAD
+- tq-threads
+
+Dan Kirshner `threads.scad` is **not** vendored into this GPL-2.0-only repo because the available
+source is GPL-3.0-or-later. Thread support is provided by the clean-room MIT `tq-threads`
+replacement.
 
 ## License
 
-**GPL-2.0** — see [LICENSE](LICENSE). The combined work absorbs GPL-2.0-only components; an in-app
-About/Licenses surface with upstream source links is a **required, not-yet-built** v1 item (status
-matrix). Third-party attribution: [../KimCadClaude/THIRD_PARTY_LICENSES.md](../KimCadClaude/THIRD_PARTY_LICENSES.md).
+GPL-2.0-only. See [LICENSE](LICENSE).

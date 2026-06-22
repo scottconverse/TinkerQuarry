@@ -543,6 +543,17 @@ def web_options(config: Any, saved_settings: dict[str, Any] | None = None) -> di
     def _printer_entry(key: str) -> dict[str, Any]:
         p = config.printer(key)
         fp = p.orca_filament_profiles
+        layer_height_mm = None
+        try:
+            if p.orca_process_profile:
+                from kimcad.slicer import _find_profile_json
+
+                process_profile = _find_profile_json(
+                    config.orca_profiles_root(), "process", p.orca_process_profile
+                )
+                layer_height_mm = _process_layer_height_mm(process_profile)
+        except Exception:  # noqa: BLE001 - options metadata is best-effort; slicing still validates
+            layer_height_mm = None
         return {
             "key": key,
             "name": p.name,
@@ -550,6 +561,7 @@ def web_options(config: Any, saved_settings: dict[str, Any] | None = None) -> di
             # targeting" chip (printer name + build volume). None when not configured.
             "build_volume": list(p.build_volume) if p.build_volume else None,
             "sliceable": p.orca_process_profile is not None,
+            "layer_height_mm": layer_height_mm,
             # Materials this printer can actually print (has a verified filament profile for),
             # so the UI offers only what each printer supports — e.g. the Elegoo Neptune 4 Max
             # has no shipped TPU profile, so it doesn't offer TPU.
@@ -592,6 +604,39 @@ def _estimate_detail_with_weight(proof: Any, material: Any) -> dict[str, Any]:
             estimated = True
     detail["filament_g_estimated"] = estimated
     return detail
+
+
+def _coerce_layer_height_mm(value: Any) -> float | None:
+    """Return a positive millimeter layer height from common Orca/Prusa profile values."""
+    if isinstance(value, list) and value:
+        return _coerce_layer_height_mm(value[0])
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        v = float(value)
+        return v if v > 0 else None
+    if isinstance(value, str):
+        m = re.search(r"([0-9]+(?:\.[0-9]+)?)", value)
+        if m:
+            v = float(m.group(1))
+            return v if v > 0 else None
+    return None
+
+
+def _process_layer_height_mm(process_profile: Path) -> float | None:
+    """Best-effort layer-height extraction for the slice UI.
+
+    Prefer the process JSON's normal layer-height setting. If a vendor profile inherits that value
+    indirectly, fall back to the profile name (for example, ``0.20mm Standard @BBL P2S``).
+    """
+    try:
+        raw = json.loads(process_profile.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - profile metadata is optional for the UI detail line
+        raw = {}
+    if isinstance(raw, dict):
+        for key in ("layer_height", "layer_height_mm"):
+            v = _coerce_layer_height_mm(raw.get(key))
+            if v is not None:
+                return v
+    return _coerce_layer_height_mm(process_profile.stem)
 
 
 def _regate_mesh(config: Any, mesh_path: Path, plan_dict: Any) -> str | None:
@@ -660,6 +705,13 @@ def slice_registered_mesh(
     except SliceError as e:
         # Operational failure on a sliceable printer (bad slice / timeout).
         return {"sliced": False, "reason": "failed", "note": str(e)}, None
+    estimate_detail = (
+        _estimate_detail_with_weight(result.gcode_proof, material)
+        if result.gcode_proof
+        else None
+    )
+    if estimate_detail is not None:
+        estimate_detail["layer_height_mm"] = _process_layer_height_mm(settings.process)
     return (
         {
             "sliced": True,
@@ -670,11 +722,7 @@ def slice_registered_mesh(
             # Structured estimate so the SPA can lay out a labeled breakout (time / layers /
             # filament length / filament weight) instead of the single ``estimate`` string.
             # Weight is filled from volume × the material's density when the profile emits none.
-            "estimate_detail": (
-                _estimate_detail_with_weight(result.gcode_proof, material)
-                if result.gcode_proof
-                else None
-            ),
+            "estimate_detail": estimate_detail,
             "profiles": {
                 "machine": settings.machine.stem,
                 "process": settings.process.stem,

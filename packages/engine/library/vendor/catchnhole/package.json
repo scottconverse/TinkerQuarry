@@ -1,0 +1,13 @@
+{
+  "name": "openscad-catchnhole",
+  "private": true,
+  "version": "3.0.2",
+  "license": "MIT",
+  "author": "Maciej Małecki <me@mmalecki.com>",
+  "dependencies": {
+    "yaml": "^2.0.1"
+  },
+  "scripts": {
+    "build": "./scripts/build"
+  }
+}

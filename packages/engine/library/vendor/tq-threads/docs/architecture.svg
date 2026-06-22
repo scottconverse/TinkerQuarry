@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 660" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6b7c8c"/>
+    </marker>
+    <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0b2a4a"/>
+      <stop offset="1" stop-color="#1b6ca8"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="940" height="660" fill="#fbfdff"/>
+
+  <!-- header -->
+  <rect x="0" y="0" width="940" height="56" fill="url(#hdr)"/>
+  <text x="24" y="35" font-size="22" font-weight="700" fill="#ffffff">tq-threads — architecture</text>
+  <text x="916" y="35" font-size="13" fill="#cfe3f2" text-anchor="end">clean-room · manifold · MIT (GPL-2.0 compatible)</text>
+
+  <!-- ============ CONSUMERS ============ -->
+  <text x="24" y="86" font-size="13" font-weight="700" fill="#5b6b7b" letter-spacing="1">CONSUMERS</text>
+  <g fill="#eef2f7" stroke="#9fb3c8" stroke-width="1.4">
+    <rect x="24"  y="96" width="200" height="46" rx="8"/>
+    <rect x="244" y="96" width="210" height="46" rx="8"/>
+    <rect x="474" y="96" width="210" height="46" rx="8"/>
+    <rect x="704" y="96" width="212" height="46" rx="8"/>
+  </g>
+  <g font-size="13.5" fill="#243b53" text-anchor="middle">
+    <text x="124" y="124">your model.scad</text>
+    <text x="349" y="124">TinkerQuarry / KimCad</text>
+    <text x="579" y="124">BOSL2 / NopSCADlib (interop)</text>
+    <text x="810" y="124">slicer (STL / 3MF)</text>
+  </g>
+
+  <!-- arrows down to API -->
+  <g stroke="#6b7c8c" stroke-width="1.6" marker-end="url(#arrow)">
+    <line x1="124" y1="142" x2="124" y2="170"/>
+    <line x1="349" y1="142" x2="349" y2="170"/>
+    <line x1="579" y1="142" x2="579" y2="170"/>
+    <line x1="810" y1="142" x2="810" y2="170"/>
+  </g>
+
+  <!-- ============ PUBLIC API ============ -->
+  <rect x="16" y="172" width="908" height="148" rx="12" fill="#f3f8fd" stroke="#4a90c2" stroke-width="1.4"/>
+  <text x="28" y="192" font-size="13" font-weight="700" fill="#2f6690" letter-spacing="1">PUBLIC API  (tq_*)</text>
+  <g stroke="#4a90c2" stroke-width="1.2" fill="#e3f0fb">
+    <rect x="28"  y="202" width="210" height="50" rx="8"/>
+    <rect x="250" y="202" width="220" height="50" rx="8"/>
+    <rect x="482" y="202" width="220" height="50" rx="8"/>
+    <rect x="714" y="202" width="198" height="50" rx="8"/>
+    <rect x="28"  y="262" width="320" height="48" rx="8"/>
+    <rect x="360" y="262" width="290" height="48" rx="8"/>
+    <rect x="662" y="262" width="250" height="48" rx="8"/>
+  </g>
+  <g font-size="12.5" fill="#10324f">
+    <text x="40" y="222" font-weight="700">Presets</text>
+    <text x="40" y="240" font-size="11.5" fill="#33536e">tq_preset · tq_thread_preset · tq_thread_tpi</text>
+    <text x="262" y="222" font-weight="700">Fasteners</text>
+    <text x="262" y="240" font-size="11.5" fill="#33536e">tq_bolt · tq_countersunk_bolt · tq_nut</text>
+    <text x="494" y="222" font-weight="700">Holes &amp; parts</text>
+    <text x="494" y="240" font-size="11.5" fill="#33536e">tq_threaded_hole · tq_washer · tq_rod_*</text>
+    <text x="726" y="222" font-weight="700">Wood/coarse</text>
+    <text x="726" y="240" font-size="11.5" fill="#33536e">tq_wood_screw · tq_bottle_thread</text>
+    <text x="40" y="282" font-weight="700">Dimension tables (ISO data, functions)</text>
+    <text x="40" y="300" font-size="11.5" fill="#33536e">tq_clearance_dia · tq_nut_thickness · tq_shcs_head · tq_csk_head_dia</text>
+    <text x="372" y="282" font-weight="700" fill="#10324f"> </text>
+    <text x="372" y="282" font-size="11.5" fill="#10324f" font-weight="700">Clearance / counterbore / countersink</text>
+    <text x="372" y="300" font-size="11.5" fill="#33536e">tq_clearance_hole · *_recessed_* · *_countersunk_*</text>
+    <text x="674" y="282" font-weight="700">Hex / drive + debug</text>
+    <text x="674" y="300" font-size="11.5" fill="#33536e">tq_hex · tq_hex_drive · tq_thread_debug</text>
+  </g>
+
+  <line x1="470" y1="320" x2="470" y2="344" stroke="#6b7c8c" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- ============ CORE ============ -->
+  <rect x="220" y="346" width="500" height="60" rx="12" fill="#d7f2ea" stroke="#1b9e77" stroke-width="2.2"/>
+  <text x="470" y="372" font-size="16" font-weight="700" fill="#0b5c43" text-anchor="middle">tq_thread(d, pitch, length, …)</text>
+  <text x="470" y="392" font-size="11.5" fill="#1b6f55" text-anchor="middle">input validation (assert) · tolerance split · profile + hand + starts + arc dispatch</text>
+
+  <line x1="470" y1="406" x2="470" y2="430" stroke="#6b7c8c" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- ============ ENGINE ============ -->
+  <rect x="16" y="432" width="908" height="116" rx="12" fill="#f5f1fb" stroke="#7b5ea7" stroke-width="1.4"/>
+  <text x="28" y="452" font-size="13" font-weight="700" fill="#5a3f86" letter-spacing="1">GEOMETRY ENGINE  (_tq_*)</text>
+  <g stroke="#7b5ea7" stroke-width="1.2" fill="#ece4f6">
+    <rect x="28"  y="462" width="270" height="72" rx="8"/>
+    <rect x="318" y="462" width="320" height="72" rx="8"/>
+    <rect x="658" y="462" width="254" height="72" rx="8"/>
+  </g>
+  <g fill="#3a2a55">
+    <text x="44" y="486" font-size="13" font-weight="700">profile tables (lookup)</text>
+    <text x="44" y="506" font-size="11.5" fill="#5a4781">flat (ISO/UN basic)</text>
+    <text x="44" y="522" font-size="11.5" fill="#5a4781">sharp · rounded (filleted)</text>
+    <text x="334" y="486" font-size="13" font-weight="700">_tq_thread_solid</text>
+    <text x="334" y="506" font-size="11.5" fill="#5a4781">helical height-field r(z,θ)</text>
+    <text x="334" y="522" font-size="11.5" fill="#5a4781">→ ONE watertight polyhedron (2-manifold)</text>
+    <text x="674" y="486" font-size="13" font-weight="700">_tq_aseg</text>
+    <text x="674" y="506" font-size="11.5" fill="#5a4781">$fn / $fa / $fs resolution</text>
+    <text x="674" y="522" font-size="11.5" fill="#5a4781">+ steps_per_pitch (axial)</text>
+  </g>
+
+  <line x1="470" y1="548" x2="470" y2="572" stroke="#6b7c8c" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- ============ STANDARDS ============ -->
+  <rect x="160" y="574" width="620" height="48" rx="10" fill="#fdf1d6" stroke="#d9a531" stroke-width="1.4"/>
+  <text x="470" y="595" font-size="12.5" font-weight="700" fill="#7a5b12" text-anchor="middle">PUBLIC STANDARDS BASIS</text>
+  <text x="470" y="613" font-size="11.5" fill="#8a6a1c" text-anchor="middle">ISO 68-1 · 261 · 262 · 273 · 4032 · 4762 · 7089 · 10642   ·   ASME B1.1 (Unified)</text>
+
+  <text x="470" y="646" font-size="11" fill="#8a99a8" text-anchor="middle">No third-party thread library is copied or consulted — geometry derived from the standards above. See REFERENCES.md.</text>
+</svg>

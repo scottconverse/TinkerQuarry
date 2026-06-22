@@ -1,0 +1,22 @@
+# Render output / scratch
+_render_out/
+*.stl
+*.3mf
+*.off
+*.amf
+*.png
+
+# Local verification scratch (underscore-prefixed temp files)
+_*.scad
+_*.txt
+
+# OpenSCAD
+*.bak
+.openscad/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
