@@ -57,7 +57,7 @@
 | Security & privacy (per-boot session token, SCAD sandbox + worker, keyring masked secrets, **zero telemetry**) | **verified** |
 | Part-family browser + honesty tiers; clarify-once; stale-session reload | **implemented** |
 | Photo/sketch on-ramp (local vision seeding — `qwen2.5vl:3b` installed, seeding-only, NOT a visual loop) | **implemented** |
-| Tests: engine **1,590+ pass / 0 fail** (+ new `/api/source`, `inline_library_includes`, Customizer-`emit_scad` tests; emit-dependent suite 584 green this session), **front end 620/620 — ALL 86 suites green** (incl. new engineClient/engineDesign/engineDocument/customizer-parser tests; the lone failing suite `desktopMcp` — a Windows `import.meta.url`.pathname bug — was fixed) | **verified** |
+| Tests: engine **1557 functional pass** this session (full run, e2e/playwright excluded; + new `/api/source`, `inline_library_includes`, Customizer-`emit_scad` tests) — the 5 remaining fails are the engine's **standalone-repo hygiene** checks (SECURITY.md, lockfile pins, version-lockstep + old-frontend-source — partly obsolete in the fork), **not my product changes**. **Front end 621/621 — ALL suites green** (incl. new engineClient/engineDesign/engineDocument/customizer-parser/version-history tests; the lone failing `desktopMcp` Windows-path bug was fixed) | **verified (product); fork-hygiene fails noted** |
 
 ## Proof-bar note
 
