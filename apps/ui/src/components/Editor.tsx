@@ -132,7 +132,12 @@ export function Editor({
       }
 
       const uri = monaco.Uri.parse(`file:///${fileId}.scad`);
-      const model = monaco.editor.createModel(content, 'openscad', uri);
+      // A Monaco model is a GLOBAL singleton keyed by URI; on reload/HMR the component's modelsRef is
+      // reset but a model with this URI can survive globally — so createModel would throw "model
+      // already exists" (the crash the panel error boundary was catching). Reuse the surviving global
+      // model instead of recreating it. (The modelsRef check above already covers the normal case.)
+      const model =
+        monaco.editor.getModel(uri) ?? monaco.editor.createModel(content, 'openscad', uri);
       modelsRef.current.set(fileId, { model, viewState: null });
       return model;
     },
