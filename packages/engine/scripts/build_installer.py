@@ -115,16 +115,25 @@ def stage_site_packages(skip_pip: bool) -> None:
     print("site-packages: pip install --target (requirements.lock + kimcad) …")
     if target.exists():
         shutil.rmtree(target)
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
-         "-r", str(ROOT / "requirements.lock")],
-        check=True,
-    )
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
-         "--no-deps", "--upgrade", str(ROOT)],
-        check=True,
-    )
+    lockfile = ROOT / "requirements.lock"
+    if lockfile.exists():
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
+             "-r", str(lockfile)],
+            check=True,
+        )
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
+             "--no-deps", "--upgrade", str(ROOT)],
+            check=True,
+        )
+    else:
+        print("  requirements.lock missing; installing from pyproject dependencies")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
+             str(ROOT)],
+            check=True,
+        )
     # The installed app is a RELEASE: the dev/test toolchain has no business in it.
     for p in list(target.iterdir()):
         name = p.name.lower()

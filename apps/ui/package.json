@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "stage:engine": "node scripts/stage-engine-sidecar.mjs",
+    "build:desktop": "pnpm build && pnpm stage:engine",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

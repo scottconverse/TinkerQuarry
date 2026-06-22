@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build:desktop",
     "frontendDist": "../dist"
   },
   "app": {
@@ -26,7 +26,9 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": false,
-    "resources": {},
+    "resources": {
+      "../../../packages/engine/dist/staging": "engine"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

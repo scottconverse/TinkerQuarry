@@ -10,3 +10,5 @@ output/
 .pytest_run_full.txt
 .kimcad-web-*.log
 /.audit-tools/
+/build/
+/tools/

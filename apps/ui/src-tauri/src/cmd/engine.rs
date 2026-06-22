@@ -39,6 +39,11 @@ pub struct EngineInfo {
     session_token: String,
 }
 
+struct EngineLaunch {
+    program: PathBuf,
+    prefix_args: Vec<String>,
+}
+
 #[tauri::command]
 pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<EngineInfo, String> {
     let mut guard = state
@@ -51,7 +56,7 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
         }
     }
 
-    let engine_bin = resolve_engine_binary(&app)?;
+    let engine_launch = resolve_engine_launch(&app)?;
     let out_dir = app
         .path()
         .app_data_dir()
@@ -68,7 +73,9 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
     let session_token = Uuid::new_v4().to_string();
     let api_base_url = format!("http://127.0.0.1:{port}/api");
 
-    let child = Command::new(&engine_bin)
+    let mut command = Command::new(&engine_launch.program);
+    command.args(&engine_launch.prefix_args);
+    let child = command
         .arg("web")
         .arg("--host")
         .arg("127.0.0.1")
@@ -84,7 +91,7 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
         .map_err(|e| {
             format!(
                 "Could not start KimCad engine at {}: {e}",
-                engine_bin.display()
+                engine_launch.program.display()
             )
         })?;
 
@@ -156,10 +163,13 @@ fn health_ready(api_base_url: &str, timeout: Duration) -> bool {
     }
 }
 
-fn resolve_engine_binary(app: &AppHandle) -> Result<PathBuf, String> {
+fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {
     if let Some(path) = env::var_os("TINKERQUARRY_ENGINE_BIN").map(PathBuf::from) {
         if is_executable_candidate(&path) {
-            return Ok(path);
+            return Ok(EngineLaunch {
+                program: path,
+                prefix_args: Vec::new(),
+            });
         }
         return Err(format!(
             "TINKERQUARRY_ENGINE_BIN points to a missing engine binary: {}",
@@ -169,6 +179,9 @@ fn resolve_engine_binary(app: &AppHandle) -> Result<PathBuf, String> {
 
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Ok(resource_dir) = app.path().resource_dir() {
+        if let Some(launch) = staged_engine_launch(&resource_dir) {
+            return Ok(launch);
+        }
         candidates.extend(engine_binary_names().into_iter().flat_map(|name| {
             [
                 resource_dir.join(name),
@@ -199,11 +212,38 @@ fn resolve_engine_binary(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
-    candidates
+    if let Some(program) = candidates
         .into_iter()
         .find(|path| is_executable_candidate(path))
-        .or_else(|| Some(PathBuf::from("kimcad")))
-        .ok_or_else(|| "Could not locate the KimCad engine binary.".to_string())
+    {
+        return Ok(EngineLaunch {
+            program,
+            prefix_args: Vec::new(),
+        });
+    }
+
+    Ok(EngineLaunch {
+        program: PathBuf::from("kimcad"),
+        prefix_args: Vec::new(),
+    })
+}
+
+fn staged_engine_launch(resource_dir: &Path) -> Option<EngineLaunch> {
+    let engine_dir = resource_dir.join("engine");
+    let launcher = engine_dir.join("kimcad_launcher.py");
+    if !launcher.is_file() {
+        return None;
+    }
+    for python in python_binary_names() {
+        let program = engine_dir.join("python").join(python);
+        if program.is_file() {
+            return Some(EngineLaunch {
+                program,
+                prefix_args: vec![launcher.to_string_lossy().to_string()],
+            });
+        }
+    }
+    None
 }
 
 fn engine_binary_names() -> Vec<&'static str> {
@@ -211,6 +251,14 @@ fn engine_binary_names() -> Vec<&'static str> {
         vec!["kimcad.exe", "kimcad.cmd", "kimcad.bat"]
     } else {
         vec!["kimcad"]
+    }
+}
+
+fn python_binary_names() -> Vec<&'static str> {
+    if cfg!(windows) {
+        vec!["python.exe", "pythonw.exe"]
+    } else {
+        vec!["python"]
     }
 }
 
