@@ -36,7 +36,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
   SCAD sandbox; fail-closed gate; 6 connectors defined.
 - **Front end (works, manually verified, mostly NOT automated):** describe surface → engine → viewer;
   Customizer slider tune + re-render; AI refine ("make it 80mm tall"); Make-it-real slices + downloads
-  `.gcode.3mf`; printer/material picker (11/12 sampled printers slice; see §7); save/reopen/delete;
+  `.gcode.3mf`; printer/material picker (known-bad Neptune 4 Max profile disabled; see §7); save/reopen/delete;
   Undo; offline banner; first-real-print caution; export (STL/OBJ/AMF/3MF/SVG/DXF + File▸Save `.scad`);
   the generated SCAD **is** shown in the Editor tab (verified live — a coverage-map claim to the
   contrary was wrong).
@@ -316,9 +316,10 @@ ATTRIBUTION.md` with, per library: upstream URL, pinned commit, license, and the
 - **Manual-only verification:** see §1/§4 — every FE user flow. No `App.test.tsx`.
 - **Live-test requirement:** `engineLive.integration.test.ts` only runs its assertions when the engine
   is up **and** at least one design is saved; otherwise it `it.skip`s (visible skip, not a false pass).
-- **The picker has one broken profile:** 11/12 sampled printers slice; **`elegoo_neptune_4_max` fails**
-  (`orca-slicer exited -51` — upstream relative-extruder/`G92 E0` profile bug). The engine surfaces the
-  failure (`sliced:false`, reason). Consider filtering un-sliceable profiles from the picker.
+- **The picker flags the one known broken profile:** 11/12 sampled printers slice; **`elegoo_neptune_4_max` fails**
+  (`orca-slicer exited -51` — upstream relative-extruder/`G92 E0` profile bug). `/api/options` now marks it
+  `sliceable:false` with a note, the UI disables it as "(profile blocked)", stale saved choices fall back
+  to the first usable printer, and `/api/slice` refuses it before invoking OrcaSlicer.
 - **CI:** **none.** There is no `.github/workflows/` and no `ci.yml` in this repo (the pyproject
   comments referencing `ci.yml` are inherited from upstream KimCad and do not apply here). **All checks
   are LOCAL-ONLY.** Standing up CI (run the front-end suite, typecheck, and the engine suite with

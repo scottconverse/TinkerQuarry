@@ -667,7 +667,14 @@ function App() {
   // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
   // printer list comes from /api/options; the choice persists across sessions (localStorage).
   const [enginePrinters, setEnginePrinters] = useState<
-    { key: string; name: string; materials?: string[]; layer_height_mm?: number | null }[]
+    {
+      key: string;
+      name: string;
+      materials?: string[];
+      layer_height_mm?: number | null;
+      sliceable?: boolean;
+      slice_note?: string | null;
+    }[]
   >([]);
   const [printerKey, setPrinterKey] = useState<string>('');
   const [material, setMaterial] = useState<string>('');
@@ -944,6 +951,8 @@ function App() {
             name?: string;
             materials?: string[];
             layer_height_mm?: number | null;
+            sliceable?: boolean;
+            slice_note?: string | null;
           }>;
         }
       ).printers?.filter(
@@ -952,12 +961,17 @@ function App() {
           name: string;
           materials?: string[];
           layer_height_mm?: number | null;
+          sliceable?: boolean;
+          slice_note?: string | null;
         } => Boolean(p.key && p.name)
       );
       if (!printers?.length) return;
       setEnginePrinters(printers);
       const savedKey = localStorage.getItem('tq-printer');
-      const chosen = printers.find((p) => p.key === savedKey) ?? printers[0];
+      const chosen =
+        printers.find((p) => p.key === savedKey && p.sliceable !== false) ??
+        printers.find((p) => p.sliceable !== false) ??
+        printers[0];
       setPrinterKey(chosen.key);
       const savedMat = localStorage.getItem('tq-material');
       const mat =
@@ -2619,6 +2633,8 @@ function App() {
 
   const selectedEnginePrinter = enginePrinters.find((p) => p.key === printerKey);
   const selectedLayerHeight = formatLayerHeight(selectedEnginePrinter?.layer_height_mm);
+  const selectedPrinterBlocked = selectedEnginePrinter?.sliceable === false;
+  const selectedPrinterNote = selectedEnginePrinter?.slice_note ?? null;
 
   const content = shouldShowShareError ? (
     <div
@@ -2828,8 +2844,9 @@ function App() {
                 }}
               >
                 {enginePrinters.map((p) => (
-                  <option key={p.key} value={p.key}>
+                  <option key={p.key} value={p.key} disabled={p.sliceable === false}>
                     {p.name}
+                    {p.sliceable === false ? ' (profile blocked)' : ''}
                   </option>
                 ))}
               </select>
@@ -2863,6 +2880,14 @@ function App() {
                   </span>
                 </>
               )}
+              {selectedPrinterBlocked && selectedPrinterNote && (
+                <>
+                  <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+                  <span data-testid="slice-profile-note" style={{ color: 'var(--status-warning)' }}>
+                    Profile blocked
+                  </span>
+                </>
+              )}
             </div>
           )}
 
@@ -2879,7 +2904,7 @@ function App() {
               void handleMakeItReal();
             }}
             size="sm"
-            disabled={isRendering || !hasEngineDesign}
+            disabled={isRendering || !hasEngineDesign || selectedPrinterBlocked}
             className="text-xs px-2 py-1"
             title={
               hasEngineDesign

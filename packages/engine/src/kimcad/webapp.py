@@ -51,6 +51,12 @@ MAX_REGISTRY = 50  # keep at most the last N rendered meshes; evict oldest
 # not rendered meshes), so it gets its own cap instead of overloading MAX_REGISTRY. Slices are
 # heavier and re-confirms are rarer, so a smaller bound is plenty.
 MAX_SLICE_CACHE = 16  # keep at most the last N cached (rid, printer, material) slice results
+KNOWN_UNSLICEABLE_PRINTERS: dict[str, str] = {
+    "elegoo_neptune_4_max": (
+        "Bundled OrcaSlicer 2.4.0 rejects its upstream Neptune 4 Max profile "
+        "(relative extruder mode without G92 E0)."
+    ),
+}
 MAX_BODY_BYTES = 1_048_576  # 1 MiB — prompts are tiny; reject anything larger
 # A design import carries a mesh (+ thumb), so it needs more headroom than a JSON body. Still
 # bounded so a hostile upload can't exhaust memory.
@@ -536,10 +542,10 @@ def web_options(config: Any, saved_settings: dict[str, Any] | None = None) -> di
     """The printer + material choices the UI offers, plus the effective defaults (the user's saved
     Settings choice overlaid on the shipped config default — Stage 8.5 Slice 6).
 
-    Each printer carries a ``sliceable`` flag (it has an OrcaSlicer process profile) so
+    Each printer carries a ``sliceable`` flag (it has a usable OrcaSlicer process profile) so
     the UI can mark any printer configured without one as not-yet-sliceable instead of
-    letting the user pick one that will only refuse. (All three currently configured
-    printers — Bambu P2S, Bambu A1, Elegoo Neptune 4 Max — are sliceable.)"""
+    letting the user pick one that will only refuse. Some profiles resolve on disk but are
+    blocked because the bundled slicer is known to reject them."""
     def _printer_entry(key: str) -> dict[str, Any]:
         p = config.printer(key)
         fp = p.orca_filament_profiles
@@ -554,13 +560,19 @@ def web_options(config: Any, saved_settings: dict[str, Any] | None = None) -> di
                 layer_height_mm = _process_layer_height_mm(process_profile)
         except Exception:  # noqa: BLE001 - options metadata is best-effort; slicing still validates
             layer_height_mm = None
+        blocked_note = KNOWN_UNSLICEABLE_PRINTERS.get(key)
+        has_process_profile = p.orca_process_profile is not None
+        is_sliceable = has_process_profile and blocked_note is None
         return {
             "key": key,
             "name": p.name,
             # UX-006: the build envelope (mm) so the chrome can show an always-on "what am I
             # targeting" chip (printer name + build volume). None when not configured.
             "build_volume": list(p.build_volume) if p.build_volume else None,
-            "sliceable": p.orca_process_profile is not None,
+            "sliceable": is_sliceable,
+            "slice_note": blocked_note if blocked_note else (
+                None if has_process_profile else "No OrcaSlicer process profile is configured."
+            ),
             "layer_height_mm": layer_height_mm,
             # Materials this printer can actually print (has a verified filament profile for),
             # so the UI offers only what each printer supports — e.g. the Elegoo Neptune 4 Max
@@ -685,6 +697,9 @@ def slice_registered_mesh(
         orca = config.binary_path("orcaslicer")
         if not orca.is_file():
             raise ToolMissingError("OrcaSlicer", orca)
+        blocked_note = KNOWN_UNSLICEABLE_PRINTERS.get(printer.key)
+        if blocked_note:
+            raise OrcaProfileError(f"printer {printer.name!r} is currently blocked: {blocked_note}")
         settings = resolve_slice_settings(config.orca_profiles_root(), printer, material)
         result = slice_model(
             mesh_path,

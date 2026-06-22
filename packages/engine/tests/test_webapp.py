@@ -599,10 +599,11 @@ def test_serves_spa_index_and_assets_and_rejects_traversal(tmp_path):
 def test_web_options_lists_printers_with_sliceable_flag():
     opts = web_options(Config.load())
     by_key = {p["key"]: p for p in opts["printers"]}
-    # All three of Kim's printers ship machine + process + filament profiles.
+    # Bambu profiles ship machine + process + filament profiles and are currently usable.
     assert by_key["bambu_p2s"]["sliceable"] is True
     assert by_key["bambu_a1"]["sliceable"] is True
-    assert by_key["elegoo_neptune_4_max"]["sliceable"] is True
+    assert by_key["elegoo_neptune_4_max"]["sliceable"] is False
+    assert "relative extruder mode" in by_key["elegoo_neptune_4_max"]["slice_note"]
     assert by_key["bambu_p2s"]["layer_height_mm"] is None or by_key["bambu_p2s"]["layer_height_mm"] > 0
     assert any(m["key"] == "pla" for m in opts["materials"])
     assert opts["default_printer"] == "bambu_p2s"
@@ -833,6 +834,18 @@ class _NoProcessConfig:
         return Path(__file__)
 
 
+class _KnownBlockedProfileConfig(_NoProcessConfig):
+    """A config stand-in for a profile that resolves but is blocked by known slicer evidence."""
+
+    def printer(self, key):
+        from kimcad.config import Printer
+
+        return Printer(
+            key="elegoo_neptune_4_max", name="Elegoo Neptune 4 Max", build_volume=(420, 420, 480),
+            nozzle_diameter=0.4, orca_machine_profile="M", orca_process_profile="P",
+        )
+
+
 def test_slice_registered_mesh_refuses_printer_without_process(tmp_path):
     """The web-layer refusal: a printer with no process profile reports a note (reason
     no_profile), not an exception, and produces no G-code — deterministic, no binary."""
@@ -842,6 +855,18 @@ def test_slice_registered_mesh_refuses_printer_without_process(tmp_path):
     assert info["sliced"] is False
     assert info["reason"] == "no_profile"  # ENG-008: capability gap, not a failure
     assert "process profile" in info["note"]
+    assert gcode_path is None
+
+
+def test_slice_registered_mesh_refuses_known_blocked_profile(tmp_path):
+    mesh = tmp_path / "part.oriented.stl"
+    mesh.write_bytes(b"solid x\nendsolid x\n")  # never reached; known profile block fails first
+    info, gcode_path = slice_registered_mesh(
+        _KnownBlockedProfileConfig(), mesh, "elegoo_neptune_4_max", "pla"
+    )
+    assert info["sliced"] is False
+    assert info["reason"] == "no_profile"
+    assert "relative extruder mode" in info["note"]
     assert gcode_path is None
 
 

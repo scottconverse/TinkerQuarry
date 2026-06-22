@@ -115,7 +115,8 @@ defaults:
 # resolve, be compatible with the machine, and live-slice. orca_filament_profiles is the
 # SOLE source of truth per printer: a material with no entry is honestly "not available" on
 # that printer (no cross-vendor generic fallback, which could mis-slice on the wrong machine).
-# Kim's three printers — Bambu P2S, Bambu A1, and the Elegoo Neptune 4 Max — are all sliceable.
+# The app may still mark a profile not sliceable when the bundled OrcaSlicer is known to reject
+# that upstream profile at runtime.
 printers:
   bambu_p2s:
     name: "Bambu Lab P2S"
