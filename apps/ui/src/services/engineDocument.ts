@@ -104,15 +104,35 @@ export async function describeIntoStudio(
     return { ok: false, gate, rid, error: 'engine returned no source' };
   }
 
+  return { ok: true, gate, rid, path: setEngineDocument(data.scad), scad: data.scad };
+}
+
+/** Set `scad` as the workspace's active document: replace the render-target file's content, or create
+ *  one in an empty workspace. Returns the document path. Shared by describe and reopen. */
+function setEngineDocument(scad: string): string {
   const store = getProjectStore();
   const state = store.getState();
   const path = state.renderTargetPath ?? listProjectFiles(state)[0];
   if (path && state.files[path]) {
-    state.updateFileContent(path, data.scad);
-    return { ok: true, gate, rid, path, scad: data.scad };
+    state.updateFileContent(path, scad);
+    return path;
   }
-  // Empty workspace (no document yet): create one and make it the render target.
-  state.addFile(NEW_DESIGN_PATH, data.scad);
+  state.addFile(NEW_DESIGN_PATH, scad);
   store.getState().setRenderTarget(NEW_DESIGN_PATH);
-  return { ok: true, gate, rid, path: NEW_DESIGN_PATH, scad: data.scad };
+  return NEW_DESIGN_PATH;
+}
+
+/** Reopen a saved design (§6.12) into the workspace: re-register it on the engine, pull its
+ *  self-contained SCAD, and make it the active document — the same end state as a fresh describe, so the
+ *  viewer renders it and the Customizer sliders work. */
+export async function reopenIntoStudio(id: string): Promise<EngineDocOutcome> {
+  const { ok, data } = await engine.reopenDesign(id);
+  if (!ok || data.status !== 'completed') {
+    return { ok: false, gate: '', error: data.error ?? 'Could not reopen that design.' };
+  }
+  const rid = ridFromResult(data);
+  if (rid == null) return { ok: false, gate: '', error: 'Reopened design has no id.' };
+  const src = await engine.source(rid, true);
+  if (!src.ok || !src.data?.scad) return { ok: false, gate: '', rid, error: 'Reopened design has no source.' };
+  return { ok: true, gate: engineGateSummary(data), rid, path: setEngineDocument(src.data.scad), scad: src.data.scad };
 }
