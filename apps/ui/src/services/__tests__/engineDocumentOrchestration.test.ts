@@ -40,6 +40,26 @@ describe('describeIntoStudio — orchestration (Phase 4 B core)', () => {
     expect(getProjectState().files['main.scad'].content).toBe('// old');
   });
 
+  it('passes prior turns to the engine as `history` (the refine path)', async () => {
+    let seenOpts: Record<string, unknown> | undefined;
+    const prior = [
+      { role: 'user' as const, content: 'a box' },
+      { role: 'assistant' as const, content: 'Looks printable' },
+    ];
+    await describeIntoStudio('make it 10mm taller', prior, {
+      run: async (_p: string, opts: Record<string, unknown>) => {
+        seenOpts = opts;
+        return {
+          result: { status: 'completed', mesh_url: '/api/mesh/9' } as DesignResult,
+          preview: null,
+          ok: true,
+        };
+      },
+      source: stubSource('box_taller();'),
+    });
+    expect(seenOpts?.history).toEqual(prior); // refine-in-context: prior turns reach the engine
+  });
+
   it('creates a fresh document in an empty workspace', async () => {
     getProjectStore().getState().openProject(null, {}, null);
     const out = await describeIntoStudio('a cube', undefined, {
