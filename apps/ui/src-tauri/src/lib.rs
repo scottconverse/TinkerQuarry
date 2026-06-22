@@ -47,7 +47,7 @@ fn build_window_with_label(
     record_window_startup_phase(&mcp_state, label, "window_created", None);
 
     WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
-        .title("OpenSCAD Studio")
+        .title("TinkerQuarry")
         .inner_size(1400.0, 900.0)
         .initialization_script(&initialization_script)
         .build()?;
@@ -118,7 +118,7 @@ pub fn run() {
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
-            let app_menu = SubmenuBuilder::new(app, "OpenSCAD Studio")
+            let app_menu = SubmenuBuilder::new(app, "TinkerQuarry")
                 .about(None)
                 .separator()
                 .hide()

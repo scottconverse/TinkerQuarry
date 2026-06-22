@@ -1135,17 +1135,17 @@ export async function getDesktopMcpStatus(): Promise<McpServerStatus> {
 }
 
 export function buildClaudeMcpCommand(port: number): string {
-  return `claude mcp add --transport http --scope user openscad-studio http://127.0.0.1:${port}/mcp`;
+  return `claude mcp add --transport http --scope user tinkerquarry http://127.0.0.1:${port}/mcp`;
 }
 
 export function buildCodexMcpCommand(port: number): string {
-  return `codex mcp add openscad-studio --url http://127.0.0.1:${port}/mcp`;
+  return `codex mcp add tinkerquarry --url http://127.0.0.1:${port}/mcp`;
 }
 
 export function buildCursorMcpConfig(port: number): string {
   return `{
   "mcpServers": {
-    "openscad-studio": {
+    "tinkerquarry": {
       "url": "http://127.0.0.1:${port}/mcp"
     }
   }
@@ -1156,7 +1156,7 @@ export function buildOpenCodeMcpConfig(port: number): string {
   return `{
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "openscad-studio": {
+    "tinkerquarry": {
       "type": "remote",
       "url": "http://127.0.0.1:${port}/mcp",
       "enabled": true
@@ -1166,5 +1166,5 @@ export function buildOpenCodeMcpConfig(port: number): string {
 }
 
 export function buildAgentSnippet(port: number): string {
-  return `Use the TinkerQuarry MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call get_or_create_workspace with the repo root before using Studio tools.`;
+  return `Use the TinkerQuarry MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call get_or_create_workspace with the repo root before using TinkerQuarry tools.`;
 }

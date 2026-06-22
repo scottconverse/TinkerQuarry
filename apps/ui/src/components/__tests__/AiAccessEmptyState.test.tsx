@@ -25,7 +25,7 @@ describe('AiAccessEmptyState', () => {
     );
     expect(screen.getByText(/claude mcp add --transport http --scope user/i)).toBeTruthy();
     expect(screen.getByText(/register TinkerQuarry as an MCP server\./i)).toBeTruthy();
-    expect(screen.queryByText(/codex mcp add openscad-studio --url/i)).toBeNull();
+    expect(screen.queryByText(/codex mcp add tinkerquarry --url/i)).toBeNull();
 
     const cursorTab = screen.getByRole('tab', { name: /Cursor/i });
     fireEvent.mouseDown(cursorTab, { button: 0, ctrlKey: false });

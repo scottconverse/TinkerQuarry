@@ -53,12 +53,12 @@ jest.unstable_mockModule('@/stores/layoutStore', () => ({
 
 jest.unstable_mockModule('@/services/desktopMcp', () => ({
   buildClaudeMcpCommand: (port: number) =>
-    `claude mcp add --transport http --scope user openscad-studio http://127.0.0.1:${port}/mcp`,
+    `claude mcp add --transport http --scope user tinkerquarry http://127.0.0.1:${port}/mcp`,
   buildCodexMcpCommand: (port: number) =>
-    `codex mcp add openscad-studio --url http://127.0.0.1:${port}/mcp`,
+    `codex mcp add tinkerquarry --url http://127.0.0.1:${port}/mcp`,
   buildCursorMcpConfig: (port: number) => `{
   "mcpServers": {
-    "openscad-studio": {
+    "tinkerquarry": {
       "url": "http://127.0.0.1:${port}/mcp"
     }
   }
@@ -66,7 +66,7 @@ jest.unstable_mockModule('@/services/desktopMcp', () => ({
   buildOpenCodeMcpConfig: (port: number) => `{
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "openscad-studio": {
+    "tinkerquarry": {
       "type": "remote",
       "url": "http://127.0.0.1:${port}/mcp",
       "enabled": true

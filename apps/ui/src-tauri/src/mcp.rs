@@ -370,7 +370,7 @@ fn wait_for_window_tool_ready(
                 .map(describe_workspace_startup_phase)
                 .unwrap_or_else(|| "last startup phase: unknown".into());
             return Err(format!(
-                "Timed out waiting for OpenSCAD Studio window `{window_id}` to finish starting its MCP bridge ({phase})."
+                "Timed out waiting for TinkerQuarry window `{window_id}` to finish starting its MCP bridge ({phase})."
             ));
         }
 
@@ -390,7 +390,7 @@ fn remove_window_and_invalidate_sessions_locked(inner: &mut McpStateInner, windo
     for request_id in pending_request_ids {
         if let Some(pending) = inner.window_open_requests.remove(&request_id) {
             let _ = pending.sender.send(Err(format!(
-                "OpenSCAD Studio window `{window_id}` closed before it finished opening the requested target."
+                "TinkerQuarry window `{window_id}` closed before it finished opening the requested target."
             )));
         }
     }
@@ -414,7 +414,7 @@ fn require_bound_window_id(
 
     let Some(window_id) = session.bound_window_id.clone() else {
         return Err(text_tool_response(
-            "No OpenSCAD Studio workspace is selected for this MCP session. Call `get_or_create_workspace(folder_path)` first.",
+            "No TinkerQuarry workspace is selected for this MCP session. Call `get_or_create_workspace(folder_path)` first.",
             true,
         ));
     };
@@ -462,14 +462,14 @@ fn call_frontend_tool(
     let Some(window) = app.get_webview_window(window_id) else {
         remove_pending(inner, &request_id);
         return Err(format!(
-            "OpenSCAD Studio window `{window_id}` is no longer available."
+            "TinkerQuarry window `{window_id}` is no longer available."
         ));
     };
 
     if let Err(error) = window.emit("mcp:tool-request", payload) {
         remove_pending(inner, &request_id);
         return Err(format!(
-            "Failed to dispatch MCP tool request to OpenSCAD Studio window `{window_id}`: {error}"
+            "Failed to dispatch MCP tool request to TinkerQuarry window `{window_id}`: {error}"
         ));
     }
 
@@ -477,11 +477,11 @@ fn call_frontend_tool(
         Ok(response) => Ok(response),
         Err(mpsc::RecvTimeoutError::Timeout) => {
             remove_pending(inner, &request_id);
-            Err("Timed out waiting for OpenSCAD Studio to complete the MCP tool request.".into())
+            Err("Timed out waiting for TinkerQuarry to complete the MCP tool request.".into())
         }
         Err(mpsc::RecvTimeoutError::Disconnected) => {
             remove_pending(inner, &request_id);
-            Err("OpenSCAD Studio could not deliver the MCP tool response.".into())
+            Err("TinkerQuarry could not deliver the MCP tool response.".into())
         }
     }
 }
@@ -523,7 +523,7 @@ fn wait_for_window_open_result(
                     .unwrap_or_else(|| "last startup phase: unknown".into())
             };
             Err(format!(
-                "Timed out waiting for OpenSCAD Studio to open `{target_description}` in window `{window_id}` ({phase})."
+                "Timed out waiting for TinkerQuarry to open `{target_description}` in window `{window_id}` ({phase})."
             ))
         }
         Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -533,7 +533,7 @@ fn wait_for_window_open_result(
                 .window_open_requests
                 .remove(request_id);
             Err(format!(
-                "OpenSCAD Studio lost the result channel while opening `{target_description}` in window `{window_id}`."
+                "TinkerQuarry lost the result channel while opening `{target_description}` in window `{window_id}`."
             ))
         }
     }
@@ -574,7 +574,7 @@ fn dispatch_window_open_request(
             .window_open_requests
             .remove(&request_id);
         return Err(format!(
-            "OpenSCAD Studio window `{window_id}` is no longer available."
+            "TinkerQuarry window `{window_id}` is no longer available."
         ));
     };
 
@@ -587,7 +587,7 @@ fn dispatch_window_open_request(
             workspace.show_welcome = true;
         }
         return Err(format!(
-            "Failed to dispatch desktop open request to OpenSCAD Studio window `{window_id}`: {error}"
+            "Failed to dispatch desktop open request to TinkerQuarry window `{window_id}`: {error}"
         ));
     }
 
@@ -649,7 +649,7 @@ fn get_or_create_workspace_response(
                     .unwrap_or_else(|| "(no render target)".into());
                 text_tool_response(
                     format!(
-                        "✅ Attached this MCP session to the already-open OpenSCAD Studio workspace at {}.\n\nWindow: {}\nRender target: {}",
+                        "✅ Attached this MCP session to the already-open TinkerQuarry workspace at {}.\n\nWindow: {}\nRender target: {}",
                         normalized_root, workspace.window_id, render_target
                     ),
                     false,
@@ -657,7 +657,7 @@ fn get_or_create_workspace_response(
             } else {
                 text_tool_response(
                     format!(
-                        "OpenSCAD Studio window `{window_id}` was no longer available while attaching the workspace."
+                        "TinkerQuarry window `{window_id}` was no longer available while attaching the workspace."
                     ),
                     true,
                 )
@@ -690,7 +690,7 @@ fn get_or_create_workspace_response(
                 if opened_root.as_deref() != Some(normalized_root.as_str()) {
                     return text_tool_response(
                         format!(
-                            "OpenSCAD Studio opened the wrong workspace in window `{window_id}`. Expected `{normalized_root}`, got `{}`.",
+                            "TinkerQuarry opened the wrong workspace in window `{window_id}`. Expected `{normalized_root}`, got `{}`.",
                             opened_root.unwrap_or_else(|| "(unknown workspace)".into())
                         ),
                         true,
@@ -724,7 +724,7 @@ fn get_or_create_workspace_response(
                     .window_open_requests
                     .remove(&request_id);
                 return text_tool_response(
-                    format!("Failed to create a new OpenSCAD Studio window: {error}"),
+                    format!("Failed to create a new TinkerQuarry window: {error}"),
                     true,
                 );
             }
@@ -748,7 +748,7 @@ fn get_or_create_workspace_response(
         if opened_root.as_deref() != Some(normalized_root.as_str()) {
             return text_tool_response(
                 format!(
-                    "OpenSCAD Studio opened the wrong workspace in window `{window_id}`. Expected `{normalized_root}`, got `{}`.",
+                    "TinkerQuarry opened the wrong workspace in window `{window_id}`. Expected `{normalized_root}`, got `{}`.",
                     opened_root.unwrap_or_else(|| "(unknown workspace)".into())
                 ),
                 true,
@@ -762,7 +762,7 @@ fn get_or_create_workspace_response(
 
     text_tool_response(
         format!(
-            "{detail}\n\n✅ Bound this MCP session to OpenSCAD Studio window `{target_window_id}`."
+            "{detail}\n\n✅ Bound this MCP session to TinkerQuarry window `{target_window_id}`."
         ),
         false,
     )
@@ -930,7 +930,7 @@ impl OpenScadMcpHandler {
 #[tool_router]
 impl OpenScadMcpHandler {
     #[tool(
-        description = "Ensure this MCP session is bound to the exact requested workspace folder by attaching to an already-open match or opening/initializing it in OpenSCAD Studio."
+        description = "Ensure this MCP session is bound to the exact requested workspace folder by attaching to an already-open match or opening/initializing it in TinkerQuarry."
     )]
     async fn get_or_create_workspace(
         &self,
@@ -951,7 +951,7 @@ impl OpenScadMcpHandler {
     }
 
     #[tool(
-        description = "Get the current OpenSCAD Studio render target and workspace summary for the selected workspace."
+        description = "Get the current TinkerQuarry render target and workspace summary for the selected workspace."
     )]
     async fn get_project_context(&self) -> Result<CallToolResult, McpError> {
         let state = self.shared_state.clone();
@@ -1026,12 +1026,11 @@ impl ServerHandler for OpenScadMcpHandler {
         use rmcp::model::Implementation;
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new(
-                "openscad-studio",
+                "tinkerquarry",
                 env!("CARGO_PKG_VERSION"),
             ))
             .with_instructions(
-                "OpenSCAD Studio MCP server — controls the OpenSCAD Studio desktop editor."
-                    .to_string(),
+                "TinkerQuarry MCP server — controls the TinkerQuarry desktop editor.".to_string(),
             )
     }
 }
@@ -1052,7 +1051,7 @@ pub(crate) fn record_window_startup_phase(
         .or_insert_with(|| RegisteredWorkspace {
             descriptor: WorkspaceDescriptor {
                 window_id: window_label.to_string(),
-                title: "OpenSCAD Studio".into(),
+                title: "TinkerQuarry".into(),
                 workspace_root: None,
                 render_target_path: None,
                 is_focused: false,
@@ -1191,7 +1190,7 @@ pub async fn mcp_mark_window_bridge_ready(
         .or_insert_with(|| RegisteredWorkspace {
             descriptor: WorkspaceDescriptor {
                 window_id: label,
-                title: "OpenSCAD Studio".into(),
+                title: "TinkerQuarry".into(),
                 workspace_root: None,
                 render_target_path: None,
                 is_focused,
@@ -1222,7 +1221,7 @@ pub async fn mcp_update_window_context(
         .workspace_root
         .as_deref()
         .and_then(normalize_workspace_root);
-    let title = payload.title.unwrap_or_else(|| "OpenSCAD Studio".into());
+    let title = payload.title.unwrap_or_else(|| "TinkerQuarry".into());
     let render_target_path = payload.render_target_path.clone();
     let is_focused = window.is_focused().unwrap_or(false);
 
@@ -1302,7 +1301,7 @@ pub async fn report_window_open_result(
         .or_insert_with(|| RegisteredWorkspace {
             descriptor: WorkspaceDescriptor {
                 window_id: label.clone(),
-                title: "OpenSCAD Studio".into(),
+                title: "TinkerQuarry".into(),
                 workspace_root: None,
                 render_target_path: None,
                 is_focused: false,
