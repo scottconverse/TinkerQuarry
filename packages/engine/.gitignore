@@ -4,3 +4,9 @@ config/local.yaml
 .venv/
 output/
 *.egg-info/
+
+# Audit / test-run outputs (project hygiene)
+/output_test/
+.pytest_run_full.txt
+.kimcad-web-*.log
+/.audit-tools/
