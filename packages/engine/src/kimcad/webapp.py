@@ -2357,6 +2357,7 @@ def make_handler(
                 plan=snap.get("plan"),
                 mesh_path=mesh_path,
                 thumb_png=_decode_data_url_png(data.get("thumbnail")),
+                scad=snap.get("scad"),
             )
             if not ok:
                 # QA-001: a save is best-effort (a transient persistence miss — e.g. a brief
@@ -2414,6 +2415,9 @@ def make_handler(
                     "gate_status": d.gate_status,
                     "readiness_score": d.readiness_score,
                     "template_family": d.template_family,
+                    # Restore the source so /api/source/<rid> serves it (code drawer + Studio's WASM
+                    # viewer). None for designs saved before scad persistence — source stays view-only.
+                    "scad": d.scad,
                 }
                 reg.enforce_caps_locked(MAX_REGISTRY)
             payload = dict(d.payload)

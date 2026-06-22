@@ -2502,6 +2502,11 @@ def test_designs_full_round_trip(tmp_path):
         st, rr = _jreq(h, p, "POST", f"/api/render/{newrid}",
                        {"values": {"width": 80, "depth": 60, "height": 40, "wall": 2}})
         assert st == 200 and rr["status"] == "completed"  # re-render on a reopened design works
+        # REGRESSION: a reopened design must also serve its SOURCE. Reopen used to drop the scad from
+        # the restored snapshot, so /api/source/<newrid> 404'd — the code drawer + Studio's WASM viewer
+        # (which reopenIntoStudio renders) silently failed. The scad now persists on save + restores.
+        st, rsrc = _jreq(h, p, "GET", f"/api/source/{newrid}")
+        assert st == 200 and isinstance(rsrc["scad"], str) and rsrc["scad"].strip()
 
         st, _ = _jreq(h, p, "POST", f"/api/designs/{sid}/rename", {"name": "Renamed"})
         assert st == 200

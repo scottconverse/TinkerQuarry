@@ -69,6 +69,9 @@ class SavedDesign:
     template_family: str | None
     payload: dict[str, Any]
     plan: dict[str, Any] | None
+    # The exact self-contained-ish SCAD behind the geometry, persisted so a reopened design can serve
+    # its source (the code drawer + Studio's WASM viewer need it). Older saves predate this → None.
+    scad: str | None = None
 
 
 def _index_entry(d: SavedDesign, *, has_thumb: bool) -> dict[str, Any]:
@@ -131,6 +134,7 @@ class DesignStore:
                 template_family=raw.get("template_family"),
                 payload=raw.get("payload") if isinstance(raw.get("payload"), dict) else {},
                 plan=raw.get("plan") if isinstance(raw.get("plan"), dict) else None,
+                scad=raw.get("scad") if isinstance(raw.get("scad"), str) else None,
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -168,6 +172,7 @@ class DesignStore:
         plan: dict[str, Any] | None,
         mesh_path: Path,
         thumb_png: bytes | None,
+        scad: str | None = None,
     ) -> bool:
         """Persist a design (copying its mesh + an optional thumbnail). Returns True on success.
         Best-effort: any failure is swallowed and returns False (the SPA just doesn't get a saved
@@ -189,6 +194,7 @@ class DesignStore:
                     "template_family": template_family,
                     "payload": payload,
                     "plan": plan,
+                    "scad": scad,
                 }
                 shutil.copyfile(mesh_path, d / "mesh.stl")
                 if thumb_png:
