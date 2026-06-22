@@ -44,14 +44,24 @@ export interface EngineTurn {
   content: string;
 }
 
+/** Injectable engine calls (default to the real ones) — lets the orchestration be unit-tested without
+ *  module mocking. */
+export interface DescribeDeps {
+  run?: typeof runEngineDesign;
+  source?: (rid: number, inline: boolean) => ReturnType<typeof engine.source>;
+}
+
 export async function describeIntoStudio(
   prompt: string,
-  history?: EngineTurn[]
+  history?: EngineTurn[],
+  deps: DescribeDeps = {}
 ): Promise<EngineDocOutcome> {
+  const run = deps.run ?? runEngineDesign;
+  const source = deps.source ?? ((rid, inline) => engine.source(rid, inline));
   // `history` (prior turns) makes this a REFINE in context ("make it 10mm taller") — the engine's
   // /api/design accepts it (webapp.py). Omitted = a fresh describe.
   const opts = history && history.length ? { history } : {};
-  const { result, ok } = await runEngineDesign(prompt, opts);
+  const { result, ok } = await run(prompt, opts);
   const gate = engineGateSummary(result);
   const rid = ridFromResult(result);
   if (!ok || rid == null) {
@@ -60,7 +70,7 @@ export async function describeIntoStudio(
 
   // Inlined = self-contained SCAD (library use/include resolved), so Studio's WASM viewer renders
   // template parts too (LLM-codegen parts are already self-contained).
-  const { ok: srcOk, data } = await engine.source(rid, true);
+  const { ok: srcOk, data } = await source(rid, true);
   if (!srcOk || !data?.scad) {
     return { ok: false, gate, rid, error: 'engine returned no source' };
   }
