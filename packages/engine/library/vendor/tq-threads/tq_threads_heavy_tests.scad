@@ -64,5 +64,18 @@ cell(32) difference(){ translate([-9,-9,0]) cube([18,18,8]); tq_countersunk_clea
 cell(33) difference(){ translate([-9,-9,0]) cube([18,18,12]); tq_recessed_clearance_hole(5,12); }
 cell(34) difference(){ translate([-9,-9,0]) cube([18,18,6]); tq_clearance_hole(6,6); }
 
+// row: v0.3 features
+cell(35) tq_thread(10, 2, L, angle=45);            // custom 45-deg flank
+cell(36) tq_thread(10, 2, L, tooth_height=1.5);    // explicit tooth height
+cell(37) tq_thread(12, 1.75, L, taper=3);          // tapered
+cell(38) tq_auger(20, 14);                          // auger flight
+cell(39) tq_auger(18, 14, taper=6);                // tapered auger (drill-ish)
+cell(40) tq_bolt(8, 1.25, 14, drive="phillips", shank=3);    // Phillips bolt
+cell(41) tq_countersunk_bolt(8, 1.25, 14, drive="phillips"); // Phillips csk bolt
+cell(42) tq_phillips_tip(2);                        // Phillips driver bit
+cell(43) difference(){ tq_thread(10,1.5,L); translate([0,0,4]) tq_relief_groove(10); } // relief
+cell(44) tq_tap(8, 1.25, L) cube([16,16,L]);       // child-wrapper tap
+cell(45) tq_counterbore(5, L) translate([-8,-8,0]) cube([16,16,L]);  // child-wrapper counterbore
+
 // debug view below the grid
-translate([0, -6.2*SP, 0]) tq_thread_debug(8, 1.25, 12);
+translate([0, -8.5*SP, 0]) tq_thread_debug(8, 1.25, 12);

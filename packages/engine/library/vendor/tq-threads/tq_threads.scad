@@ -43,7 +43,7 @@
 
 // Library version (filenames are fixed by the `include` API; version lives
 // here and in the git tag / CHANGELOG / GitHub release).
-TQ_THREADS_VERSION = "0.2.0";
+TQ_THREADS_VERSION = "0.3.0";
 
 // sqrt(3)/2 : height of a sharp 60-degree V per unit pitch (H = 0.86603 * P)
 _TQ_H = 0.86602540378;
@@ -113,7 +113,7 @@ function _tq_table_round(P, Rmin, Rmaj, rnd, nseg) =
 // ============================================================================
 //  CORE GEOMETRY  --  helical height-field polyhedron
 // ============================================================================
-module _tq_thread_solid(P, L, Rmaj, Rmin, lead, dir, table, ci, co, na, nz) {
+module _tq_thread_solid(P, L, Rmaj, Rmin, lead, dir, table, ci, co, na, nz, taper=0) {
     dz = L / nz;
     pts = concat(
         [ for (i = [0:nz], j = [0:na-1])
@@ -121,9 +121,10 @@ module _tq_thread_solid(P, L, Rmaj, Rmin, lead, dir, table, ci, co, na, nz) {
                    th = j * (360 / na),
                    a  = _tq_pmod(z - dir * (th/360) * lead, P),
                    r0 = lookup(a, table),
+                   shrink = (taper / 2) * (z / L),       // linear radial taper
                    f  = min( ci > 0 ? min(z/ci, 1) : 1,
                              co > 0 ? min((L - z)/co, 1) : 1 ),
-                   r  = Rmin + (r0 - Rmin) * f )
+                   r  = (Rmin - shrink) + (r0 - Rmin) * f )
               [ r * cos(th), r * sin(th), z ] ],
         [ [0, 0, 0], [0, 0, L] ]                       // bottom & top centres
     );
@@ -157,12 +158,15 @@ module tq_thread(d, pitch, length,
                  hand           = "right",
                  clearance      = 0.4,
                  profile        = "flat",
+                 angle          = 60,
+                 tooth_height   = undef,
                  crest_flat     = undef,
                  root_flat      = undef,
                  round          = 1,
                  lead_in        = true,
                  lead_out       = true,
                  chamfer        = undef,
+                 taper          = 0,
                  arc            = 360,
                  fn             = undef,
                  steps_per_pitch= 16,
@@ -189,23 +193,34 @@ module tq_thread(d, pitch, length,
            str("tq_thread: clearance must be >= 0, got ", clearance));
     assert(is_undef(chamfer) || (is_num(chamfer) && chamfer >= 0),
            "tq_thread: chamfer must be >= 0 (or undef for auto)");
+    assert(is_num(angle) && angle > 0 && angle < 180,
+           str("tq_thread: angle (included flank angle) must be in (0,180), got ", angle));
+    assert(is_undef(tooth_height) || (is_num(tooth_height) && tooth_height > 0),
+           "tq_thread: tooth_height must be > 0 (or undef to derive from angle)");
+    assert(is_num(taper) && taper >= 0,
+           str("tq_thread: taper (total dia reduction over length) must be >= 0, got ", taper));
 
     P   = pitch;
     cf  = is_undef(crest_flat) ? P/8 : crest_flat;
     rf  = is_undef(root_flat)  ? P/4 : root_flat;
-    h   = (P - cf - rf) * _TQ_H;                      // radial flank height
+    // radial flank height: derived from the flank angle, OR set explicitly.
+    h   = is_undef(tooth_height) ? (P - cf - rf) / (2 * tan(angle/2)) : tooth_height;
     off = (internal ? +1 : -1) * clearance / 2;       // tolerance shift (radial)
     Rmaj = d/2 + off;
     Rmin = Rmaj - h;
-    // rounded roots dip ~0.5*rr below the flat minor radius; check the real valley
-    rmin_floor = (profile == "rounded") ? Rmin - 0.5 * round * 0.1443 * P : Rmin;
+    // worst-case core radius: rounded roots dip ~0.5*rr below Rmin, and a taper
+    // shrinks everything by taper/2 at the top.
+    rmin_floor = (profile == "rounded" ? Rmin - 0.5 * round * 0.1443 * P : Rmin)
+                 - taper / 2;
 
     assert(h > 0,
-           "tq_thread: crest_flat + root_flat exceed pitch (no flank left)");
+           "tq_thread: flats/angle leave no flank (h <= 0); reduce crest_flat/root_flat");
+    assert(cf + rf < P,
+           "tq_thread: crest_flat + root_flat must be < pitch");
     assert(rmin_floor > 0.05,
            str("tq_thread: thread too deep for d=", d, " pitch=", pitch,
                " (effective minor radius ", rmin_floor,
-               " <= 0); use a bigger d or smaller pitch"));
+               " <= 0); use a bigger d, smaller pitch/tooth_height/taper"));
 
     lead = starts * P;
     dir  = (hand == "left") ? -1 : 1;
@@ -221,10 +236,10 @@ module tq_thread(d, pitch, length,
 
     translate([0, 0, center ? -length/2 : 0])
         if (arc >= 360)
-            _tq_thread_solid(P, length, Rmaj, Rmin, lead, dir, table, ci, co, na, nz);
+            _tq_thread_solid(P, length, Rmaj, Rmin, lead, dir, table, ci, co, na, nz, taper);
         else
             intersection() {
-                _tq_thread_solid(P, length, Rmaj, Rmin, lead, dir, table, ci, co, na, nz);
+                _tq_thread_solid(P, length, Rmaj, Rmin, lead, dir, table, ci, co, na, nz, taper);
                 translate([0, 0, -1])
                     linear_extrude(length + 2) _tq_sector(arc, Rmaj + 1, na);
             }
@@ -367,6 +382,48 @@ module tq_hex_drive(af, depth, center=false) {
     cylinder(h=depth, d=tq_hex_across_corners(af), $fn=6, center=center);
 }
 
+// Phillips (cruciform) cross-recess nominal dims by PH number:
+//   [arm_reach (cross half-length, mm), wing_width (mm)]  (PH0..PH4)
+function tq_ph_dims(size) =
+      size==0 ? [1.0, 0.5] : size==1 ? [1.7, 0.7] : size==2 ? [2.6, 1.0] :
+      size==3 ? [3.8, 1.4] : size==4 ? [5.4, 1.9] : [0.8+size*0.9, 0.4+size*0.35];
+
+// Map a screw diameter to a sensible Phillips driver number.
+function tq_ph_size_for(d) = d<=2.5 ? 0 : d<=3.5 ? 1 : d<=5 ? 2 : d<=8 ? 3 : 4;
+
+// Phillips cross-recess tool (clean-room cruciform): subtract from a head to
+// form a Phillips drive, OR use directly as a driver-bit tip shape.  Built from
+// a central tapered core plus two crossed wings that taper toward the tip.
+module tq_phillips_drive(size=2, depth=undef, center=false) {
+    wd = tq_ph_dims(size);
+    wl = wd[0];                              // cross arm reach (each side)
+    ww = wd[1];                              // wing width at the rim
+    dp = is_undef(depth) ? wl * 1.6 : depth; // recess depth
+    translate(center ? [0,0,-dp/2] : [0,0,0])
+        union() {
+            // central tapered core (the point), wider at the rim
+            cylinder(h=dp, r1=ww*0.30, r2=ww*0.75, $fn=24);
+            // two crossed wings (a 90-deg pair = the full cross), tapering down
+            for (a = [0, 90]) rotate([0,0,a])
+                hull() {
+                    translate([0,0,dp])      cube([2*wl, ww, 0.02], center=true);
+                    translate([0,0,dp*0.12]) cube([ww*1.1, ww*0.45, 0.02], center=true);
+                }
+        }
+}
+
+// Phillips driver-bit tip: a shank with the cross tip on the +Z end.
+module tq_phillips_tip(size=2, shank_d=undef, length=undef, fn=undef) {
+    wd = tq_ph_dims(size);
+    sd = is_undef(shank_d) ? wd[0]*2.2 : shank_d;
+    ln = is_undef(length)  ? wd[0]*5   : length;
+    tipL = wd[0]*1.6;
+    union() {
+        cylinder(h=ln - tipL, d=sd, $fn=_tq_aseg(sd, fn));
+        translate([0,0,ln - tipL]) tq_phillips_drive(size, depth=tipL);
+    }
+}
+
 // ============================================================================
 //  THREADED PRIMITIVES :  rod / cutter / hole / nut / standoff
 // ============================================================================
@@ -442,9 +499,16 @@ module tq_standoff(d, pitch, length, od=undef, starts=1, hand="right",
 
 // Socket / hex / plain head bolt.  Thread runs Z 0..length; head sits below 0
 // with its drive face at z = -head_h.  Components overlap by EPS so the STL is
-// one coherent printable solid.  `drive="hex"` cuts a hex socket recess in the
-// socket head; any other value (e.g. "none") leaves a plain solid head.
+// one coherent printable solid.  `drive` selects the recess in the socket head:
+// "hex" (hex socket), "phillips" (cross recess), or "none" (plain solid head).
 TQ_EPS = 0.02;
+
+// Drive-recess selector: subtract this at a head's bearing face.
+module _tq_drive_recess(drive, d, depth) {
+    if      (drive == "hex")      tq_hex_drive(tq_hex_key_af(d), depth);
+    else if (drive == "phillips") tq_phillips_drive(tq_ph_size_for(d), depth = depth);
+    // "none" / unknown -> no recess
+}
 module tq_bolt(d, pitch, length, head="socket", head_d=undef, head_h=undef,
                shank=0, drive="hex", hand="right", clearance=0.4,
                profile="flat", fn=undef) {
@@ -463,8 +527,7 @@ module tq_bolt(d, pitch, length, head="socket", head_d=undef, head_h=undef,
         else if (head == "socket")
             difference() {
                 translate([0,0,-hh]) cylinder(h=hh + TQ_EPS, d=hd, $fn=_tq_aseg(hd, fn));
-                if (drive == "hex")
-                    translate([0,0,-hh - TQ_EPS]) tq_hex_drive(tq_hex_key_af(d), hh*0.6 + TQ_EPS);
+                translate([0,0,-hh - TQ_EPS]) _tq_drive_recess(drive, d, hh*0.6 + TQ_EPS);
             }
         else if (head != "none")
             translate([0,0,-hh]) cylinder(h=hh + TQ_EPS, d=hd, $fn=_tq_aseg(hd, fn));
@@ -498,8 +561,7 @@ module tq_countersunk_bolt(d, pitch, length, head_d=undef, head_angle=90,
         // countersunk head cone: wide (hd) at z=-hk, narrow (d) at z=0
         difference() {
             translate([0,0,-hk]) cylinder(h=hk + TQ_EPS, d1=hd, d2=d, $fn=_tq_aseg(hd, fn));
-            if (drive == "hex")
-                translate([0,0,-hk - TQ_EPS]) tq_hex_drive(tq_hex_key_af(d), hk*0.6 + TQ_EPS);
+            translate([0,0,-hk - TQ_EPS]) _tq_drive_recess(drive, d, hk*0.7 + TQ_EPS);
         }
         if (shank > 0)
             translate([0,0,-TQ_EPS]) cylinder(h=shank + TQ_EPS, d=sd, $fn=_tq_aseg(sd, fn));
@@ -637,6 +699,91 @@ module tq_bottle_thread(d, pitch, length, starts=1, hand="right",
               hand=hand, clearance=clearance, profile="rounded", crest_flat=cf,
               root_flat=rf, lead_in=!internal, lead_out=!internal,
               fn=fn, center=center);
+}
+
+// ============================================================================
+//  AUGER (deep coarse helical flight) + thread-relief groove
+// ============================================================================
+
+// Auger-style deep, coarse helical flight (e.g. screw conveyor, soil/ice auger,
+// printed feed screw).  Generic deep coarse thread: large pitch (~d), deep
+// flight, single start by default; optional taper toward the tip.  This is a
+// generic printable flight, NOT a specific auger standard.
+module tq_auger(d, length, pitch=undef, flight=undef, hand="right",
+                profile="rounded", starts=1, taper=0, fn=undef, center=false) {
+    p  = is_undef(pitch)  ? d        : pitch;   // coarse: pitch ~ d
+    ft = is_undef(flight) ? 0.28 * d : flight;  // radial flight depth
+    tq_thread(d=d, pitch=p, length=length, tooth_height=ft, hand=hand,
+              profile=profile, starts=starts, taper=taper, clearance=0,
+              fn=fn, center=center);
+}
+
+// Negative cutter for an auger channel / matching bore (oversize like a thread
+// cutter).  Drop into difference().
+module tq_auger_hole(d, length, pitch=undef, flight=undef, hand="right",
+                     clearance=0.4, fn=undef, through=true, center=false) {
+    p  = is_undef(pitch)  ? d        : pitch;
+    ft = is_undef(flight) ? 0.28 * d : flight;
+    e  = through ? 0.5 : 0;
+    translate([0,0, center ? -length/2 : -e])
+        tq_thread(d=d, pitch=p, length=length + 2*e, internal=true,
+                  tooth_height=ft, hand=hand, profile="rounded",
+                  clearance=clearance, lead_in=false, lead_out=false, fn=fn);
+}
+
+// Thread-relief / runout groove cutter: a shallow ring to subtract at a thread
+// runout so a mating nut can seat fully.  Place at the desired Z (groove centre).
+module tq_relief_groove(d, width=undef, depth=undef, fn=undef, center=true) {
+    w  = is_undef(width) ? 1.5 : width;
+    dp = is_undef(depth) ? 0.8 : depth;          // radial depth below the surface
+    translate([0,0, center ? -w/2 : 0])
+        rotate_extrude($fn=_tq_aseg(d, fn))
+            translate([d/2 - dp, 0]) square([dp + 0.02, w]);
+}
+
+// ============================================================================
+//  CHILD-DIFFERENCE CONVENIENCE WRAPPERS
+//  (ScrewHole / ClearanceHole in spirit, with tq_* naming.  Each cuts its hole
+//   into the supplied children() at position `at`, axis +Z.)
+// ============================================================================
+
+// Tap a threaded hole into children().
+module tq_tap(d, pitch, depth, at=[0,0,0], starts=1, hand="right",
+              clearance=0.4, profile="flat", through=true, fn=undef) {
+    difference() {
+        children();
+        translate(at) tq_threaded_hole(d, pitch, depth, starts=starts, hand=hand,
+                                       clearance=clearance, profile=profile,
+                                       through=through, fn=fn);
+    }
+}
+
+// Drill a plain clearance hole (ISO 273) into children().
+module tq_drill(size, depth, at=[0,0,0], fit="medium", through=true, fn=undef) {
+    difference() {
+        children();
+        translate(at) tq_clearance_hole(size, depth, fit, fn, through);
+    }
+}
+
+// Counterbore (recessed cap-head clearance hole) into children().
+module tq_counterbore(size, depth, at=[0,0,0], head_d=undef, head_h=undef,
+                      fit="medium", through=true, fn=undef) {
+    difference() {
+        children();
+        translate(at) tq_recessed_clearance_hole(size, depth, head_d, head_h,
+                                                 fit, fn, through);
+    }
+}
+
+// Countersink (flat-head clearance hole) into children().
+module tq_countersink(size, depth, at=[0,0,0], head_d=undef, angle=90,
+                      fit="medium", through=true, fn=undef) {
+    difference() {
+        children();
+        translate(at) tq_countersunk_clearance_hole(size, depth, head_d, angle,
+                                                    fit, fn, through);
+    }
 }
 
 // ============================================================================

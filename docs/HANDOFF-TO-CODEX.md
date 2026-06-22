@@ -250,7 +250,8 @@ for local vs cloud; only the critique model + the honest mode label differ.
 Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt-openscad, MCAD, and `tq-threads` with
 attribution and pinned commits/tags. The manifest advertises them, sandbox admission is tested, and
 real OpenSCAD smoke renders passed. Dan Kirshner `threads.scad` remains excluded for GPLv3
-compatibility reasons; `tq-threads` pinned to post-`v0.2.0` commit `73aa7c0` is the clean-room MIT replacement.
+compatibility reasons; `tq-threads` pinned to commit `c6e54ed60cacb7ecb58cc6e0a09c252434306c31`
+(post-`v0.3.0` docs/provenance follow-up) is the clean-room MIT replacement.
 
 > **2026-06-22 licensing decision:** TinkerQuarry remains GPL-2.0-only. Bundle only GPLv2-compatible
 > libraries. Do **not** vendor Dan Kirshner `threads.scad` because the available source is
@@ -266,7 +267,7 @@ compatibility reasons; `tq-threads` pinned to post-`v0.2.0` commit `73aa7c0` is 
 | **Catch'n'Hole** | github.com/mmalecki/catchnhole | MIT | Approved to vendor after pinning a commit. |
 | **gridfinity-rebuilt** | github.com/kennetek/gridfinity-rebuilt-openscad | MIT | Approved to vendor after pinning a commit. |
 | **MCAD** | github.com/openscad/MCAD | LGPL-2.1 | Approved to vendor after pinning a commit and preserving LGPL notices/source. |
-| **tq-threads** | github.com/scottconverse/tq-threads | MIT | Vendored at commit `73aa7c0` (post-`v0.2.0` review fixes) as the clean-room thread replacement. |
+| **tq-threads** | github.com/scottconverse/tq-threads | MIT | Vendored at commit `c6e54ed60cacb7ecb58cc6e0a09c252434306c31` (post-`v0.3.0` docs/provenance follow-up) as the clean-room thread replacement. |
 | **Dan Kirshner threads.scad** | dkprojects.net / mirrored source | GPL-3.0-or-later | **Do not bundle** in this GPL-2.0-only repo. |
 
 **Proposed repo location:** `packages/engine/library/vendor/<lib-name>/` (kept separate from KimCad's

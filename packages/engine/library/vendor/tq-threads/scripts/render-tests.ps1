@@ -22,6 +22,13 @@
     pwsh scripts/render-tests.ps1 -OpenSCAD "C:\Program Files\OpenSCAD\openscad.exe" -Heavy
 
 .NOTES
+    Runs on BOTH Windows PowerShell 5.1 and PowerShell 7+ (pwsh). No PS7-only
+    syntax is used.
+
+    On Windows, prefer the console build "openscad.com" (returns exit codes and
+    stderr to the console correctly); "openscad.exe" is the GUI build and may not
+    surface console output. This script auto-detects ".com" first, then ".exe".
+
     Expected render times (typical desktop):
       fast suite  (tq_threads_fast_tests.scad) :  ~2-8  seconds
       examples    (SHOW=all)                    :  ~30-90 seconds
@@ -40,10 +47,16 @@ $root = Split-Path -Parent $PSScriptRoot      # repo root (scripts/..)
 function Resolve-OpenSCAD([string]$hint) {
     $cands = @()
     if ($hint) { $cands += $hint }
+    # Prefer the Windows console build (.com) -- it returns exit codes/stderr to
+    # the console; the GUI build (.exe) may not.
     $cands += @(
+        "C:\Program Files\OpenSCAD\openscad.com",
         "C:\Program Files\OpenSCAD\openscad.exe",
+        "C:\Program Files\OpenSCAD (Nightly)\openscad.com",
         "C:\Program Files\OpenSCAD (Nightly)\openscad.exe",
+        "C:\Users\Scott\Desktop\CODE\_tools\openscad\openscad-2021.01\openscad.com",
         "C:\Users\Scott\Desktop\CODE\_tools\openscad\openscad-2021.01\openscad.exe",
+        "openscad.com",
         "openscad"
     )
     foreach ($c in $cands) {
@@ -75,7 +88,7 @@ foreach ($name in $jobs.Keys) {
                        -NoNewWindow -Wait -PassThru -RedirectStandardError $err
     $sw.Stop()
     $secs = [math]::Round($sw.Elapsed.TotalSeconds, 1)
-    $stderr = (Test-Path $err) ? (Get-Content $err -Raw) : ""
+    $stderr = if (Test-Path $err) { Get-Content $err -Raw } else { "" }   # PS 5.1-safe (no ternary)
     $warn = $stderr -match "WARNING|ERROR|not a valid 2-manifold"
     $facets = if ($stderr -match "Facets:\s*(\d+)") { $Matches[1] } else { "?" }
     $okExit = ($p.ExitCode -eq 0)

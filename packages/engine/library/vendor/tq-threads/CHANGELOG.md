@@ -4,6 +4,37 @@
 All notable changes to tq-threads. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions are git tags.
 
+## [0.3.0] — 2026-06-22
+
+Stronger-than-baseline release: adds the remaining helper categories users
+expect from a general thread library, plus more profile control — all clean-room.
+
+### Added
+- **Custom flank angle** `angle=60` on `tq_thread` (e.g. 55° Whitworth-ish, 45°);
+  thread height is derived from the angle (or set explicitly, below).
+- **Explicit `tooth_height`** override on `tq_thread` (sets the radial flight
+  depth directly instead of deriving it from the flats/angle).
+- **Tapered threads** `taper=` on `tq_thread` (total diameter reduction over the
+  length — NPT-ish tapers, auger tips, etc.).
+- **`tq_auger` / `tq_auger_hole`** — deep coarse helical flight + matching
+  negative (screw conveyor / drill / feed-screw style; generic, not a standard).
+- **Phillips (cross) drive**: `tq_phillips_drive` (cruciform cutter/tip),
+  `tq_phillips_tip` (driver bit), and `drive="phillips"` on `tq_bolt` /
+  `tq_countersunk_bolt`; helpers `tq_ph_dims`, `tq_ph_size_for`.
+- **Child-difference convenience wrappers** (ScrewHole/ClearanceHole in spirit,
+  `tq_*` naming): `tq_tap`, `tq_drill`, `tq_counterbore`, `tq_countersink`.
+- **`tq_relief_groove`** — thread-relief / runout groove cutter.
+
+### Changed
+- `tq_bolt` / `tq_countersunk_bolt` `drive` now selects `hex` | `phillips` |
+  `none` via a shared `_tq_drive_recess` selector (was hex-only).
+- The minor-radius safety assert now also accounts for `taper` (top of a tapered
+  thread) in addition to the rounded-root depth.
+- `_TQ_H` is no longer used for the flank-height calc (generalized to `angle`);
+  default `angle=60` is bit-for-bit backward compatible with v0.2.
+- Examples, fast/heavy test grids, README, MANUAL, and REFERENCES updated for
+  every new helper.
+
 ## [0.2.0] — 2026-06-22
 
 Feature-parity release: brings tq-threads to practical parity with common

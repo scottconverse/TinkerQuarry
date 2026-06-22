@@ -77,6 +77,9 @@ default (or an oversize internal **cutter** with `internal=true`).
 | `hand` | `"right"` | `"right"` or `"left"`. |
 | `clearance` | `0.4` | **Total diametral** fit gap (mm); external shrinks `clearance/2`, internal grows `clearance/2`. |
 | `profile` | `"flat"` | `"flat"` (ISO/UN basic), `"sharp"` (full V), `"rounded"` (filleted root/crest). |
+| `angle` | `60` | Included flank angle (degrees). 60 = ISO/UN; e.g. 55 ≈ Whitworth. Thread height derives from it. |
+| `tooth_height` | `undef` | Explicit radial flight depth (mm). Overrides the angle-derived height. |
+| `taper` | `0` | Total **diameter** reduction over the length (mm), applied linearly (base full, top reduced) — NPT-ish tapers / auger tips. |
 | `crest_flat` | `pitch/8` | Axial crest-flat width (mm) for `flat`. |
 | `root_flat` | `pitch/4` | Axial root-flat width (mm) for `flat`. |
 | `round` | `1` | Fillet scale for `profile="rounded"` (1 = standard ISO radii). |
@@ -211,6 +214,59 @@ difference() { plate(); tq_countersunk_clearance_hole(5, 8); }
 difference() { plate(); tq_recessed_clearance_hole(5, 12); }   // M5 cap screw
 tq_washer(8);                                                  // ISO 7089 M8
 ```
+
+---
+
+## Augers, drives, child wrappers & relief (v0.3)
+
+### Custom profile controls
+```openscad
+tq_thread(12, 2, 14, angle=55);            // 55° flank (Whitworth-ish)
+tq_thread(10, 2, 14, tooth_height=1.2);    // set the radial flight depth directly
+tq_thread(12, 1.75, 16, taper=3);          // cone: 3 mm dia reduction over the length
+```
+`angle` (default 60) sets the included flank angle; the thread height derives
+from it. `tooth_height` overrides that height explicitly. `taper` shifts the
+whole profile inward linearly along Z (NPT-ish tapers, auger tips). The
+minor-radius safety assert accounts for both rounded roots and `taper`.
+
+### Auger / deep coarse flight
+```openscad
+tq_auger(d, length, pitch=d, flight=0.28·d, profile="rounded", starts=1, taper=0);
+tq_auger_hole(d, length, pitch, flight, through=true);   // negative for a channel
+```
+A generic deep, large-pitch helical flight (screw-conveyor / drill / feed-screw
+style) — `tq_thread` driven with a big pitch + explicit `tooth_height`. Not a
+specific auger standard.
+
+### Phillips (cross) drive
+```openscad
+tq_bolt(6, 1.0, 14, drive="phillips");           // bolt with a Phillips recess
+tq_countersunk_bolt(6, 1.0, 14, drive="phillips");
+tq_phillips_drive(size=2, depth);                // cruciform cutter / tip shape
+tq_phillips_tip(size=2, shank_d, length);        // driver-bit
+```
+`drive` selects the head recess: `"hex"` (default), `"phillips"`, or `"none"`.
+The Phillips form is a clean-room printable approximation (see REFERENCES),
+sized by PH number. Helper functions: `tq_ph_size_for(d)` maps a screw diameter
+to a PH number (0–4), and `tq_ph_dims(size)` returns `[arm_reach_mm,
+wing_width_mm]` for that PH number.
+
+### Child-difference convenience wrappers
+Apply to `children()`; each cuts its hole at position `at` (default origin, axis +Z):
+```openscad
+tq_tap(8, 1.25, 12)            cube([20,20,12]);              // threaded hole
+tq_drill(5, 8, at=[6,6,0])     cube([20,20,8]);               // clearance hole
+tq_counterbore(5, 12)          translate([-9,-9,0]) cube([18,18,12]);
+tq_countersink(5, 8)           translate([-9,-9,0]) cube([18,18,8]);
+```
+These are the ScrewHole/ClearanceHole idea expressed as original `tq_*` modules.
+
+### Thread-relief groove
+```openscad
+difference() { tq_thread(10,1.5,16); translate([0,0,5]) tq_relief_groove(10); }
+```
+A shallow runout groove so a mating nut can seat fully.
 
 ---
 

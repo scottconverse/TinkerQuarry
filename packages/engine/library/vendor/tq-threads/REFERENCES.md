@@ -34,13 +34,11 @@ H = (sqrt(3)/2) · P = 0.8660254 · P
 | Rounded crest radius (this lib) | `≈ 0.072·P` | 0.072·P |
 
 **Derivation of the rounded fillet radii** (used by `profile="rounded"`,
-`_tq_table_round`). The root fillet is the standard UNR/ISO value
-`rr ≈ 0.1443·P` — i.e. the radius of a circle tangent to both 60° flanks that
-fits the `H/4` root truncation: `(H/4)/(1/sin60° − 1)`-class geometry gives
-`≈ H/6 = 0.866·P/6 = 0.1443·P`. The crest fillet is taken at **half** that,
-`rc = rr/2 ≈ 0.0722·P`, matching the crest truncation being half the root
-truncation (`H/8` vs `H/4`). Both follow from the 60° triangle and `H`; neither
-is copied from any library.
+`_tq_table_round`). The root fillet uses the standard UNR/ISO-class rounded-root
+value `rr ≈ H/6 = 0.866·P/6 = 0.1443·P`. The crest fillet is taken at **half**
+that, `rc = rr/2 = H/12 ≈ 0.0722·P`, mirroring the crest truncation (`H/8`) being
+half the root truncation (`H/4`). Both are expressed directly in terms of the
+60° triangle height `H`; neither is copied from any library.
 
 Standards:
 
@@ -93,6 +91,39 @@ for sizes outside its table.
 > These standards are referenced for their **public nominal dimension tables and
 > formulae** only. Values were transcribed/derived from the published series;
 > no third-party library's data tables, code, or parameter choices were used.
+
+### v0.3 additions — profile controls, drives, auger, taper
+
+- **Custom flank angle** (`angle`, default 60°). The sharp-V height for a
+  symmetric included angle α follows from the right triangle of half-angle α/2
+  over an axial half-pitch: `H = (P/2)/tan(α/2)`, and the flank radial height is
+  `h = (P − crest_flat − root_flat)/(2·tan(α/2))`. For α=60° this reduces to the
+  ISO/UN `h = (P−cf−rf)·(√3/2)` used in v0.2 (bit-for-bit compatible). This is
+  pure trigonometry, not taken from any library. Non-60° angles are useful for
+  Whitworth-style (55°) or shallow printable threads.
+- **Explicit tooth height** (`tooth_height`). A direct override of the radial
+  flight depth `h`; geometry then interpolates the flanks between the flats and
+  the given depth. No external source — it is just exposing `h` as an input.
+- **Tapered threads** (`taper`). The whole profile is shifted radially inward by
+  `(taper/2)·(z/L)` along the length — a linear cone applied to the height-field.
+  For reference, real tapered pipe threads (e.g. **ANSI/ASME B1.20.1 NPT**) use a
+  1:16 taper (≈1.79° per side); `taper` lets you reproduce any linear taper, but
+  this library does not implement NPT's specific truncated profile.
+- **Phillips (cross) recess** (`tq_phillips_drive`, `drive="phillips"`). The
+  cruciform recess concept (a central point plus two crossed full-width wings —
+  each spanning both arms of one axis — forming the four-armed cross, tapering
+  toward the tip) is described by **ISO 4757** (cross recesses for screws) and
+  the ANSI Type I Phillips standard. tq-threads builds an **approximate, clean-room**
+  cruciform from OpenSCAD primitives (a tapered core + two crossed hulled wings)
+  sized by PH number; it is a printable approximation, not a gauge-accurate
+  Phillips form, and no third-party recess code was used.
+- **Auger / deep coarse flight** (`tq_auger`). A generic deep, large-pitch single
+  /multi-start helical flight (screw-conveyor / drill / feed-screw style). No
+  specific standard; it is the core `tq_thread` driven with a large pitch and an
+  explicit `tooth_height`, optionally tapered.
+- **Child-difference wrappers** (`tq_tap`, `tq_drill`, `tq_counterbore`,
+  `tq_countersink`) and `tq_relief_groove` are pure OpenSCAD `difference()`
+  conveniences over the existing primitives — original code, `tq_*` named.
 
 The coarse "bottle/jar" thread (`tq_bottle_thread`) is a **generic** printable
 rounded coarse thread, **not** a specific consumer-packaging finish. If you need

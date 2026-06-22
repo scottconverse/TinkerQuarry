@@ -97,6 +97,16 @@ module ex_counterbore_plate() {                      // plate with a recessed (c
 }
 module ex_debug()    { tq_thread_debug(8, 1.25, 12); }
 
+// ---- v0.3 feature examples -------------------------------------------------
+module ex_auger()      { tq_auger(20, 16); }                       // deep coarse flight
+module ex_phillips()   { tq_bolt(6, 1.0, 14, drive="phillips"); }  // Phillips-drive bolt
+module ex_ph_tip()     { tq_phillips_tip(2); }                     // Phillips driver bit
+module ex_tapered()    { tq_thread(12, 1.75, 14, taper=3); }       // tapered (NPT-ish)
+module ex_angle()      { tq_thread(12, 2, 12, angle=45); }         // custom 45-deg flank
+module ex_relief()     { difference() { tq_thread(10, 1.5, 16);    // thread w/ relief groove
+                                        translate([0,0,5]) tq_relief_groove(10); } }
+module ex_tap_block()  { tq_tap(8, 1.25, 12) cube([20,20,12]); }   // child-wrapper tap
+
 // ============================================================================
 //  LAYOUT / DISPATCH
 // ============================================================================
@@ -114,6 +124,11 @@ module parts_row() {
     translate([385,0,0]) ex_adapter();
     translate([420,0,0]) ex_csk_plate();
     translate([460,0,0]) ex_counterbore_plate();
+    translate([505,0,0]) ex_phillips();
+    translate([535,0,0]) ex_tapered();
+    translate([565,0,0]) ex_angle();
+    translate([600,0,0]) ex_auger();
+    translate([645,0,0]) ex_tap_block();
 }
 
 if      (_show == "all")            { gallery(); translate([0,-70,0]) parts_row(); }
@@ -135,4 +150,11 @@ else if (_show == "adapter")        ex_adapter();
 else if (_show == "csk_plate")      ex_csk_plate();
 else if (_show == "counterbore")    ex_counterbore_plate();
 else if (_show == "debug")          ex_debug();
+else if (_show == "auger")          ex_auger();
+else if (_show == "phillips")       ex_phillips();
+else if (_show == "ph_tip")         ex_ph_tip();
+else if (_show == "tapered")        ex_tapered();
+else if (_show == "angle")          ex_angle();
+else if (_show == "relief")         ex_relief();
+else if (_show == "tap")            ex_tap_block();
 else echo(str("tq_threads_examples: unknown SHOW='", _show, "' (see dispatch list)"));

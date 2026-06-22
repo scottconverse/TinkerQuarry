@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GPL‑2.0 compatible](https://img.shields.io/badge/GPL--2.0-compatible-blue.svg)](#license--attribution)
 [![OpenSCAD](https://img.shields.io/badge/OpenSCAD-2021.01%2B-f9d72c.svg)](https://openscad.org)
-[![Version](https://img.shields.io/badge/version-0.2.0-informational.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-informational.svg)](CHANGELOG.md)
 [![CI](https://github.com/scottconverse/tq-threads/actions/workflows/ci.yml/badge.svg)](https://github.com/scottconverse/tq-threads/actions/workflows/ci.yml)
 
 *Threaded rods, bolts, nuts, tapped holes, countersinks, washers, standoffs, couplers and caps — every thread is a single watertight `polyhedron`, so models stay manifold and export straight to STL.*
@@ -148,10 +148,17 @@ with anything. Common combinations (full recipes in **[MANUAL.md](MANUAL.md#inte
 | Lead‑in/out chamfers | `lead_in`, `lead_out`, `chamfer` |
 | FDM clearance + over/undersize | `clearance=`, `internal=` |
 | Flat / sharp / rounded profile | `profile=`, `crest_flat`, `root_flat`, `round` |
+| **Custom flank angle** | `angle=` (default 60°) |
+| **Explicit tooth height** | `tooth_height=` |
+| **Tapered threads** (NPT‑ish, auger tips) | `taper=` |
 | Partial arc | `arc=<deg>` |
 | Rod / bolt / countersunk bolt / wood screw | `tq_threaded_rod`, `tq_bolt`, `tq_countersunk_bolt`, `tq_wood_screw` |
+| **Hex *or* Phillips drive** | `drive="hex"\|"phillips"\|"none"`; `tq_phillips_drive`, `tq_phillips_tip` |
+| **Auger / deep coarse flight** | `tq_auger`, `tq_auger_hole` |
 | Nut / standoff / coupler | `tq_nut`, `tq_standoff`, `tq_rod_coupler` |
 | Tapped / clearance / counterbore / countersink holes | `tq_threaded_hole`, `tq_clearance_hole`, `tq_recessed_clearance_hole`, `tq_countersunk_clearance_hole` |
+| **Child‑difference wrappers** | `tq_tap`, `tq_drill`, `tq_counterbore`, `tq_countersink` |
+| **Thread‑relief groove** | `tq_relief_groove` |
 | Washer | `tq_washer` |
 | Hex / drive geometry | `tq_hex`, `tq_hex_drive`, `tq_hex_across_flats/corners`, `tq_hex_key_af` |
 | Bottle / coarse thread | `tq_bottle_thread` |
@@ -220,10 +227,11 @@ Reach for **brass heat‑set inserts** instead of a printed thread when the hole
 Concise list; **full signatures + every parameter are in [MANUAL.md](MANUAL.md#api)**.
 
 ```openscad
-// core
+// core (v0.3 adds angle, tooth_height, taper)
 tq_thread(d, pitch, length, internal=false, starts=1, hand="right",
-          clearance=0.4, profile="flat", crest_flat, root_flat, round=1,
-          lead_in=true, lead_out=true, chamfer, arc=360, fn, steps_per_pitch=16, center=false);
+          clearance=0.4, profile="flat", angle=60, tooth_height, crest_flat, root_flat,
+          round=1, lead_in=true, lead_out=true, chamfer, taper=0,
+          arc=360, fn, steps_per_pitch=16, center=false);
 
 // presets / specs
 tq_preset(name) -> [major, pitch];   tq_thread_preset(name, length, ...);
@@ -234,10 +242,22 @@ tq_threaded_rod(d,pitch,length,...);  tq_thread_cutter(d,pitch,length,through=tr
 tq_threaded_hole(d,pitch,depth,through=true,...);  tq_standoff(d,pitch,length,od,...);
 tq_nut(d,pitch,height,across_flats,chamfer=true,...);
 
-// bolts / screws (solid, fused)
+// bolts / screws (solid, fused) — drive = "hex" | "phillips" | "none"
 tq_bolt(d,pitch,length,head="socket"|"hex"|"plain"|"none",shank=0,drive="hex",...);
-tq_countersunk_bolt(d,pitch,length,head_d,head_angle=90,shank=0,...);
+tq_countersunk_bolt(d,pitch,length,head_d,head_angle=90,shank=0,drive="hex",...);
 tq_wood_screw(d,length,pitch,head="countersunk"|"pan",point=true,...);
+
+// drives, auger, relief (v0.3)
+tq_phillips_drive(size,depth);  tq_phillips_tip(size,shank_d,length);
+tq_ph_dims(size) -> [arm_reach,wing_width];  tq_ph_size_for(d) -> PH number;
+tq_auger(d,length,pitch,flight,taper=0,...);  tq_auger_hole(d,length,pitch,flight,through=true,...);
+tq_relief_groove(d,width,depth);
+
+// child-difference convenience wrappers (v0.3): cut a hole into children() at `at`
+tq_tap(d,pitch,depth,at=[0,0,0],...) <children>;
+tq_drill(size,depth,at=[0,0,0],fit="medium",...) <children>;
+tq_counterbore(size,depth,at=[0,0,0],...) <children>;
+tq_countersink(size,depth,at=[0,0,0],angle=90,...) <children>;
 
 // holes / washers / rods
 tq_clearance_hole(size,depth,fit="medium",through=true,...);

@@ -44,3 +44,13 @@ cell(6) tq_nut(8, 1.25);
 cell(7) tq_bolt(6, 1.0, 10, head="socket");
 cell(8) tq_washer(6);
 cell(9) tq_thread(8, 1.25, L, arc=180);
+
+// v0.3 helper smoke cases
+cell(10) tq_thread(10, 2, L, angle=55);            // custom flank angle
+cell(11) tq_thread(10, 2, L, tooth_height=1.2);    // explicit tooth height
+cell(12) tq_thread(10, 1.5, L, taper=2);           // tapered
+cell(13) tq_auger(16, L);                          // auger flight
+cell(14) tq_bolt(6, 1.0, 10, drive="phillips");    // Phillips drive
+cell(15) tq_phillips_tip(2);                        // Phillips bit
+cell(16) tq_tap(6, 1.0, L) cube([12,12,L]);        // child-wrapper tap
+cell(17) tq_drill(5, L) translate([-6,-6,0]) cube([12,12,L]);   // child-wrapper drill
