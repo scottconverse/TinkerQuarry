@@ -86,7 +86,7 @@ class Risk:
 @dataclass
 class MeshReadiness:
     score: int  # 0-100 -> the gauge
-    verdict: str  # "Ready to print" | "Printable with notes" | "Not print-ready"
+    verdict: str  # "Ready to slice" | "Printable with notes" | "Not print-ready"
     tone: str  # "pass" | "warn" | "fail" -> the card color (matches the gate scale)
     confidence: str  # "High" | "Medium" | "Low"
     risks: list[Risk] = field(default_factory=list)
@@ -101,7 +101,7 @@ _GATE_BASE = {"pass": 92, "warn": 70, "fail": 38}
 
 # Card tone severity order + the verdict each tone renders as.
 _TONE_RANK = {"pass": 0, "warn": 1, "fail": 2}
-_VERDICT = {"pass": "Ready to print", "warn": "Printable with notes", "fail": "Not print-ready"}
+_VERDICT = {"pass": "Ready to slice", "warn": "Printable with notes", "fail": "Not print-ready"}
 
 # KimCad gate finding code -> a short, human risk title. Unknown codes fall back to the
 # message itself (truncated), so a new gate check still surfaces sensibly.
@@ -175,7 +175,7 @@ def assess_readiness(
     # Verdict + tone = the WORST of two independent signals, so the card is never more
     # optimistic than either KimCad's own assessment OR the PrintProof3D engine it cites.
     #  - KimCad's tone: a gate FAIL / sub-50 score / fail-risk -> fail; a gate WARN / sub-80
-    #    score / any risk -> warn; else pass (so "Ready to print" is never shown over a risk).
+    #    score / any risk -> warn; else pass (so "Ready to slice" is never shown over a risk).
     #  - PrintProof3D's tone: its own overall `status` (fail -> fail, warning -> warn), so a
     #    "fail" report forces "Not print-ready" even if its worst issue only nudged the score.
     has_fail_risk = any(r.tone == "fail" for r in risks)

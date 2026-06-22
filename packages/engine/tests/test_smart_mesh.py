@@ -37,10 +37,10 @@ def _mesh(*, watertight: bool = True, errors: list[str] | None = None) -> MeshRe
 
 # --- the three KimCad-gate-only verdicts ----------------------------------------------------
 
-def test_clean_pass_is_ready_to_print():
+def test_clean_pass_is_ready_to_slice():
     r = assess_readiness(_gate((Level.PASS, "dim.match", "all axes ok")), _mesh())
     assert isinstance(r, MeshReadiness)
-    assert r.verdict == "Ready to print"
+    assert r.verdict == "Ready to slice"
     assert r.tone == "pass"
     assert r.score == 92
     assert r.risks == []  # PASS findings are not risks
@@ -150,7 +150,7 @@ def test_printproof_nit_does_not_surface_as_a_risk():
     # ENG-702: a nit is fully cosmetic — it surfaces NO risk, so it dents the score by NOTHING
     # (anything that dents must surface; the two can't drift). Was a silent 1-point penalty.
     assert r.score == 92
-    assert r.verdict == "Ready to print"  # still clean
+    assert r.verdict == "Ready to slice"  # still clean
 
 
 def test_printproof_unknown_severity_surfaces_a_warn_not_a_silent_penalty():
@@ -176,12 +176,12 @@ def test_attribution_is_gate_only_when_the_engine_returned_no_report():
 
 def test_engine_pass_with_a_minor_issue_is_warn_not_ready_to_print():
     # ENG-701: even when BOTH the gate passes AND the engine's overall status is "pass", a surfaced
-    # minor issue makes the verdict "warn" — "Ready to print" is never shown over a discrete risk.
+    # minor issue makes the verdict "warn" — "Ready to slice" is never shown over a discrete risk.
     pp = PrintProofReport("pass", "high",
                           issues=(PrintProofIssue("SMALL_GAP", "a small gap", "minor"),))
     r = assess_readiness(_gate((Level.PASS, "dim.match", "ok")), _mesh(), printproof=pp)
     assert len(r.risks) == 1 and r.risks[0].tone == "warn"
-    assert r.tone == "warn" and r.verdict != "Ready to print"
+    assert r.tone == "warn" and r.verdict != "Ready to slice"
 
 
 def test_warn_verdict_never_renders_with_zero_risks():
@@ -190,7 +190,7 @@ def test_warn_verdict_never_renders_with_zero_risks():
     # a non-pass verdict with an empty risk list.
     pp = PrintProofReport("warning", "high", issues=())
     r = assess_readiness(_gate((Level.PASS, "dim.match", "ok")), _mesh(), printproof=pp)
-    assert r.tone == "warn" and r.verdict != "Ready to print"
+    assert r.tone == "warn" and r.verdict != "Ready to slice"
     assert r.risks  # never empty for a non-pass verdict
 
 

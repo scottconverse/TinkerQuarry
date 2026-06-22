@@ -50,7 +50,7 @@ def test_completed_run_attaches_a_gate_based_readiness(tmp_path):
     assert result.status is PipelineStatus.completed
     r = result.report.readiness
     assert isinstance(r, MeshReadiness)
-    assert r.tone == "pass" and r.verdict == "Ready to print"
+    assert r.tone == "pass" and r.verdict == "Ready to slice"
     assert r.score >= 80
     # Engine absent -> medium confidence, gate-only attribution (honest about what backed it).
     assert r.confidence == "Medium"
@@ -310,7 +310,7 @@ def test_report_payload_includes_the_readiness_block(tmp_path):
     assert "readiness" in payload
     rp = payload["readiness"]
     assert rp["score"] == result.report.readiness.score
-    assert rp["verdict"] == "Ready to print"
+    assert rp["verdict"] == "Ready to slice"
     assert rp["tone"] == "pass"
     assert rp["confidence"] == "Medium"
     assert rp["attribution"] == "KimCad printability gate"

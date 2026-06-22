@@ -29,6 +29,20 @@ export async function captureCurrentPreview(
     document.querySelector('canvas[data-engine]')) as HTMLCanvasElement | null;
   if (canvas) {
     try {
+      if (options.targetWidth || options.targetHeight) {
+        const sourceWidth = canvas.width || canvas.clientWidth;
+        const sourceHeight = canvas.height || canvas.clientHeight;
+        const maxWidth = options.targetWidth ?? sourceWidth;
+        const maxHeight = options.targetHeight ?? sourceHeight;
+        const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
+        const width = Math.max(1, Math.round(sourceWidth * scale));
+        const height = Math.max(1, Math.round(sourceHeight * scale));
+        const out = document.createElement('canvas');
+        out.width = width;
+        out.height = height;
+        out.getContext('2d')?.drawImage(canvas, 0, 0, width, height);
+        return out.toDataURL('image/png');
+      }
       return canvas.toDataURL('image/png');
     } catch (error) {
       if (import.meta.env.DEV) {

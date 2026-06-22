@@ -801,11 +801,23 @@ _GET_ONLY_PATHS = (
 )
 _GET_ONLY_PREFIXES = ("/api/connector-status/", "/api/design/progress/")
 _POST_ONLY_PATHS = ("/api/model-pull", "/api/design")
+_POST_ONLY_PREFIXES = (
+    "/api/visual-review/",
+    "/api/slice/",
+    "/api/render/",
+    "/api/orient/",
+    "/api/send/",
+    "/api/print-outcome/",
+)
 
 
 def _is_get_only(path: str) -> bool:
     """A read-only API path (GET/HEAD only) — one source for the wrong-verb 405/Allow logic."""
     return path in _GET_ONLY_PATHS or path.startswith(_GET_ONLY_PREFIXES)
+
+
+def _is_post_only(path: str) -> bool:
+    return path in _POST_ONLY_PATHS or path.startswith(_POST_ONLY_PREFIXES)
 
 
 def make_handler(
@@ -1234,7 +1246,7 @@ def make_handler(
                 return
             # QA-1002 (stage-10 gate): GET on a POST-only resource is 405 with a TRUTHFUL
             # Allow header, mirroring the do_POST tail's rule for GET-only resources.
-            if self.path in _POST_ONLY_PATHS:
+            if _is_post_only(self.path):
                 self.send_response(405)
                 self.send_header("Allow", "POST")
                 self.send_header("Content-Length", "0")
@@ -1619,6 +1631,9 @@ def make_handler(
                 return
             if self.path == "/api/sketch-seed":
                 self._handle_sketch_seed()
+                return
+            if self.path.startswith("/api/visual-review/"):
+                self._handle_visual_review(self.path.rsplit("/", 1)[-1])
                 return
             if self.path.startswith("/api/slice/"):
                 self._handle_slice(self.path.rsplit("/", 1)[-1])
@@ -2183,6 +2198,56 @@ def make_handler(
                 )
             )
             self._json(200, {"recorded": True, "outcome": outcome})
+
+        def _handle_visual_review(self, raw_id: str) -> None:
+            """Run advisory visual review for an already-rendered design."""
+            try:
+                rid = int(raw_id)
+            except ValueError:
+                self._json(404, {"error": "That design is no longer available."})
+                return
+            data = self._read_json_body()
+            if data is None:
+                return
+            with reg.lock:
+                snap = reg.snapshot.get(rid)
+            if snap is None:
+                self._json(404, {"error": "That design is no longer available."})
+                return
+            try:
+                from kimcad.visual_loop import (
+                    DEFAULT_VCL_MODEL,
+                    decode_image_payloads,
+                    review_design_images,
+                    unavailable_review,
+                )
+
+                images = decode_image_payloads(data.get("images"))
+                model = str(data.get("model") or DEFAULT_VCL_MODEL)
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+                return
+            except Exception:
+                self._json(400, {"error": "Couldn't read the rendered images."})
+                return
+            payload = snap.get("payload") or {}
+            prompt = str(snap.get("original_prompt") or snap.get("prompt") or "")
+            if not prompt:
+                review = unavailable_review("Visual review needs the original design intent.")
+            else:
+                review = review_design_images(
+                    intent=prompt,
+                    images_b64=images,
+                    report=payload.get("report") if isinstance(payload, dict) else None,
+                    model=model,
+                    base_url=get_config().llm_backend("local").base_url,
+                )
+            out = review.to_payload()
+            with reg.lock:
+                current = reg.snapshot.get(rid)
+                if current is not None:
+                    current["visual_review"] = out
+            self._json(200, out)
 
         def _handle_photo_seed(self) -> None:
             """Slice 7: read an uploaded photo and return a ROUGH text seed (a description +

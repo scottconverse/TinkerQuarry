@@ -26,7 +26,7 @@ describe('engineDesign — engine → preview glue (Phase 4)', () => {
       mesh_url: '/api/mesh/4',
       report: {
         gate_status: 'pass',
-        readiness: { score: 92, verdict: 'Ready to print' },
+        readiness: { score: 92, verdict: 'Ready to slice' },
         findings: [
           { key: 'mesh.solid', label: 'Closed, watertight solid', ok: true },
           { key: 'wall.ok', label: 'Wall thickness', warn: true, detail: '1.0 mm is thin' },
@@ -34,7 +34,7 @@ describe('engineDesign — engine → preview glue (Phase 4)', () => {
       },
     };
     const s = engineGateSummary(d);
-    expect(s).toContain('Ready to print (92/100)');
+    expect(s).toContain('Ready to slice (92/100)');
     expect(s).toContain('Wall thickness: 1.0 mm is thin'); // the warning check is surfaced
     expect(s).not.toContain('Closed, watertight solid'); // passing checks are not noise
   });

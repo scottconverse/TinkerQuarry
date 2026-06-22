@@ -55,6 +55,28 @@ export interface DesignReport {
   readiness?: { score?: number; verdict?: string; tone?: string };
 }
 
+export interface VisualProbeResult {
+  id: string;
+  question: string;
+  answer: string;
+  pass: boolean | null;
+  evidence?: string;
+}
+
+export interface VisualReviewResult {
+  status?: 'unavailable' | 'ok' | 'issues' | 'error';
+  mode?: string;
+  advisory?: boolean;
+  provider?: string;
+  model?: string;
+  summary?: string;
+  findings?: string[];
+  probes?: VisualProbeResult[];
+  geometry_facts?: Record<string, unknown>;
+  correction_prompt?: string | null;
+  error?: string;
+}
+
 export interface DesignResult {
   rid: number;
   status: DesignStatus | string;
@@ -244,6 +266,10 @@ export class EngineClient {
   source(rid: number, inline = false) {
     const q = inline ? '?inline=1' : '';
     return this.req<{ rid: number; scad: string; inlined?: boolean }>('GET', `/source/${rid}${q}`);
+  }
+  /** Advisory local visual critique. The caller supplies rendered preview images. */
+  visualReview(rid: number, images: string[], model?: string) {
+    return this.req<VisualReviewResult>('POST', `/visual-review/${rid}`, { images, model });
   }
 
   // --- saved designs (§6.12 version history) ---

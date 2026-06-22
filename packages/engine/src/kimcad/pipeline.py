@@ -351,7 +351,7 @@ class PipelineResult:
 
 
 _FALLBACK_VERDICT = {
-    "pass": ("Ready to print", 85),
+    "pass": ("Ready to slice", 85),
     "warn": ("Printable with notes", 60),
     "fail": ("Not print-ready", 20),
 }

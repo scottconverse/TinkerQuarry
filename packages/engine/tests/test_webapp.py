@@ -2636,6 +2636,50 @@ def test_source_endpoint_returns_generated_scad(tmp_path):
         assert st == 404 and "not found" in miss["error"].lower()
 
 
+def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path, monkeypatch):
+    """POST rendered images -> local advisory VCL result without changing the gate/slice state."""
+    import json
+    import urllib.request
+
+    from kimcad.visual_loop import VisualReview
+
+    captured = {}
+
+    def _fake_review(**kw):
+        captured.update(kw)
+        return VisualReview(
+            status="ok",
+            mode="local-probe",
+            summary="No obvious visual issues found by local advisory probes.",
+            geometry_facts={"gate_status": kw["report"]["gate_status"]},
+        )
+
+    monkeypatch.setattr("kimcad.visual_loop.review_design_images", _fake_review)
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        base = f"http://{host}:{port}"
+        design = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + "/api/design",
+            data=json.dumps({"prompt": "a 20mm cube with a hole on the top face"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=30))
+        rid = int(design["mesh_url"].rsplit("/", 1)[-1])
+        st, review = _jreq(
+            host,
+            port,
+            "POST",
+            f"/api/visual-review/{rid}",
+            {"images": ["data:image/png;base64,YQ=="]},
+        )
+
+    assert st == 200
+    assert review["status"] == "ok"
+    assert review["advisory"] is True
+    assert captured["intent"] == "a 20mm cube with a hole on the top face"
+    assert captured["images_b64"] == ["YQ=="]
+    assert captured["report"]["gate_status"] == "pass"
+
+
 def test_designs_full_round_trip(tmp_path):
     with _serve_with_designs(_template_box_pipeline(), tmp_path / "web", tmp_path / "store") as (h, p):
         st, design = _jreq(h, p, "POST", "/api/design", {"prompt": "a box"})

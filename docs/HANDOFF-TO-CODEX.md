@@ -188,7 +188,17 @@ cheapest real artifact is the integration test log plus the engine pytest log �
 
 ---
 
-## 5. Visual Correction Loop — intended cloud implementation (UNBUILT; this is the plan, not code)
+## 5. Visual Correction Loop - original handoff plan plus current checkpoint
+
+**2026-06-22 Codex checkpoint:** the "0 lines" state below is no longer current. The repo now has an
+advisory local VCL v1: `packages/engine/src/kimcad/visual_loop.py`, `POST /api/visual-review/<rid>`,
+typed UI client support, and background viewer-capture review from `apps/ui/src/App.tsx`. It uses
+local probe-mode review (`qwen2.5vl:7b` by default) and carries deterministic geometry facts beside
+model findings. It is explicitly advisory and does **not** change gate/slice/send. The remaining PRD
+work is multi-view capture, multi-round correction/regeneration, best-candidate retention,
+convergence, visual diff, and round logging.
+
+### Original plan retained for context
 
 Grounded in **PRD §6.3.1**, the spike result ([audits/vision-spike.md](audits/vision-spike.md)), and
 the working reference script `packages/engine/spike-vision/critique.py` + fixtures. **Decision:** ship

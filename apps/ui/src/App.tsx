@@ -663,6 +663,11 @@ function App() {
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
+  const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(null);
+  const readinessWithVisual = useMemo(
+    () => [liveReadiness, visualReviewSummary].filter(Boolean).join('\n'),
+    [liveReadiness, visualReviewSummary]
+  );
   // Slice profile (§6.9): the printer + material "Make it real" will slice for, shown AND choosable
   // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
   // printer list comes from /api/options; the choice persists across sessions (localStorage).
@@ -688,6 +693,47 @@ function App() {
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
   // /api/design takes this as `history`. A fresh design (new part) resets it.
   const engineHistoryRef = useRef<EngineTurn[]>([]);
+  const runVisualReview = useCallback(
+    async (rid: number) => {
+      setVisualReviewSummary('Visual review: running');
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+      if (lastEngineRidRef.current !== rid) return;
+      const image = await captureCurrentPreview({
+        viewerId: MAIN_PREVIEW_VIEWER_ID,
+        svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+        targetWidth: 640,
+        targetHeight: 480,
+      });
+      if (lastEngineRidRef.current !== rid) return;
+      if (!image) {
+        setVisualReviewSummary('Visual review: unavailable - no rendered view captured');
+        return;
+      }
+      const { data } = await engine.visualReview(rid, [image]);
+      if (lastEngineRidRef.current !== rid) return;
+      if (data.status === 'issues') {
+        const first = data.findings?.[0] ?? data.summary ?? 'likely visual issue found';
+        setVisualReviewSummary(`Visual review: likely issue - ${first}`);
+        notifyError({
+          operation: 'visual review',
+          capture: false,
+          displayMessage: first,
+          toastId: 'engine-visual-review',
+        });
+        return;
+      }
+      if (data.status === 'ok') {
+        setVisualReviewSummary('Visual review: no obvious issues found');
+        notifySuccess('Visual review complete', {
+          toastId: 'engine-visual-review',
+          description: data.summary ?? 'No obvious visual issues found.',
+        });
+        return;
+      }
+      setVisualReviewSummary(`Visual review: unavailable - ${data.summary || data.error || 'not run'}`);
+    },
+    [activePreviewKind, activePreviewSrc]
+  );
   const handleEngineDescribe = useCallback(
     async (prompt: string, opts?: { refine?: boolean }) => {
       if (!opts?.refine) engineHistoryRef.current = [];
@@ -714,6 +760,7 @@ function App() {
         lastGateRef.current = result.gate || null;
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
+        setVisualReviewSummary(null);
         setLastSlicedRid(null);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
@@ -732,7 +779,11 @@ function App() {
           toastId: 'engine-design',
           description: `${explain}${preSlice} · Make it real to slice`,
         });
+        if (result.rid != null) {
+          void runVisualReview(result.rid);
+        }
       } else {
+        setVisualReviewSummary(null);
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
         // reason; this is a designed outcome, not a crash, so don't capture it as an error.
         notifyError({
@@ -744,7 +795,7 @@ function App() {
       }
       return result;
     },
-    [renderCodeDirect]
+    [renderCodeDirect, runVisualReview]
   );
 
   // "Make it real": slice the current engine design into printable G-code, surfacing the real print
@@ -879,6 +930,7 @@ function App() {
           description: 'Cached slices were cleared; Make it real will use this pose.',
         });
         setLastSlicedRid(null);
+        setVisualReviewSummary(null);
       } finally {
         setIsOrienting(false);
       }
@@ -1003,8 +1055,12 @@ function App() {
         engineHistoryRef.current = [];
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
+        setVisualReviewSummary(null);
         setLastSlicedRid(null);
         notifySuccess('Reopened', { toastId: 'engine-design', description: result.gate });
+        if (result.rid != null) {
+          void runVisualReview(result.rid);
+        }
       } else {
         notifyError({
           operation: 'reopen design',
@@ -1014,7 +1070,7 @@ function App() {
         });
       }
     },
-    [renderCodeDirect, hideWelcomeScreen]
+    [renderCodeDirect, hideWelcomeScreen, runVisualReview]
   );
 
   // §6.3 undo: step back to the design that preceded the latest describe/refine/reopen. Restores the
@@ -1029,6 +1085,7 @@ function App() {
     lastEngineRidRef.current = prev.rid;
     lastGateRef.current = prev.gate;
     setLiveReadiness(prev.gate);
+    setVisualReviewSummary(null);
     setHasEngineDesign(true);
     setLastSlicedRid(null);
     setEngineUndoStack((s) => s.slice(0, -1));
@@ -1077,6 +1134,7 @@ function App() {
         if (r.ok && r.data.status === 'completed') {
           lastEngineScadRef.current = renderTargetContent;
           setLiveReadiness(engineGateSummary(r.data));
+          setVisualReviewSummary(null);
           setLastSlicedRid(null);
         }
       });
@@ -3109,8 +3167,8 @@ function App() {
             className="text-xs px-2 py-1"
             title={
               hasEngineDesign
-                ? liveReadiness
-                  ? `${liveReadiness}\n— slice to make it real`
+                ? readinessWithVisual
+                  ? `${readinessWithVisual}\n— slice to make it real`
                   : 'Slice the current design into printable G-code'
                 : 'Describe a part first'
             }
