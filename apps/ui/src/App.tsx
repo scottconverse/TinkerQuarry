@@ -634,6 +634,8 @@ function App() {
   // is the handler the shipping describe UI calls; also exposed on window in dev for verification.
   // The engine rid of the last successful design is held so "Make it real" (slice) can act on it.
   const lastEngineRidRef = useRef<number | null>(null);
+  // Whether an engine design exists yet — drives the "Make it real" button's enabled state.
+  const [hasEngineDesign, setHasEngineDesign] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
   // /api/design takes this as `history`. A fresh design (new part) resets it.
   const engineHistoryRef = useRef<EngineTurn[]>([]);
@@ -650,6 +652,7 @@ function App() {
       if (result.ok && result.scad) {
         renderCodeDirect(result.scad);
         lastEngineRidRef.current = result.rid ?? null;
+        setHasEngineDesign(true);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
           { role: 'user', content: prompt },
@@ -2536,9 +2539,13 @@ function App() {
               void handleMakeItReal();
             }}
             size="sm"
-            disabled={isRendering}
+            disabled={isRendering || !hasEngineDesign}
             className="text-xs px-2 py-1"
-            title="Slice the current design into printable G-code"
+            title={
+              hasEngineDesign
+                ? 'Slice the current design into printable G-code'
+                : 'Describe a part first'
+            }
           >
             Make it real
           </Button>
