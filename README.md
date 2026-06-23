@@ -122,14 +122,11 @@ Vendored under `packages/engine/library/vendor` with pinned commits and attribut
 - BOSL2
 - Round-Anything
 - YAPP_Box
-- Catch'n'Hole
 - gridfinity-rebuilt-openscad
-- MCAD
-- tq-threads
 
 Dan Kirshner `threads.scad` is **not** vendored into this GPL-2.0-only repo because the available
-source is GPL-3.0-or-later. Thread support is provided by the clean-room MIT `tq-threads`
-replacement.
+source is GPL-3.0-or-later. Thread support is provided by first-party `packages/engine/library/threads.scad`,
+which wraps vendored BOSL2's BSD-2-Clause threading modules.
 
 ## License
 

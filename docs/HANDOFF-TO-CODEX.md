@@ -277,16 +277,17 @@ for local vs cloud; only the critique model + the honest mode label differ.
 
 ## 6. SCAD-library vendoring packet
 
-**Status: seven libraries vendored.** `packages/engine/library/vendor/` now contains BOSL2,
-Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt-openscad, MCAD, and `tq-threads` with
-attribution and pinned commits/tags. The manifest advertises them, sandbox admission is tested, and
-real OpenSCAD smoke renders passed. Dan Kirshner `threads.scad` remains excluded for GPLv3
-compatibility reasons; `tq-threads` pinned to commit `cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00`
-(`v0.4.0`) is the clean-room MIT replacement.
+**Status: slim bundled set.** `packages/engine/library/vendor/` now contains BOSL2,
+Round-Anything, YAPP_Box, and gridfinity-rebuilt-openscad with attribution and pinned commits/tags.
+The manifest advertises them plus first-party `library/threads.scad`, sandbox admission is tested,
+and real OpenSCAD smoke renders are the gate. Dan Kirshner `threads.scad` remains excluded for GPLv3
+compatibility reasons; thread support comes from a first-party wrapper over BOSL2's BSD-2-Clause
+thread modules.
 
 > **2026-06-22 licensing decision:** TinkerQuarry remains GPL-2.0-only. Bundle only GPLv2-compatible
 > libraries. Do **not** vendor Dan Kirshner `threads.scad` because the available source is
-> GPL-3.0-or-later; use `tq-threads` or another GPLv2-compatible substitute.
+> GPL-3.0-or-later; use the first-party BOSL2-backed thread helpers or another GPLv2-compatible
+> substitute.
 > Before vendoring any approved library, pin a commit/tag and record the exact upstream URL, license text,
 > SPDX id, and attribution.
 
@@ -295,10 +296,8 @@ compatibility reasons; `tq-threads` pinned to commit `cdfd4cc6a1d6baaa7f2a50ea5b
 | **BOSL2**                     | github.com/BelfrySCAD/BOSL2                     | BSD-2-Clause     | Approved to vendor after pinning a commit. Large; consider selective include paths.                            |
 | **Round-Anything**            | github.com/Irev-Dev/Round-Anything              | MIT              | Approved to vendor after pinning a commit.                                                                     |
 | **YAPP_Box**                  | github.com/mrWheel/YAPP_Box                     | MIT              | Approved to vendor after pinning a commit.                                                                     |
-| **Catch'n'Hole**              | github.com/mmalecki/catchnhole                  | MIT              | Approved to vendor after pinning a commit.                                                                     |
 | **gridfinity-rebuilt**        | github.com/kennetek/gridfinity-rebuilt-openscad | MIT              | Approved to vendor after pinning a commit.                                                                     |
-| **MCAD**                      | github.com/openscad/MCAD                        | LGPL-2.1         | Approved to vendor after pinning a commit and preserving LGPL notices/source.                                  |
-| **tq-threads**                | github.com/scottconverse/tq-threads             | MIT              | Vendored at commit `cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00` (`v0.4.0`) as the clean-room thread replacement. |
+| **Thread helpers**            | first-party wrapper over vendored BOSL2          | GPL-2.0 / BSD-2  | `library/threads.scad` exposes the beta thread API without carrying an extra tq-threads vendor tree.            |
 | **Dan Kirshner threads.scad** | dkprojects.net / mirrored source                | GPL-3.0-or-later | **Do not bundle** in this GPL-2.0-only repo.                                                                   |
 
 **Proposed repo location:** `packages/engine/library/vendor/<lib-name>/` (kept separate from KimCad's

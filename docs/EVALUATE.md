@@ -77,9 +77,10 @@ Then open `http://localhost:1420`.
   with no console/HTTP errors (`docs/handoff/proof/vcl-multiview-browser-2026-06-22.txt`).
   A lightweight visual-change percentage exists after correction; a full before/after visual-diff
   viewer still needs to be built.
-- **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
-  MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
-  smoke-render proof. Dan Kirshner `threads.scad` remains excluded.
+- **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, and gridfinity-rebuilt are vendored
+  with pinned attribution and smoke-render proof. Printable thread support comes from first-party
+  `library/threads.scad`, which wraps BOSL2's thread modules. Dan Kirshner `threads.scad` remains
+  excluded.
 - **External-library admission**: consent -> sandbox-copy -> include-path -> sanitization is wired.
   Admitted libraries are user-provided and are not redistributed by TinkerQuarry.
 - **Explain/diff/iteration history**: current Explain is still mostly readiness/design summary.

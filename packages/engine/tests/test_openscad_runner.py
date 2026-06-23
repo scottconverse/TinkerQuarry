@@ -295,15 +295,17 @@ def test_inline_library_includes_makes_template_scad_self_contained():
     assert "coaster_with_rim(od=60, h=4)" in out  # the original call is preserved
 
 
-def test_inline_library_includes_supports_tq_threads_vendor_library():
+def test_inline_library_includes_supports_first_party_threads_wrapper():
     code = (
-        "include <library/vendor/tq-threads/tq_threads.scad>;\n"
-        'tq_thread_preset("M8", 12);\n'
+        "include <library/threads.scad>;\n"
+        "tq_threaded_rod(d=8, pitch=1.25, length=12);\n"
     )
     out = osr.inline_library_includes(code)
-    assert "include <library/vendor/tq-threads/tq_threads.scad>" not in out
-    assert "module tq_thread" in out
-    assert 'tq_thread_preset("M8", 12)' in out
+    assert "include <library/threads.scad>" not in out
+    assert "module tq_threaded_rod" in out
+    assert "include <library/vendor/BOSL2/threading.scad>" in out
+    assert "include <constants.scad>" not in out
+    assert "tq_threaded_rod(d=8, pitch=1.25, length=12)" in out
 
 
 def test_inline_library_includes_leaves_self_contained_and_unapproved_untouched():

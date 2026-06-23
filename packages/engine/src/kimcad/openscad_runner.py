@@ -28,6 +28,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from pathlib import PurePosixPath
 
 import yaml
 
@@ -201,22 +202,52 @@ def inject_library_uses(
     return "\n".join(added) + "\n" + code, added
 
 
+def _relative_library_include(path: str, base_rel: PurePosixPath | None) -> str | None:
+    """Resolve a relative include from inside an approved library file.
+
+    Generated/user code still cannot include bare ``<foo.scad>``. This helper is only used after
+    an approved ``library/...`` file is being inlined, so that vendored libraries with normal
+    relative includes (BOSL2's ``include <constants.scad>`` style) remain self-contained.
+    """
+    if base_rel is None:
+        return None
+    p = path.strip()
+    if not p or "\\" in p or p.startswith("/") or re.match(r"^[A-Za-z]:", p):
+        return None
+    rel = PurePosixPath(p)
+    if rel.is_absolute() or any(part in ("", ".", "..") for part in rel.parts):
+        return None
+    return (base_rel.parent / rel).as_posix()
+
+
 def inline_library_includes(
-    code: str, library_dir: Path = LIBRARY_DIR, _seen: set[str] | None = None
+    code: str,
+    library_dir: Path = LIBRARY_DIR,
+    _seen: set[str] | None = None,
+    _base_rel: PurePosixPath | None = None,
 ) -> str:
     """Return self-contained SCAD: each ``use/include <library/FILE.scad>`` is replaced by that
-    library file's content (recursively; each file inlined at most once), so the SCAD renders with no
-    ``library/`` dir on disk — e.g. in the absorbed front end's bundled OpenSCAD-WASM (TinkerQuarry
-    Phase 4). Security mirrors the sandbox: ONLY files inside the approved ``library/`` path are
-    inlined (traversal-checked); any other include is left untouched (the render sandbox strips it).
-    A self-contained input is returned unchanged."""
+    first-party library file's content (recursively; each file inlined at most once). Vendored
+    libraries are deliberately left as ``library/vendor/...`` includes because many upstream SCAD
+    libraries rely on their own relative includes; flattening them into one file can change behavior
+    or trip OpenSCAD recursion limits. Security mirrors the sandbox: ONLY files inside the approved
+    ``library/`` path are inlined (traversal-checked); any other include is left untouched (the
+    render sandbox strips it). A self-contained input is returned unchanged."""
     seen = _seen if _seen is not None else set()
 
     def repl(m: "re.Match[str]") -> str:
         path = m.group(2).strip()
-        if not _approved_library_path(path):
+        if _approved_library_path(path):
+            name = path[len(_APPROVED_PREFIX) :]
+        else:
+            rel_name = _relative_library_include(path, _base_rel)
+            if rel_name is None:
+                return m.group(0)  # non-library include: leave it (sandbox handles it at render)
+            name = rel_name
+        if ".." in PurePosixPath(name).parts:
             return m.group(0)  # non-library include: leave it (sandbox handles it at render)
-        name = path[len(_APPROVED_PREFIX) :]
+        if name.startswith("vendor/"):
+            return m.group(0)  # keep upstream library internals on OpenSCAD's normal include path
         if name in seen:
             return "  // (library/" + name + " already inlined)"
         seen.add(name)
@@ -224,7 +255,7 @@ def inline_library_includes(
             content = (library_dir / name).read_text(encoding="utf-8")
         except OSError:
             return m.group(0)  # unreadable: leave the original line so the failure is honest
-        inlined = inline_library_includes(content, library_dir, seen)
+        inlined = inline_library_includes(content, library_dir, seen, PurePosixPath(name))
         return f"// >>> inlined library/{name}\n{inlined}\n// <<< library/{name}"
 
     return _USE_INCLUDE_RE.sub(repl, code)

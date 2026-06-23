@@ -43,12 +43,9 @@ Per [STRATEGY-RECON](../STRATEGY-RECON.md), the permissive SCAD stack vendored i
 |---|---|
 | BOSL2 | BSD-2-Clause |
 | Round-Anything | MIT |
-| tq-threads | MIT |
 | Dan Kirshner threads.scad | Not bundled; available source is GPL-3.0-or-later, which is incompatible with this GPL-2.0-only combined work |
 | YAPP_Box | MIT |
-| Catch'n'Hole | MIT |
 | gridfinity-rebuilt | MIT |
-| MCAD | LGPL-2.1 |
 
 **Not bundled** (GPLv3/LGPLv3, incompatible with GPL-2.0): NopSCADlib (GPL-3.0+), dotSCAD
 (LGPL-3.0) — supported only via an optional, user-installed, arms-length path.

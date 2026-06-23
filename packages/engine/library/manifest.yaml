@@ -24,6 +24,19 @@ modules:
       - "nut_trap(size=3, depth=3, fn=6)"
       - "heatset_hole(size=3, depth=6, fn=32)"
 
+  - file: threads.scad
+    summary: >-
+      First-party TinkerQuarry thread helpers over vendored BOSL2 (BSD-2-Clause):
+      printable triangular rods, threaded-hole cutters, metric bolts, and metric
+      nuts. Use these for actual printable threads; use fasteners.scad for simple
+      clearance holes, counterbores, nut traps, and heat-set insert holes.
+    signatures:
+      - "tq_threaded_rod(d=8, pitch=1.25, length=20, internal=false, starts=1, hand=\"right\", clearance=0.2, fn=64)"
+      - "tq_threaded_hole(d=8, pitch=1.25, depth=12, through=true, clearance=0.2, fn=64)"
+      - "tq_thread_cutter(d=8, pitch=1.25, length=20, through=true, clearance=0.2, fn=64)"
+      - "tq_metric_bolt(size=8, pitch=undef, length=20, head=\"hex\", drive=\"none\", thread=true, tolerance=\"6g\", fn=64)"
+      - "tq_metric_nut(size=8, pitch=undef, shape=\"hex\", thickness=\"normal\", tolerance=\"6H\", hole_oversize=0.2, fn=64)"
+
   - file: fillets.scad
     summary: Cheap rounding (2D hull/offset, never minkowski).
     signatures:
@@ -199,56 +212,11 @@ modules:
       generator. Prefer TinkerQuarry's simple enclosure() for basic boxes; use YAPP
       when the request needs detailed PCB enclosure features.
 
-  - file: vendor/catchnhole/catchnhole.scad
-    summary: >-
-      Vendored Catch'n'Hole (MIT). Use for bolt clearance, bolt heads, countersinks,
-      and nutcatch cutouts. Requires OpenSCAD JSON import support.
-    signatures:
-      - "bolt(name, length, kind=\"headless\")"
-      - "bolt_head(name, kind)"
-      - "nutcatch_parallel(name)"
-      - "nutcatch_sidecut(name)"
-
-  - file: vendor/gridfinity-rebuilt-openscad/gridfinity-rebuilt-lite.scad
+  - file: vendor/gridfinity-rebuilt-openscad/src/core/base.scad
     summary: >-
       Vendored gridfinity-rebuilt-openscad (MIT), with its GPLv3 external
-      threads-scad dependency excluded. Use for Gridfinity bins/baseplates when
+      threads-scad dependency excluded. Use for Gridfinity bases when
       the first-party lightweight gridfinity helpers are insufficient; thumbscrew
-      features are disabled until a clean-room thread library exists.
-
-  - file: vendor/MCAD/regular_shapes.scad
-    summary: >-
-      Vendored MCAD classic OpenSCAD library (LGPL-2.1-or-later and compatible
-      notices). Use for classic mechanical primitives and helper geometry not
-      covered by first-party modules.
-
-  - file: vendor/tq-threads/tq_threads.scad
-    summary: >-
-      Vendored tq-threads v0.5.0 (MIT), pinned to commit
-      bf4ac59028997fb111a2ae598fa71137b5e1e58a. A clean-room printable
-      screw-thread library for ISO metric and Unified threads, ISO 965-1 fit
-      offsets, printable hardware helpers, threaded rods, tapped holes, bolts,
-      nuts, washers, countersunk screws, clearance/counterbore/countersink
-      holes, standoffs, couplers, generic bottle/wood-style threads, and
-      generic auger-style flights.
+      features are disabled; use first-party threads.scad for printable threaded parts.
     signatures:
-      - "tq_thread_preset(name, length, internal=false, starts=1, hand=\"right\", clearance=0.4)"
-      - "tq_thread(d, pitch, length, internal=false, starts=1, hand=\"right\", clearance=0.4, fit=undef)"
-      - "tq_thread_tpi(d, tpi, length, internal=false, starts=1, hand=\"right\", clearance=0.4)"
-      - "tq_preset(name)"
-      - "tq_preset_count()"
-      - "tq_threaded_hole(d, pitch, depth, through=true)"
-      - "tq_thread_cutter(d, pitch, length, through=true)"
-      - "tq_bolt(d, pitch, length, head=\"socket\", shank=0)"
-      - "tq_countersunk_bolt(d, pitch, length, shank=0)"
-      - "tq_wood_screw(d, length, pitch=undef, taper=undef, point=\"gimlet\")"
-      - "tq_nut(d, pitch, clearance=0.4)"
-      - "tq_washer(size)"
-      - "tq_clearance_hole(size, depth, fit=\"medium\")"
-      - "tq_recessed_clearance_hole(size, depth, fit=\"medium\")"
-      - "tq_countersunk_clearance_hole(size, depth, angle=90)"
-      - "tq_rod_coupler(d, pitch, length)"
-      - "tq_bottle_thread(d, pitch, length, internal=false)"
-      - "tq_auger(d, length, pitch=undef, flight=undef)"
-      - "tq_tap(d, pitch, depth)"
-      - "tq_drill(size, depth, fit=\"medium\")"
+      - "gridfinityBase(grid_size=[1,1], grid_dimensions=[42,42], only_corners=false, thumbscrew=false)"
