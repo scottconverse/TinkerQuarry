@@ -65,6 +65,20 @@ fn resolve_binary_path(app: &AppHandle) -> Option<PathBuf> {
 
     // Production: bundled as a Tauri resource at OpenSCAD.app/Contents/MacOS/OpenSCAD
     if let Ok(resource_dir) = app.path().resource_dir() {
+        let windows_bundled = resource_dir
+            .join("engine")
+            .join("tools")
+            .join("openscad")
+            .join(if cfg!(windows) {
+                "openscad.exe"
+            } else {
+                "openscad"
+            });
+        if windows_bundled.exists() {
+            eprintln!("[render] Found bundled OpenSCAD at {:?}", windows_bundled);
+            return Some(windows_bundled);
+        }
+
         let bundled = resource_dir
             .join("OpenSCAD.app")
             .join("Contents")
@@ -77,7 +91,8 @@ fn resolve_binary_path(app: &AppHandle) -> Option<PathBuf> {
     }
 
     // Fallback: system-installed OpenSCAD via PATH
-    if let Ok(output) = Command::new("which").arg("openscad").output() {
+    let finder = if cfg!(windows) { "where" } else { "which" };
+    if let Ok(output) = Command::new(finder).arg("openscad").output() {
         if output.status.success() {
             let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !path_str.is_empty() {

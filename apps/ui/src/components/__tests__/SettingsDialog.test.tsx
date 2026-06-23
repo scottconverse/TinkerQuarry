@@ -18,6 +18,7 @@ let platformMock: {
   getLibraryPaths: ReturnType<typeof jest.fn>;
   getDefaultProjectsDirectory: ReturnType<typeof jest.fn>;
   pickDirectory: ReturnType<typeof jest.fn>;
+  confirm: ReturnType<typeof jest.fn>;
   capabilities: { hasFileSystem: boolean };
 };
 
@@ -91,9 +92,43 @@ describe('SettingsDialog privacy copy', () => {
       getLibraryPaths: jest.fn(async () => []),
       getDefaultProjectsDirectory: jest.fn(async () => '/Users/test/Documents/TinkerQuarry'),
       pickDirectory: jest.fn(async () => null),
+      confirm: jest.fn(async () => true),
       capabilities: { hasFileSystem: true },
     };
     mockGetPlatform.mockReturnValue(platformMock);
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: jest.fn(async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/libraries/admit')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              admitted: true,
+              library: {
+                name: 'NopSCADlib',
+                slug: 'nopscadlib',
+                include_prefix: 'external/nopscadlib/',
+                file_count: 12,
+              },
+            }),
+          } as Response;
+        }
+        if (url.includes('/api/libraries')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ bundled: [], external: [] }),
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response;
+      }),
+    });
     mockGetDesktopMcpStatus.mockResolvedValue({
       enabled: true,
       port: 32123,
@@ -220,6 +255,35 @@ describe('SettingsDialog privacy copy', () => {
 
     expect(await screen.findByText('Default Layout')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Customizer First' })).toBeTruthy();
+  });
+
+  it('admits external SCAD libraries through the sandbox flow', async () => {
+    platformMock.pickDirectory.mockResolvedValue('C:\\Users\\test\\NopSCADlib');
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="libraries" />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText('Admitted External Libraries')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Admit Library/i }));
+
+    await waitFor(() => {
+      expect(platformMock.confirm).toHaveBeenCalledWith(
+        expect.stringMatching(/copy \.scad files into its sandbox/i),
+        expect.objectContaining({ okLabel: 'Admit library' })
+      );
+    });
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/libraries/admit',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('NopSCADlib'),
+        })
+      );
+    });
   });
 
   it('shows external agent MCP onboarding in the AI settings tab', async () => {

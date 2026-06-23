@@ -1,12 +1,17 @@
 # TinkerQuarry — Handoff to Codex (2026-06-22)
 
+> **Historical document.** This handoff captured the 2026-06-22 state before the 2026-06-23 recovery
+> implementation and GauntletGate run. It is preserved for provenance, but it is superseded for
+> current product truth by [STATUS.md](STATUS.md), [EVALUATE.md](EVALUATE.md), and
+> [audits/gate-tinkerquarry-2026-06-23/](audits/gate-tinkerquarry-2026-06-23/).
+
 A single, reproducible handoff so the next agent can recreate state from a fresh terminal **without
 chat history**. Written to be accurate over flattering. Cross-references:
 [STATUS.md](STATUS.md) · [EVALUATE.md](EVALUATE.md) ·
 [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md) ·
 [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md).
 
-- **Repo root:** `C:\Users\Scott\Desktop\CODE\tinkerquarry` (a git repo; it sits one level *under*
+- **Repo root:** `C:\Users\Scott\Desktop\CODE\tinkerquarry` (a git repo; it sits one level _under_
   `…\CODE`, which is NOT the repo root — beware relative-doc-link resolution).
 - **This run:** 100 commits, `git log --grep Recovery` — from `22a283e` ("Recovery Phase 0: honest
   canonical repo") to the latest. The honesty/coverage audits are the most reliable state docs.
@@ -19,6 +24,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
 ## 1. Current state summary
 
 ### What changed in this run
+
 - Forked KimCad engine into `packages/engine`; absorbed OpenSCAD-Studio into `apps/ui` (branded,
   telemetry off). Wired the describe→engine→Studio-viewer loop; added Customizer-for-templates,
   refine-in-context, version history (save/list/reopen/delete/rename/duplicate), undo, live-readiness, offline banner
@@ -31,6 +37,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
   added the missing send-to-printer row.
 
 ### What is genuinely working (engine = automated-tested; FE = manual unless noted)
+
 - **Engine (trust this layer — real automated HTTP tests):** describe→plan→geometry→gate→slice→G-code;
   render-on-tune; save→reopen→**source** round-trip; inline library resolution; per-boot CSRF token;
   SCAD sandbox; fail-closed gate; 6 connectors defined.
@@ -42,6 +49,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
   contrary was wrong).
 
 ### What is still missing (measured against the PRD — see v1-coverage-2026-06-22.md for the full table)
+
 - **The Visual Correction Loop (§6.3.1) — 0 lines.** The signature feature. Not "blocked on a key" —
   unbuilt. Acceptance test (wrong-face hole) cannot be run. (§5 documents the intended build.)
 - **Send-to-printer UI + post-print outcome (§6.10):** `engine.send`/`engine.outcome` exist in
@@ -54,6 +62,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
   does).
 
 ### Manually verified vs automatically tested
+
 - **Automatically tested:** the engine suite (real in-process HTTP + OpenSCAD), the front-end unit
   suite (`643` tests — but these **stub the network**), and **one** live-API integration test
   (`engineLive.integration.test.ts` — real HTTP to a running engine, NOT a browser flow).
@@ -69,6 +78,7 @@ chat history**. Written to be accurate over flattering. Cross-references:
 > Shell: PowerShell on Windows. `pnpm` 10.12.4, Node v24.17.0. The engine venv is uv-managed (see §3).
 
 ### Run the engine (terminal 1)
+
 ```powershell
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
 $env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"      # lets the vite proxy's fixed token authenticate POSTs
@@ -77,6 +87,7 @@ $env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"      # lets the vite proxy's fixed 
 ```
 
 ### Run the front end (terminal 2)
+
 ```powershell
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
 pnpm dev                                           # vite on :1420, proxies /api -> 127.0.0.1:8765
@@ -84,6 +95,7 @@ pnpm dev                                           # vite on :1420, proxies /api
 ```
 
 ### Commands that PASS (verified this run; logs in docs/handoff/proof/)
+
 ```powershell
 # Front-end unit suite (network stubbed) -> 643 passed / 643
 cd apps\ui ; node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js
@@ -100,6 +112,7 @@ cd packages\engine ; .\.venv\Scripts\python.exe -m pytest tests\ --ignore=tests\
 ```
 
 ### Commands that FAIL / cannot run as-is
+
 ```powershell
 # Engine FULL suite (without excluding e2e) -> COLLECTION ERROR: "No module named 'playwright'"
 cd packages\engine ; .\.venv\Scripts\python.exe -m pytest tests\ -q
@@ -125,6 +138,7 @@ cd packages\engine ; .\.venv\Scripts\python.exe -m pytest tests\ -q
   required — any Python 3.13 + `pip` works.
 
 **Recreate the venv (from `packages/engine`):**
+
 ```powershell
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
 # Option A (uv — matches this machine):
@@ -137,12 +151,14 @@ py -3.13 -m venv .venv
 # For the e2e/browser tests (otherwise tests\e2e cannot collect):
 .\.venv\Scripts\python -m playwright install chromium
 ```
+
 - **Runtime deps** (`pyproject.toml`): `trimesh>=4.4`, `numpy>=2.0`, `scipy>=1.13`, `lxml>=5.0`.
   Optional extras: `bambu` (`bambulabs-api`), `serial` (`pyserial`), `dev` (pytest/ruff/playwright…).
-  *(Note: the installed venv has newer pins — numpy 2.5.0, scipy 1.18.0 — than the fork-policy test
-  expects; see §7.)*
+  _(Note: the installed venv has newer pins — numpy 2.5.0, scipy 1.18.0 — than the fork-policy test
+  expects; see §7.)_
 
 **OpenSCAD & OrcaSlicer binary paths:**
+
 - Resolution: `config/default.yaml` ships **relative** defaults (`tools/openscad/openscad.exe`,
   `tools/orcaslicer/orca-slicer.exe`) and is **overridden** by `config/local.yaml` (gitignored,
   machine-specific). On this machine `config/local.yaml` sets the absolute paths:
@@ -167,6 +183,7 @@ py -3.13 -m venv .venv
 > To reproduce them, follow [EVALUATE.md](EVALUATE.md) step-by-step with both servers running.
 
 **Saved logs (this run) — `docs/handoff/proof/`:**
+
 - `frontend-suite.txt` — front-end unit suite, **643 passed**.
 - `integration-test.txt` — live-API integration, **2 passed** (reopen→`/api/source` serves real SCAD;
   Prusa MK4 slice returns real G-code with the printer honoured).
@@ -183,8 +200,8 @@ py -3.13 -m venv .venv
 | offline banner | stop the engine process → within ~25 s a red "engine isn't responding" banner appears |
 | live integration test | run the integration command in §2 (engine must be up + a saved design exists) |
 
-*(There is no screenshot directory because none was saved. If Codex wants durable visual proof, the
-cheapest real artifact is the integration test log plus the engine pytest log — both automated.)*
+_(There is no screenshot directory because none was saved. If Codex wants durable visual proof, the
+cheapest real artifact is the integration test log plus the engine pytest log — both automated.)_
 
 ---
 
@@ -203,7 +220,7 @@ convergence, visual diff, and round logging.
 Grounded in **PRD §6.3.1**, the spike result ([audits/vision-spike.md](audits/vision-spike.md)), and
 the working reference script `packages/engine/spike-vision/critique.py` + fixtures. **Decision:** ship
 **cloud-optional** — local `qwen2.5vl:3b` failed the critique 0/3 (always-"MATCHES" hallucination);
-keep it only for the photo/sketch seeding on-ramp, not render critique. The *loop design* is identical
+keep it only for the photo/sketch seeding on-ramp, not render critique. The _loop design_ is identical
 for local vs cloud; only the critique model + the honest mode label differ.
 
 - **Provider/API/model (intended):** reuse the existing Vercel AI SDK plumbing already in
@@ -225,10 +242,14 @@ for local vs cloud; only the critique model + the honest mode label differ.
   floating features, missing cutouts, misalignment). Respond as JSON."
 - **Response shape (intended):**
   ```json
-  { "verdict": "approved | spatial_error",
-    "findings": [{ "issue": "hole on front face, intent says top", "severity": "high" }],
+  {
+    "verdict": "approved | spatial_error",
+    "findings": [
+      { "issue": "hole on front face, intent says top", "severity": "high" }
+    ],
     "proposed_edit": "natural-language or SCAD-diff instruction for the codegen to apply",
-    "confidence": 0.0 }
+    "confidence": 0.0
+  }
   ```
 - **Privacy copy (PRD-mandated honesty):** the UI MUST label the mode and never imply the model "saw"
   it when it didn't: **full-visual** = "the AI inspected rendered views"; **text-only** = "the AI
@@ -269,28 +290,29 @@ compatibility reasons; `tq-threads` pinned to commit `cdfd4cc6a1d6baaa7f2a50ea5b
 > Before vendoring any approved library, pin a commit/tag and record the exact upstream URL, license text,
 > SPDX id, and attribution.
 
-| Library | Upstream | License | Notes / compatibility |
-|---|---|---|---|
-| **BOSL2** | github.com/BelfrySCAD/BOSL2 | BSD-2-Clause | Approved to vendor after pinning a commit. Large; consider selective include paths. |
-| **Round-Anything** | github.com/Irev-Dev/Round-Anything | MIT | Approved to vendor after pinning a commit. |
-| **YAPP_Box** | github.com/mrWheel/YAPP_Box | MIT | Approved to vendor after pinning a commit. |
-| **Catch'n'Hole** | github.com/mmalecki/catchnhole | MIT | Approved to vendor after pinning a commit. |
-| **gridfinity-rebuilt** | github.com/kennetek/gridfinity-rebuilt-openscad | MIT | Approved to vendor after pinning a commit. |
-| **MCAD** | github.com/openscad/MCAD | LGPL-2.1 | Approved to vendor after pinning a commit and preserving LGPL notices/source. |
-| **tq-threads** | github.com/scottconverse/tq-threads | MIT | Vendored at commit `cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00` (`v0.4.0`) as the clean-room thread replacement. |
-| **Dan Kirshner threads.scad** | dkprojects.net / mirrored source | GPL-3.0-or-later | **Do not bundle** in this GPL-2.0-only repo. |
+| Library                       | Upstream                                        | License          | Notes / compatibility                                                                                          |
+| ----------------------------- | ----------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| **BOSL2**                     | github.com/BelfrySCAD/BOSL2                     | BSD-2-Clause     | Approved to vendor after pinning a commit. Large; consider selective include paths.                            |
+| **Round-Anything**            | github.com/Irev-Dev/Round-Anything              | MIT              | Approved to vendor after pinning a commit.                                                                     |
+| **YAPP_Box**                  | github.com/mrWheel/YAPP_Box                     | MIT              | Approved to vendor after pinning a commit.                                                                     |
+| **Catch'n'Hole**              | github.com/mmalecki/catchnhole                  | MIT              | Approved to vendor after pinning a commit.                                                                     |
+| **gridfinity-rebuilt**        | github.com/kennetek/gridfinity-rebuilt-openscad | MIT              | Approved to vendor after pinning a commit.                                                                     |
+| **MCAD**                      | github.com/openscad/MCAD                        | LGPL-2.1         | Approved to vendor after pinning a commit and preserving LGPL notices/source.                                  |
+| **tq-threads**                | github.com/scottconverse/tq-threads             | MIT              | Vendored at commit `cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00` (`v0.4.0`) as the clean-room thread replacement. |
+| **Dan Kirshner threads.scad** | dkprojects.net / mirrored source                | GPL-3.0-or-later | **Do not bundle** in this GPL-2.0-only repo.                                                                   |
 
 **Proposed repo location:** `packages/engine/library/vendor/<lib-name>/` (kept separate from KimCad's
 first-party modules so attribution + provenance stay clear). Add a `packages/engine/library/vendor/
 ATTRIBUTION.md` with, per library: upstream URL, pinned commit, license, and the SPDX id.
 
 **Sandbox / security notes (this is the hard part the PRD requires, §6.11/§13-C):**
+
 - The renderer currently hard-codes an approved prefix (`openscad_runner.py`: `_APPROVED_PREFIX="library/"`)
   and strips out-of-library `include`/`use`. Vendored libs must live under that approved root (or the
   prefix logic extended) so the sandbox admits them.
 - Vendoring third-party SCAD is a **supply-chain decision**: pin commits, record licenses, and (per the
   PRD) build the **admission flow** (consent → sandbox copy → include-path update → sanitization) before
-  admitting *user-supplied* external libraries. Vendored-in-repo libs are lower-risk than user-admitted
+  admitting _user-supplied_ external libraries. Vendored-in-repo libs are lower-risk than user-admitted
   ones but still need the license/attribution discipline above. **Get the owner's explicit OK to
   download + redistribute each license before vendoring.**
 
@@ -315,12 +337,12 @@ ATTRIBUTION.md` with, per library: upstream URL, pinned commit, license, and the
     runs newer (numpy 2.5.0 / scipy 1.18.0).
   - **1 × `test_version_single_source.py::test_frontend_package_version_is_in_lockstep`** — legacy-SPA
     version lockstep.
-  > **Honesty note:** an earlier doc (and STATUS, now being fixed) said "**3** fork-policy fails." That
-  > was an **undercount** from a truncated log — the full suite shows **14**. The full failing list is in
-  > `docs/handoff/proof/engine-suite.txt`. **Decision needed:** regenerate a fork `requirements.lock`,
-  > and either retire the legacy-SPA / installer / bench tests for this fork or restore those assets.
-  > (Two other earlier hygiene fails — missing SECURITY.md and `.gitignore` audit patterns — were
-  > genuinely fixed this run.)
+    > **Honesty note:** an earlier doc (and STATUS, now being fixed) said "**3** fork-policy fails." That
+    > was an **undercount** from a truncated log — the full suite shows **14**. The full failing list is in
+    > `docs/handoff/proof/engine-suite.txt`. **Decision needed:** regenerate a fork `requirements.lock`,
+    > and either retire the legacy-SPA / installer / bench tests for this fork or restore those assets.
+    > (Two other earlier hygiene fails — missing SECURITY.md and `.gitignore` audit patterns — were
+    > genuinely fixed this run.)
 - **Skipped / can't-collect:** `tests/e2e` (Playwright) **cannot collect** in the current venv ("No
   module named 'playwright'"). Run engine tests with `--ignore=tests\e2e`, or install dev extras +
   `playwright install chromium` (§3). Front-end e2e: none exists.
@@ -352,32 +374,33 @@ ATTRIBUTION.md` with, per library: upstream URL, pinned commit, license, and the
 > producing this note). Nothing was deleted.
 
 - [ ] **`README.md` (top-level) is badly stale — highest priority.** It still says: "high-fidelity
-  static prototype (`frontend/index.html`)", "dependency-free mock API (`backend/mock_api.py`)", "**the
-  product … is not built**", and "**the real manufacturing engine lives in the sibling repo
-  KimCadClaude**." All false post-recovery (engine is in `packages/engine`; app is in `apps/ui`). It
-  also links the PRD at `docs/prd/TinkerQuarry-PRD-v0.3.md` and a design at `docs/design/…` — **verify
-  those paths exist** (the PRD this run used is at `…\CODE\TinkerQuarry-PRD-v0.3.md`, outside the repo).
-  Rewrite the README to point at STATUS.md + this handoff.
+      static prototype (`frontend/index.html`)", "dependency-free mock API (`backend/mock_api.py`)", "**the
+      product … is not built**", and "**the real manufacturing engine lives in the sibling repo
+      KimCadClaude**." All false post-recovery (engine is in `packages/engine`; app is in `apps/ui`). It
+      also links the PRD at `docs/prd/TinkerQuarry-PRD-v0.3.md` and a design at `docs/design/…` — **verify
+      those paths exist** (the PRD this run used is at `…\CODE\TinkerQuarry-PRD-v0.3.md`, outside the repo).
+      Rewrite the README to point at STATUS.md + this handoff.
 - [ ] **`docs/audits/v1-coverage-2026-06-22.md` is internally inconsistent.** Its top has a corrections
-  header (3 items), but the pasted map **body still repeats those exact wrong claims** (code-drawer
-  "unreachable", `FirstRunWizard.tsx`, "one snapshot overwritten"). Apply the corrections **inline** in
-  the body (strike/annotate net-new #2, #4, #5) so header and body agree. The header is correct; the
-  body lines are the stale ones.
+      header (3 items), but the pasted map **body still repeats those exact wrong claims** (code-drawer
+      "unreachable", `FirstRunWizard.tsx`, "one snapshot overwritten"). Apply the corrections **inline** in
+      the body (strike/annotate net-new #2, #4, #5) so header and body agree. The header is correct; the
+      body lines are the stale ones.
 - [ ] **`docs/EVALUATE.md` — PNG already removed** this run (it previously claimed PNG export, which is
-  false); re-verify no "verified"/"done" overclaims remain.
+      false); re-verify no "verified"/"done" overclaims remain.
 - [ ] **Sweep `STATUS.md` + all `docs/` for "verified LIVE" wording** and confirm each now reads as
-  "manually checked once / no automated coverage" unless an automated test truly exists (engine rows
-  are fine; FE rows should not imply a safety net). The honesty banner at the top of STATUS is the
-  reference standard.
+      "manually checked once / no automated coverage" unless an automated test truly exists (engine rows
+      are fine; FE rows should not imply a safety net). The honesty banner at the top of STATUS is the
+      reference standard.
 - [ ] **Reconcile prior `docs/audits/prd-audit-1..5` + `PRD-GAP-REPORT.md`** against
-  `v1-coverage-2026-06-22.md` (the prior audits predate most of the recovery; mark them as historical
-  baselines so a reader doesn't treat them as current).
+      `v1-coverage-2026-06-22.md` (the prior audits predate most of the recovery; mark them as historical
+      baselines so a reader doesn't treat them as current).
 - [ ] **`docs/STATUS.md` "Source: the merged PRD audit"** header references `audits/prd-audit-1…5` — fine
-  as provenance, but add a pointer to this handoff + the coverage map as the current truth.
+      as provenance, but add a pointer to this handoff + the coverage map as the current truth.
 
 ---
 
 ### Quick-start for Codex (TL;DR)
+
 1. Read this file, then `STATUS.md`, then `audits/v1-coverage-2026-06-22.md` (ignore the README until
    it's rewritten).
 2. Recreate the engine venv (§3); create `config/local.yaml` with your OpenSCAD/OrcaSlicer paths.

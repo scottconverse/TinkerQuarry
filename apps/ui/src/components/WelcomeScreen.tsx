@@ -8,7 +8,9 @@ import {
   TbFileText,
   TbFolder,
   TbFolderOpen,
+  TbDownload,
   TbPencil,
+  TbUpload,
 } from "react-icons/tb";
 import { getPlatform } from "../platform";
 import { type AiProvider } from "../stores/apiKeyStore";
@@ -120,6 +122,10 @@ export function WelcomeScreen({
   const [modelPulling, setModelPulling] = useState(false);
   // §6.12 "My Designs": the engine's saved designs, the "recent surface on entry".
   const [savedDesigns, setSavedDesigns] = useState<SavedDesignEntry[]>([]);
+  const refreshSavedDesigns = async () => {
+    const r = await engine.listDesigns();
+    if (r.ok && Array.isArray(r.data.designs)) setSavedDesigns(r.data.designs);
+  };
   useEffect(() => {
     if (!onReopenDesign) return;
     let cancelled = false;
@@ -161,6 +167,34 @@ export function WelcomeScreen({
       },
       ...s,
     ]);
+  };
+  const handleExportPortableDesign = async (design: SavedDesignEntry) => {
+    const r = await engine.exportDesign(design.id);
+    if (!r.ok || !(r.data instanceof Uint8Array)) return;
+    const safeName =
+      design.name
+        .trim()
+        .split("")
+        .map((char) => {
+          const code = char.charCodeAt(0);
+          return code < 32 || '<>:"/\\|?*'.includes(char) ? "-" : char;
+        })
+        .join("")
+        .replace(/\.+$/g, "")
+        .slice(0, 80) || "tinkerquarry-design";
+    await getPlatform().fileExport(r.data, `${safeName}.kimcad`, [
+      { name: "TinkerQuarry Design", extensions: ["kimcad"] },
+    ]);
+  };
+  const handleImportPortableDesign = async () => {
+    const file = await getPlatform().fileOpenBinary([
+      { name: "TinkerQuarry Design", extensions: ["kimcad"] },
+    ]);
+    if (!file) return;
+    const r = await engine.importDesign(file.content);
+    if (!r.ok || !r.data.id) return;
+    await refreshSavedDesigns();
+    onReopenDesign?.(r.data.id);
   };
   // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
   // describe surface is always available — there is no "configure a provider" wall.
@@ -507,11 +541,28 @@ export function WelcomeScreen({
           </div>
         ) : null}
 
-        {onReopenDesign && savedDesigns.length > 0 && (
+        {onReopenDesign && (
           <div className="space-y-3 -mt-2" data-testid="welcome-my-designs">
-            <Text variant="section-heading" weight="medium" color="secondary">
-              My Designs:
-            </Text>
+            <div className="flex items-center justify-between gap-3">
+              <Text variant="section-heading" weight="medium" color="secondary">
+                My Designs:
+              </Text>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleImportPortableDesign()}
+                data-testid="import-kimcad-design"
+                className="gap-1.5"
+              >
+                <TbUpload size={14} aria-hidden="true" />
+                Import .kimcad
+              </Button>
+            </div>
+            {savedDesigns.length === 0 ? (
+              <Text variant="caption" color="tertiary">
+                No saved designs yet.
+              </Text>
+            ) : (
             <div className="flex flex-wrap gap-2">
               {savedDesigns.slice(0, 12).map((d) =>
                 confirmDeleteId === d.id ? (
@@ -575,6 +626,17 @@ export function WelcomeScreen({
                     <IconButton
                       size="sm"
                       variant="toolbar"
+                      data-testid={`export-design-${d.id}`}
+                      onClick={() => void handleExportPortableDesign(d)}
+                      aria-label={`Export ${d.name}`}
+                      title={`Export "${d.name}" as .kimcad`}
+                      className="rounded-none border-l-0"
+                    >
+                      <TbDownload size={14} aria-hidden="true" />
+                    </IconButton>
+                    <IconButton
+                      size="sm"
+                      variant="toolbar"
                       data-testid={`delete-design-${d.id}`}
                       onClick={() => setConfirmDeleteId(d.id)}
                       aria-label={`Delete ${d.name}`}
@@ -587,6 +649,7 @@ export function WelcomeScreen({
                 ),
               )}
             </div>
+            )}
           </div>
         )}
 

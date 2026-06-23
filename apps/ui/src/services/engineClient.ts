@@ -121,6 +121,7 @@ export interface DesignResult {
   status: DesignStatus | string;
   has_mesh?: boolean;
   mesh_url?: string | null;
+  step_url?: string | null;
   template?: string | null;
   params?: unknown[];
   plan?: unknown;
@@ -236,6 +237,22 @@ export interface SavedDesignEntry {
   readiness_score?: number | null;
 }
 
+export interface ExternalLibraryEntry {
+  name: string;
+  slug: string;
+  source_path?: string;
+  sandbox_path?: string;
+  include_prefix: string;
+  file_count?: number;
+  bytes?: number;
+}
+
+export interface LibrariesResult {
+  bundled?: Array<{ name: string; file: string; include: string }>;
+  external?: ExternalLibraryEntry[];
+  error?: string;
+}
+
 export class EngineClient {
   constructor(private readonly base: string = DEFAULT_API_BASE) {}
 
@@ -279,6 +296,89 @@ export class EngineClient {
     // body means we couldn't really reach it — the dev proxy answers ECONNREFUSED with a 500/502 and a
     // non-JSON body (the `catch` above doesn't fire because the proxy, not fetch, failed). Give that a
     // clear message instead of a confusing generic one.
+    if (!res.ok && !(data as { error?: unknown })?.error) {
+      (data as { error?: string }).error =
+        "Could not reach the local engine. Is it running?";
+    }
+    return { status: res.status, ok: res.ok, data };
+  }
+
+  private async rawReq(
+    method: string,
+    path: string,
+    body?: Uint8Array,
+    contentType?: string,
+  ): Promise<ApiResponse<Uint8Array | { error?: string }>> {
+    const headers: Record<string, string> = {};
+    if (contentType) headers["Content-Type"] = contentType;
+    let base = this.base;
+    let tok = sessionToken();
+    if (base === DEFAULT_API_BASE) {
+      const desktop = await desktopEngineInfo();
+      if (desktop) {
+        base = desktop.apiBaseUrl;
+        tok ??= desktop.sessionToken;
+      }
+    }
+    if (tok) headers["X-KimCad-Session"] = tok;
+    let res: Response;
+    try {
+      res = await fetch(base + path, {
+        method,
+        headers: Object.keys(headers).length ? headers : undefined,
+        body,
+      });
+    } catch {
+      return {
+        status: 0,
+        ok: false,
+        data: { error: "Could not reach the local engine. Is it running?" },
+      };
+    }
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!data.error) {
+        data.error = "Could not reach the local engine. Is it running?";
+      }
+      return { status: res.status, ok: false, data };
+    }
+    return {
+      status: res.status,
+      ok: true,
+      data: new Uint8Array(await res.arrayBuffer()),
+    };
+  }
+
+  private async rawJsonReq<T>(
+    method: string,
+    path: string,
+    body: Uint8Array,
+    contentType: string,
+  ): Promise<ApiResponse<T>> {
+    const headers: Record<string, string> = { "Content-Type": contentType };
+    let base = this.base;
+    let tok = sessionToken();
+    if (base === DEFAULT_API_BASE) {
+      const desktop = await desktopEngineInfo();
+      if (desktop) {
+        base = desktop.apiBaseUrl;
+        tok ??= desktop.sessionToken;
+      }
+    }
+    if (tok) headers["X-KimCad-Session"] = tok;
+    let res: Response;
+    try {
+      res = await fetch(base + path, { method, headers, body });
+    } catch {
+      return {
+        status: 0,
+        ok: false,
+        data: {
+          error: "Could not reach the local engine. Is it running?",
+        } as T,
+      };
+    }
+    const data = (await res.json().catch(() => ({}))) as T;
     if (!res.ok && !(data as { error?: unknown })?.error) {
       (data as { error?: string }).error =
         "Could not reach the local engine. Is it running?";
@@ -385,6 +485,35 @@ export class EngineClient {
       `/designs/${encodeURIComponent(id)}/duplicate`,
     );
   }
+  /** Export a saved design as a portable .kimcad zip. */
+  exportDesign(id: string) {
+    return this.rawReq(
+      "GET",
+      `/designs/${encodeURIComponent(id)}/export`,
+    );
+  }
+  /** Import a portable .kimcad zip and return the new saved-design id. */
+  importDesign(bytes: Uint8Array) {
+    return this.rawJsonReq<{ id?: string; error?: string }>(
+      "POST",
+      "/designs/import",
+      bytes,
+      "application/zip",
+    );
+  }
+  /** Download a binary engine asset URL such as /api/step/123 in web or Tauri runtime. */
+  downloadApiAsset(url: string) {
+    let path = url;
+    try {
+      const parsed = new URL(url, "http://engine.local");
+      path = parsed.pathname + parsed.search;
+    } catch {
+      path = url;
+    }
+    if (path.startsWith("/api/")) path = path.slice("/api".length);
+    if (!path.startsWith("/")) path = `/${path}`;
+    return this.rawReq("GET", path);
+  }
 
   // --- catalog / status (no token needed) ---
   health() {
@@ -407,6 +536,23 @@ export class EngineClient {
   }
   settings() {
     return this.req<Record<string, unknown>>("GET", "/settings");
+  }
+  libraries() {
+    return this.req<LibrariesResult>("GET", "/libraries");
+  }
+  admitLibrary(path: string, name?: string) {
+    return this.req<{ admitted?: boolean; library?: ExternalLibraryEntry; error?: string }>(
+      "POST",
+      "/libraries/admit",
+      { path, name },
+    );
+  }
+  removeLibrary(slug: string) {
+    return this.req<{ removed?: boolean; error?: string }>(
+      "POST",
+      "/libraries/remove",
+      { slug },
+    );
   }
 }
 

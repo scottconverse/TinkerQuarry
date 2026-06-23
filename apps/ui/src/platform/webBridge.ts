@@ -1,4 +1,10 @@
-import type { PlatformBridge, PlatformCapabilities, FileOpenResult, FileFilter } from './types';
+import type {
+  PlatformBridge,
+  PlatformCapabilities,
+  FileOpenResult,
+  BinaryFileOpenResult,
+  FileFilter,
+} from './types';
 import {
   isOpenScadProjectFilePath,
   OPENSCAD_RENDERABLE_FILE_EXTENSIONS,
@@ -125,6 +131,30 @@ export class WebBridge implements PlatformBridge {
       return this.fileOpenNative(filters);
     }
     return this.fileOpenFallback(filters);
+  }
+
+  async fileOpenBinary(filters?: FileFilter[]): Promise<BinaryFileOpenResult | null> {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = filtersToAccept(filters);
+
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        resolve({
+          path: null,
+          name: file.name,
+          content: new Uint8Array(await file.arrayBuffer()),
+        });
+      };
+
+      input.oncancel = () => resolve(null);
+      input.click();
+    });
   }
 
   private async fileOpenNative(filters?: FileFilter[]): Promise<FileOpenResult | null> {

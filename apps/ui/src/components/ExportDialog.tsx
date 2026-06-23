@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAnalytics } from '../analytics/runtime';
-import { getPlatform, type ExportFormat } from '../platform';
+import { getPlatform } from '../platform';
 import { isExportValidationError } from '../services/exportErrors';
 import { exportModelWithContext } from '../services/exportService';
+import type { ExportFormat as RenderExportFormat } from '../services/renderService';
 import { useSettings } from '../stores/settingsStore';
 import {
   Button,
@@ -24,24 +25,57 @@ interface ExportDialogProps {
   source: string;
   workingDir?: string | null;
   previewKind?: 'mesh' | 'svg';
+  stepUrl?: string | null;
+  capturePreview?: () => Promise<string | null>;
+  downloadStep?: () => Promise<Uint8Array | null>;
 }
 
-const FORMAT_OPTIONS_3D: { value: ExportFormat; label: string; ext: string }[] = [
+type ProductExportFormat = RenderExportFormat | 'scad' | 'step';
+
+const FORMAT_OPTIONS_3D: { value: ProductExportFormat; label: string; ext: string }[] = [
+  { value: 'scad', label: 'OpenSCAD Source', ext: 'scad' },
   { value: 'stl', label: 'STL', ext: 'stl' },
   { value: 'obj', label: 'OBJ', ext: 'obj' },
   { value: 'amf', label: 'AMF', ext: 'amf' },
   { value: '3mf', label: '3MF', ext: '3mf' },
+  { value: 'png', label: 'PNG Preview', ext: 'png' },
 ];
 
-const FORMAT_OPTIONS_2D: { value: ExportFormat; label: string; ext: string }[] = [
+const FORMAT_OPTIONS_2D: { value: ProductExportFormat; label: string; ext: string }[] = [
+  { value: 'scad', label: 'OpenSCAD Source', ext: 'scad' },
   { value: 'svg', label: 'SVG', ext: 'svg' },
   { value: 'dxf', label: 'DXF', ext: 'dxf' },
+  { value: 'png', label: 'PNG Preview', ext: 'png' },
 ];
 
-export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDialogProps) {
+function bytesFromDataUrl(dataUrl: string): Uint8Array {
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0) throw new Error('Preview capture did not return an image.');
+  const meta = dataUrl.slice(0, comma);
+  const payload = dataUrl.slice(comma + 1);
+  if (meta.includes(';base64')) {
+    return Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
+  }
+  return new TextEncoder().encode(decodeURIComponent(payload));
+}
+
+function isRenderFormat(format: ProductExportFormat): format is RenderExportFormat {
+  return format !== 'scad' && format !== 'step';
+}
+
+export function ExportDialog({
+  isOpen,
+  onClose,
+  source,
+  workingDir,
+  previewKind,
+  stepUrl,
+  capturePreview,
+  downloadStep,
+}: ExportDialogProps) {
   const analytics = useAnalytics();
   const [settings] = useSettings();
-  const [format, setFormat] = useState<ExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
+  const [format, setFormat] = useState<ProductExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
 
@@ -56,7 +90,12 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
 
   if (!isOpen) return null;
 
-  const formatOptions = previewKind === 'svg' ? FORMAT_OPTIONS_2D : FORMAT_OPTIONS_3D;
+  const formatOptions =
+    previewKind === 'svg'
+      ? FORMAT_OPTIONS_2D
+      : stepUrl
+        ? [...FORMAT_OPTIONS_3D, { value: 'step' as const, label: 'STEP', ext: 'step' }]
+        : FORMAT_OPTIONS_3D;
 
   const handleExport = async () => {
     setError('');
@@ -66,11 +105,27 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
       const selectedFormat = formatOptions.find((f) => f.value === format);
       if (!selectedFormat) return;
 
-      const exportBytes = await exportModelWithContext({
-        format,
-        source,
-        library: settings.library,
-      });
+      let exportBytes: Uint8Array;
+      if (format === 'scad') {
+        exportBytes = new TextEncoder().encode(source);
+      } else if (format === 'png') {
+        const preview = await capturePreview?.();
+        if (!preview) throw new Error('No preview image is available to export.');
+        exportBytes = bytesFromDataUrl(preview);
+      } else if (format === 'step') {
+        const bytes = await downloadStep?.();
+        if (!bytes) throw new Error('This design does not have an editable STEP export.');
+        exportBytes = bytes;
+      } else if (isRenderFormat(format)) {
+        exportBytes = await exportModelWithContext({
+          format,
+          source,
+          workingDir,
+          library: settings.library,
+        });
+      } else {
+        throw new Error('Unsupported export format.');
+      }
 
       await getPlatform().fileExport(exportBytes, `export.${selectedFormat.ext}`, [
         { name: selectedFormat.label, extensions: [selectedFormat.ext] },
@@ -133,7 +188,7 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
             <Label className="mb-2">Export Format</Label>
             <Select
               value={format}
-              onValueChange={(v) => setFormat(v as ExportFormat)}
+              onValueChange={(v) => setFormat(v as ProductExportFormat)}
               disabled={isExporting}
             >
               <SelectTrigger data-testid="export-format-select" aria-label="Export Format">

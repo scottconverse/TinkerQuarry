@@ -43,6 +43,23 @@ describe('describeIntoStudio — orchestration (Phase 4 B core)', () => {
     expect(out.headline).toBe('Dimensions match: 70.0 × 50.0 × 30.0 mm.');
   });
 
+  it('falls back to plain source when inline source fails after a completed design', async () => {
+    const calls: boolean[] = [];
+    const out = await describeIntoStudio('a cube', undefined, {
+      run: stubRun({ status: 'completed', mesh_url: '/api/mesh/5' }),
+      source: async (_rid: number, inline: boolean) => {
+        calls.push(inline);
+        if (inline) {
+          return { status: 500, ok: false, data: { error: 'inline failed' } };
+        }
+        return { status: 200, ok: true, data: { rid: 5, scad: 'use <library/box.scad>;' } };
+      },
+    });
+    expect(out.ok).toBe(true);
+    expect(calls).toEqual([true, false]);
+    expect(getProjectState().files['main.scad'].content).toBe('use <library/box.scad>;');
+  });
+
   it('leaves the document untouched and reports the reason when there is no printable design', async () => {
     const out = await describeIntoStudio('???', undefined, {
       run: stubRun({ status: 'gate_failed', error: 'walls too thin' }, false),

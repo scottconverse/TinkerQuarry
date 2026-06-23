@@ -23,6 +23,7 @@ describe("EngineClient — request shape + CSRF token (Phase 4)", () => {
         ok: true,
         status: 200,
         json: () => Promise.resolve({ ok: true }),
+        arrayBuffer: () => Promise.resolve(new Uint8Array([1, 2, 3]).buffer),
       } as Response);
     }) as typeof fetch;
     document.head.querySelector('meta[name="kimcad-session-token"]')?.remove();
@@ -146,6 +147,21 @@ describe("EngineClient — request shape + CSRF token (Phase 4)", () => {
     expect(calls[1].init.method).toBe("GET");
     await c.reopenDesign("abc 1");
     expect(calls[2].url).toBe("/api/designs/abc%201"); // id is URL-encoded
+  });
+
+  it("exports and imports portable .kimcad designs as raw bytes", async () => {
+    const c = new EngineClient();
+    const exported = await c.exportDesign("abc 1");
+    expect(calls[0].url).toBe("/api/designs/abc%201/export");
+    expect(calls[0].init.method).toBe("GET");
+    expect(exported.ok).toBe(true);
+    expect(exported.data).toBeInstanceOf(Uint8Array);
+
+    await c.importDesign(new Uint8Array([9, 8, 7]));
+    expect(calls[1].url).toBe("/api/designs/import");
+    expect(calls[1].init.method).toBe("POST");
+    expect(header(calls[1].init, "Content-Type")).toBe("application/zip");
+    expect(calls[1].init.body).toBeInstanceOf(Uint8Array);
   });
 
   it("posts labeled visual-review images for the advisory VCL", async () => {

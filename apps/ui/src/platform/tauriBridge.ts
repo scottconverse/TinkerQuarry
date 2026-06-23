@@ -2,6 +2,7 @@ import type {
   PlatformBridge,
   PlatformCapabilities,
   FileOpenResult,
+  BinaryFileOpenResult,
   FileFilter,
   ConfirmDialogOptions,
 } from './types';
@@ -43,6 +44,31 @@ export class TauriBridge implements PlatformBridge {
   async fileRead(path: string): Promise<FileOpenResult | null> {
     const { readTextFile } = await import('@tauri-apps/plugin-fs');
     const content = await readTextFile(path);
+    const name = path.split('/').pop() || path;
+    return { path, name, content };
+  }
+
+  async fileOpenBinary(filters?: FileFilter[]): Promise<BinaryFileOpenResult | null> {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const { readFile } = await import('@tauri-apps/plugin-fs');
+
+    const selected = await open({
+      filters,
+      multiple: false,
+    });
+
+    if (!selected) return null;
+
+    const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
+    const content = await readFile(filePath);
+    const name = filePath.split('/').pop() || filePath;
+
+    return { path: filePath, name, content };
+  }
+
+  async fileOpenBinaryByPath(path: string): Promise<BinaryFileOpenResult | null> {
+    const { readFile } = await import('@tauri-apps/plugin-fs');
+    const content = await readFile(path);
     const name = path.split('/').pop() || path;
     return { path, name, content };
   }

@@ -2,6 +2,7 @@ export type {
   PlatformBridge,
   PlatformCapabilities,
   FileOpenResult,
+  BinaryFileOpenResult,
   FileFilter,
   ConfirmDialogOptions,
   ExportFormat,
@@ -13,6 +14,7 @@ export type { EditorCheckpoint, CheckpointDiff, Diagnostic, ChangeType } from '.
 
 import type {
   ConfirmDialogOptions,
+  BinaryFileOpenResult,
   FileFilter,
   FileOpenResult,
   PlatformBridge,
@@ -45,6 +47,11 @@ class BootstrapBridge implements PlatformBridge {
   readonly capabilities = createBootstrapCapabilities();
 
   async fileOpen(filters?: FileFilter[]): Promise<FileOpenResult | null> {
+    void filters;
+    return null;
+  }
+
+  async fileOpenBinary(filters?: FileFilter[]): Promise<BinaryFileOpenResult | null> {
     void filters;
     return null;
   }

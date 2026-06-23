@@ -1,13 +1,15 @@
-# Evaluate TinkerQuarry in about 2 minutes
+# Evaluate TinkerQuarry
 
-A no-spin walkthrough so you can judge the real product yourself, not a description of it.
+A no-spin walkthrough so you can judge the real product yourself, not a description of it. The
+short smoke is a few minutes; the full proof commands are a release-gate run.
 
 > **Verification honesty:** the engine has real automated tests, and the main desktop web flow now has
 > a durable Playwright happy-path test. The checked-in browser test covers app boot against the demo
-> engine, prompt/build, rendered design-ready state, Make it real, first-real caution, slice,
-> Ready-to-print state, mock Send, and post-send outcome recording. This is not a full UI matrix:
-> mobile/narrow layouts, every error path, and hardware connector outcomes still need broader
-> coverage.
+> engine, prompt/build, rendered design-ready state, the right-side Customize / Make it real rail,
+> Make it real, first-real caution, slice, Ready-to-print state, mock Send, and post-send outcome
+> recording. This is not a full UI matrix: mobile/narrow layouts, every error path, and hardware
+> connector outcomes still need broader coverage. Browser e2e and native smoke now support isolated
+> temp profile roots so proof does not depend on Scott's existing app data.
 
 ## Run It
 
@@ -40,24 +42,30 @@ Then open `http://localhost:1420`.
 6. **Send**: choose a printer connection and send the sliced G-code. The built-in `mock` connector is
    simulated; real hardware sends prompt for a print outcome.
 7. **Refine**: ask for a change such as `make it 80 mm across`.
-8. **Save / reopen / delete**: save the design, reopen it from My Designs, and delete it with the
-   two-step confirm.
-9. **Undo**: after a refine, use Undo to restore the previous design.
-10. **Visual review**: after a successful design/reopen, hover **Make it real**. The tooltip should
-   include an advisory line such as `Visual review: running`, `no obvious issues found`, `likely
-   issue`, `needs review`, or `unavailable`. This does not replace slicing.
-11. **Visual fix**: if visual review reports an agreed likely issue, use **Fix visual issue**. It
-    should refine the current design in context, keep Undo available for the prior candidate, and
-    run visual review again. The Make-it-real tooltip should include a lightweight `Visual diff`
-    percentage showing how much the new preview changed from the prior candidate. It stops after
-    three correction rounds.
-12. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
-   currently offered.
+8. **Right rail**: use the right-side **Customize** and **Make it real** panel. It should show VCL
+   status honestly, printer/material choices, Slice/Send buttons, and an Iteration log.
+9. **Iteration restore**: after a refine or slice, restore a snapshot from the Iteration log. Restored
+   snapshots reopen as source snapshots; re-render before manufacturing from them.
+10. **Save / reopen / delete / portable design**: save the design, export it as `.kimcad`, import it
+    again, reopen it from My Designs, and delete it with the two-step confirm.
+11. **Undo**: after a refine, use Undo to restore the previous design.
+12. **Visual review**: after a successful design/reopen, the app runs an advisory local probe loop
+    when vision is available. The rail should show `VCL:` status such as off, missing, installing,
+    advisory, running, likely issue, needs review, or unavailable. This does not replace slicing.
+13. **Visual fix**: if visual review reports an agreed likely issue, the bounded loop can refine in
+    context, keep/restore the best candidate, and record provenance in the Iteration log. It stops
+    after three correction rounds.
+14. **Export**: export `.scad`, STL, OBJ, AMF, 3MF, SVG, DXF, PNG preview, STEP when available, or
+    portable `.kimcad`.
+15. **External SCAD library admission**: in Settings > Libraries, admit a user-installed SCAD library.
+    The app should ask for consent, copy it into the sandbox, and show an `external/<slug>/` include
+    prefix.
 
 ## What Is Not Here Yet
 
 - **Visual Correction Loop**: advisory local probe-mode v1 exists. It can inspect rendered images
-  with local probe models and report likely visual issues, but it is not the full PRD loop yet. The
+  with local probe models and report likely visual issues, and the UI now runs a bounded autonomous
+  review/correction pass after generated designs. It is still not metrology-grade vision. The
   default tries `qwen3-vl:8b`, `qwen2.5vl:7b`, and `minicpm-v:8b`, uses agreement when at least two
   critics respond, falls back honestly if only one is installed, and treats model disagreement as
   `needs review`. The beta acceptance bar is 90% probe accuracy; `qwen3-vl:8b` is the current
@@ -67,15 +75,15 @@ Then open `http://localhost:1420`.
   Undo as the prior-candidate fallback; the wrong-face handoff path is covered by a deterministic
   probe fixture. Browser proof against the real app captured labeled `front` / `right` / `top` PNGs
   with no console/HTTP errors (`docs/handoff/proof/vcl-multiview-browser-2026-06-22.txt`).
-  A lightweight visual-change percentage exists after correction; autonomous correction policy and a
-  full before/after visual-diff viewer still need to be built.
+  A lightweight visual-change percentage exists after correction; a full before/after visual-diff
+  viewer still needs to be built.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.
-- **External-library admission**: the PRD consent -> sandbox-copy -> include-path -> sanitization flow
-  is not wired to the engine.
-- **Explain/diff/iteration history**: current Explain is a readiness toast; Undo is whole-design
-  session revert; persistent per-iteration history and visual/structural diff remain incomplete.
+- **External-library admission**: consent -> sandbox-copy -> include-path -> sanitization is wired.
+  Admitted libraries are user-provided and are not redistributed by TinkerQuarry.
+- **Explain/diff/iteration history**: current Explain is still mostly readiness/design summary.
+  Persistent iteration history exists; full visual/structural diff remains incomplete.
 - **Browser-level coverage breadth**: the committed Playwright test covers the core happy path through
   mock send/outcome. It does not yet cover mobile/narrow layouts, hardware connectors, every export
   format, every profile, or accessibility keyboard traversal.
@@ -87,24 +95,26 @@ From `C:\Users\Scott\Desktop\CODE\tinkerquarry`:
 ```powershell
 pnpm -r lint
 pnpm -r type-check
-pnpm test:unit
+cd apps\ui
+node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand
+cd ..\..
 pnpm test:web:unit
 pnpm test:e2e:web
-pnpm --dir apps\ui tauri build
-pnpm test:e2e:tauri
+cmd /c "call ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\LaunchDevCmd.bat"" -arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && pnpm.cmd tauri:build"
+node scripts/smoke-tauri-runtime.mjs
+node scripts/smoke-tauri-runtime.mjs --exe="%TEMP%\TQSmokeInstall\openscad-studio.exe" --isolated-profile="%TEMP%\TQSmokeProfile" --workflow
+pnpm test:gate
 ```
 
 From `C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests -m "not live" -q
-.\.venv\Scripts\python.exe -m pytest tests -m live -q
-.\.venv\Scripts\python.exe -m pytest tests -m real_tool -q
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
 ## Where The Truth Lives
 
 - [STATUS.md](STATUS.md)
-- [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md)
+- [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md) - historical 2026-06-22 handoff, not current status
 - [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md)
 - [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md)

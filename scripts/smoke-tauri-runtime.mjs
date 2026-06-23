@@ -1,18 +1,33 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const port = Number(process.env.TINKERQUARRY_TAURI_DEBUG_PORT || "9337");
 const exeArg = process.argv.find((arg) => arg.startsWith("--exe="));
+const isolatedProfileArg = process.argv.find((arg) =>
+  arg.startsWith("--isolated-profile="),
+);
+const workflow = process.argv.includes("--workflow");
 const exe = resolve(
   exeArg?.slice("--exe=".length) ||
     "apps/ui/src-tauri/target/release/openscad-studio.exe",
 );
+const isolatedProfile = isolatedProfileArg
+  ? resolve(isolatedProfileArg.slice("--isolated-profile=".length))
+  : process.env.TQ_TAURI_ISOLATED_PROFILE
+    ? resolve(process.env.TQ_TAURI_ISOLATED_PROFILE)
+    : "";
 
 if (!existsSync(exe)) {
   console.error(`Tauri executable not found: ${exe}`);
   process.exit(1);
+}
+
+if (isolatedProfile) {
+  for (const name of ["LocalAppData", "AppData"]) {
+    mkdirSync(resolve(isolatedProfile, name), { recursive: true });
+  }
 }
 
 const child = spawn(exe, [], {
@@ -21,6 +36,17 @@ const child = spawn(exe, [], {
   env: {
     ...process.env,
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
+    ...(workflow ? { TINKERQUARRY_ENGINE_DEMO: "1" } : {}),
+    ...(isolatedProfile
+      ? {
+          LOCALAPPDATA: resolve(isolatedProfile, "LocalAppData"),
+          APPDATA: resolve(isolatedProfile, "AppData"),
+          TINKERQUARRY_APPDATA_DIR: resolve(
+            isolatedProfile,
+            "TinkerQuarryAppData",
+          ),
+        }
+      : {}),
   },
 });
 
@@ -59,6 +85,7 @@ async function main() {
     if (!page) throw new Error("No inspectable Tauri page appeared.");
 
     await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
+    await page.setViewportSize({ width: 1600, height: 1000 }).catch(() => {});
     const title = await page.title();
     const engine = await page.evaluate(async () => {
       const internals = globalThis.__TAURI_INTERNALS__;
@@ -113,7 +140,19 @@ async function main() {
       hasStartSurface,
       rootText: rootText.slice(0, 200),
       engine,
+      isolatedProfile: isolatedProfile || null,
     };
+
+    if (workflow) {
+      await runNativeWorkflow(page);
+    }
+
+    if (isolatedProfile && !profileHasEngineState(isolatedProfile)) {
+      throw new Error(
+        `Isolated native profile did not receive engine/app state under ${isolatedProfile}`,
+      );
+    }
+
     const resultText = JSON.stringify(result, null, 2);
     console.log(resultText);
     if (!title.includes("TinkerQuarry")) {
@@ -132,6 +171,149 @@ async function main() {
   } finally {
     await browser.close().catch(() => {});
   }
+}
+
+function profileHasEngineState(root) {
+  const stack = [root];
+  while (stack.length) {
+    const current = stack.pop();
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = resolve(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (entry.name === "engine.log") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function runNativeWorkflow(page) {
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => {
+    consoleErrors.push(error.message);
+  });
+
+  const welcomePrompt = page
+    .getByTestId("welcome-ai-entry")
+    .locator('textarea[placeholder="Describe what you want to build..."]')
+    .first();
+  await expect(welcomePrompt).toBeVisible({ timeout: 30_000 });
+  await welcomePrompt.fill("a small test gear");
+  const welcomeSubmit = page
+    .getByTestId("welcome-ai-entry")
+    .getByTestId("ai-submit-button");
+  await expect(welcomeSubmit).toBeEnabled({ timeout: 30_000 });
+  await welcomeSubmit.click();
+  await expect(page.getByTestId("welcome-screen")).toBeHidden({
+    timeout: 30_000,
+  });
+
+  await clickFirstEnabled(page, "make-it-real-button", 120_000);
+
+  const firstReal = page.getByTestId("first-real-print-dialog");
+  if (await firstReal.isVisible().catch(() => false)) {
+    await firstReal.getByTestId("first-real-print-confirm").click();
+  }
+
+  await page
+    .getByTestId("workflow-slice")
+    .getByText(/Sliced/i)
+    .waitFor({ timeout: 180_000 });
+  const selectedConnector = await selectFirstVisible(
+    page,
+    "connector-select",
+    "mock",
+    5_000,
+  );
+  if (selectedConnector) {
+    await clickFirstEnabled(page, "send-to-printer-button", 30_000);
+  } else {
+    await clickFirstEnabled(page, "rail-send-to-printer-button", 30_000);
+  }
+  await page
+    .getByTestId("print-outcome-dialog")
+    .waitFor({ state: "visible", timeout: 60_000 });
+  await page
+    .getByTestId("print-outcome-dialog")
+    .getByRole("button", { name: /^Clean$/i })
+    .click();
+
+  if (consoleErrors.length) {
+    throw new Error(
+      `Native workflow console/page errors: ${consoleErrors.join(" | ")}`,
+    );
+  }
+}
+
+async function selectFirstVisible(page, testId, value, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastState = "";
+  while (Date.now() < deadline) {
+    const controls = page.getByTestId(testId);
+    const count = await controls.count();
+    const states = [];
+    for (let i = 0; i < count; i += 1) {
+      const candidate = controls.nth(i);
+      const visible = await candidate.isVisible().catch(() => false);
+      const enabled =
+        visible && (await candidate.isEnabled().catch(() => false));
+      states.push(`#${i}: visible=${visible} enabled=${enabled}`);
+      if (enabled) {
+        await candidate.selectOption(value);
+        return true;
+      }
+    }
+    lastState = states.join(" | ");
+    await page.waitForTimeout(500);
+  }
+  return false;
+}
+
+async function clickFirstEnabled(page, testId, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastState = "";
+  while (Date.now() < deadline) {
+    const buttons = page.getByTestId(testId);
+    const count = await buttons.count();
+    const states = [];
+    for (let i = 0; i < count; i += 1) {
+      const candidate = buttons.nth(i);
+      const visible = await candidate.isVisible().catch(() => false);
+      const enabled =
+        visible && (await candidate.isEnabled().catch(() => false));
+      const title = await candidate.getAttribute("title").catch(() => "");
+      states.push(
+        `#${i}: visible=${visible} enabled=${enabled} title=${title || ""}`,
+      );
+      if (enabled) {
+        await candidate.click();
+        return;
+      }
+    }
+    lastState = states.join(" | ");
+    await page.waitForTimeout(500);
+  }
+  const rootText = await page
+    .locator("#root")
+    .innerText()
+    .catch(() => "");
+  throw new Error(
+    `No enabled [data-testid="${testId}"] after ${timeoutMs}ms. ${lastState}. Root: ${rootText.slice(
+      0,
+      500,
+    )}`,
+  );
 }
 
 main()

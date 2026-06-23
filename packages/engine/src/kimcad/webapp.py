@@ -844,10 +844,12 @@ def slice_registered_mesh(
 # (the GET-only list was previously duplicated inline across all three).
 _GET_ONLY_PATHS = (
     "/api/options", "/api/model-status", "/api/health", "/api/connectors",
-    "/api/model-pull/progress", "/api/designs",
+    "/api/model-pull/progress", "/api/designs", "/api/libraries",
 )
 _GET_ONLY_PREFIXES = ("/api/connector-status/", "/api/design/progress/")
-_POST_ONLY_PATHS = ("/api/model-pull", "/api/design")
+_POST_ONLY_PATHS = (
+    "/api/model-pull", "/api/design", "/api/libraries/admit", "/api/libraries/remove",
+)
 _POST_ONLY_PREFIXES = (
     "/api/visual-review/",
     "/api/slice/",
@@ -1160,6 +1162,9 @@ def make_handler(
                 return
             if self.path == "/api/settings":
                 self._handle_settings_get()
+                return
+            if self.path == "/api/libraries":
+                self._handle_libraries_get()
                 return
             if self.path == "/api/model-status":
                 self._handle_model_status()
@@ -1667,6 +1672,12 @@ def make_handler(
             if self.path == "/api/settings":
                 self._handle_settings_post()
                 return
+            if self.path == "/api/libraries/admit":
+                self._handle_library_admit()
+                return
+            if self.path == "/api/libraries/remove":
+                self._handle_library_remove()
+                return
             if self.path == "/api/model-pull":
                 self._handle_model_pull()
                 return
@@ -1726,6 +1737,63 @@ def make_handler(
                 get_config(), saved_settings(),
                 key_storage=store.key_storage() if store is not None else None,
             ))
+
+        def _handle_libraries_get(self) -> None:
+            from kimcad.config import PROJECT_ROOT
+            from kimcad.external_libraries import list_admitted
+
+            library_dir = PROJECT_ROOT / "library"
+            bundled = [
+                {"name": path.stem, "file": path.name, "include": f"library/{path.name}"}
+                for path in sorted(library_dir.glob("*.scad"))
+            ]
+            self._json(200, {"bundled": bundled, "external": list_admitted(public=True)})
+
+        def _handle_library_admit(self) -> None:
+            from kimcad.external_libraries import admit_library
+
+            data = self._read_json_body()
+            if data is None:
+                return
+            name = data.get("name")
+            path = data.get("path")
+            if not isinstance(path, str) or not path.strip():
+                self._json(400, {"error": "Choose a library folder to admit."})
+                return
+            try:
+                record = admit_library(str(name or Path(path).name), path)
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+                return
+            except OSError:
+                self._json(400, {"error": "That library could not be copied into the sandbox."})
+                return
+            self._json(
+                200,
+                {
+                    "admitted": True,
+                    "library": {
+                        "name": record.get("name"),
+                        "slug": record.get("slug"),
+                        "include_prefix": record.get("include_prefix"),
+                        "file_count": record.get("file_count"),
+                        "scad_count": record.get("scad_count"),
+                        "bytes": record.get("bytes"),
+                    },
+                },
+            )
+
+        def _handle_library_remove(self) -> None:
+            from kimcad.external_libraries import remove_admitted
+
+            data = self._read_json_body()
+            if data is None:
+                return
+            slug = data.get("slug") or data.get("name")
+            if not isinstance(slug, str) or not slug.strip():
+                self._json(400, {"error": "Choose a library to remove."})
+                return
+            self._json(200, {"removed": remove_admitted(slug)})
 
         def _handle_health(self) -> None:
             """Tool + app health for the Settings screen (Slice 6 MS-5): whether the bundled

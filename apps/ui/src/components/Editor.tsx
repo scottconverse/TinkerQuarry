@@ -1,6 +1,7 @@
-import { Editor as MonacoEditor } from '@monaco-editor/react';
+import { Editor as MonacoEditor, loader as monacoLoader } from '@monaco-editor/react';
 import type { Diagnostic } from '../platform/historyService';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as monaco from 'monaco-editor';
 import type * as Monaco from 'monaco-editor';
 import { eventBus } from '../platform';
 import { formatOpenScadCode } from '../utils/formatter';
@@ -10,6 +11,8 @@ import { ensureOpenScadLanguage } from '../languages/openscadLanguage';
 import { initVimMode } from 'monaco-vim';
 import { applyVimConfig } from '../utils/vimConfig';
 import { EditorTabs, type EditorTab } from './EditorTabs';
+
+monacoLoader.config({ monaco });
 
 interface EditorProps {
   value: string;

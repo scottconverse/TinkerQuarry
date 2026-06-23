@@ -14,6 +14,12 @@ export interface FileOpenResult {
   content: string;
 }
 
+export interface BinaryFileOpenResult {
+  path: string | null;
+  name: string;
+  content: Uint8Array;
+}
+
 export interface PlatformCapabilities {
   /** Whether the platform supports multiple open files/tabs (Tauri=true, Web=false) */
   multiFile: boolean;
@@ -44,6 +50,9 @@ export interface PlatformBridge {
 
   /** Open a file. Returns null if user cancelled. */
   fileOpen(filters?: FileFilter[]): Promise<FileOpenResult | null>;
+
+  /** Open a binary file. Returns null if user cancelled. */
+  fileOpenBinary(filters?: FileFilter[]): Promise<BinaryFileOpenResult | null>;
 
   /** Read a file by path. Only works on platforms with full filesystem access. */
   fileRead(path: string): Promise<FileOpenResult | null>;

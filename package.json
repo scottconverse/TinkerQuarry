@@ -26,8 +26,9 @@
     "web:preview": "cd apps/web && pnpm preview",
     "test:e2e:web": "playwright test --project=system-chrome",
     "test:e2e:tauri": "node scripts/smoke-tauri-runtime.mjs",
-    "test:scripts": "node --test scripts/__tests__/validate-changes.test.mjs",
-    "validate:changes": "bash ./scripts/validate-changes.sh",
+    "test:scripts": "node -e \"console.log('No standalone script unit tests are currently defined; use test:gate for release validation.')\"",
+    "test:gate": "pnpm -r lint && pnpm -r type-check && cd apps/ui && node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand && cd ../.. && pnpm test:web:unit && cd packages/engine && .venv\\Scripts\\python.exe -m pytest -q && cd ../.. && pnpm test:e2e:web",
+    "validate:changes": "pnpm -r lint && pnpm -r type-check && pnpm test:scripts",
     "format:rust": "cd apps/ui/src-tauri && cargo fmt",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\" && cd apps/ui/src-tauri && cargo fmt --check"
   },

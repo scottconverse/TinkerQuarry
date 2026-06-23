@@ -60,8 +60,14 @@ import {
   setEngineDocument,
   pureTuneValues,
   type EngineTurn,
+  type EngineDocOutcome,
 } from "./services/engineDocument";
-import { engine, type ConnectorInfo } from "./services/engineClient";
+import {
+  engine,
+  type ConnectorInfo,
+  type ModelStatusResult,
+  type VisualReviewResult,
+} from "./services/engineClient";
 import { engineGateSummary } from "./services/engineDesign";
 import { FirstRealPrintDialog } from "./components/FirstRealPrintDialog";
 import { useHistory } from "./hooks/useHistory";
@@ -248,6 +254,31 @@ function formatLayerHeight(mm: unknown): string {
   if (typeof mm !== "number" || !Number.isFinite(mm) || mm <= 0) return "";
   return `${mm.toFixed(2).replace(/\.?0+$/, "")} mm layers`;
 }
+
+function readinessScore(text: string | null | undefined): number {
+  if (!text) return 0;
+  const score = text.match(/\((\d{1,3})\/100\)/)?.[1];
+  if (score) return Number(score);
+  const lower = text.toLowerCase();
+  if (lower.includes("fail")) return 0;
+  if (lower.includes("warn")) return 50;
+  if (lower.includes("pass") || lower.includes("printable")) return 75;
+  return 25;
+}
+
+interface IterationLogEntry {
+  id: string;
+  createdAt: number;
+  kind: "design" | "visual" | "orient" | "slice" | "send" | "outcome";
+  title: string;
+  detail?: string | null;
+  rid?: number | null;
+  scad?: string | null;
+  gate?: string | null;
+  stepUrl?: string | null;
+}
+
+const ITERATION_LOG_KEY = "tq-iteration-log";
 
 function useMacDownloadUrl() {
   const [arch, setArch] = useState<MacArch>(() => getInitialMacDownloadArch());
@@ -750,16 +781,18 @@ function App() {
   // The current design's readiness string, mirrored as a ref so the undo stack can capture it without
   // a stale closure when a new design overwrites the current one.
   const lastGateRef = useRef<string | null>(null);
+  const lastStepUrlRef = useRef<string | null>(null);
   // §6.3 undo: a session stack of prior engine designs. Each describe/refine/reopen pushes the design
   // it replaces, so the user can step back instantly instead of re-describing (a 60–90s round-trip).
   const [engineUndoStack, setEngineUndoStack] = useState<
-    { scad: string; rid: number; gate: string | null }[]
+    { scad: string; rid: number; gate: string | null; stepUrl: string | null }[]
   >([]);
   // Whether an engine design exists yet — drives the "Make it real" button's enabled state.
   const [hasEngineDesign, setHasEngineDesign] = useState(false);
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
+  const [currentStepUrl, setCurrentStepUrl] = useState<string | null>(null);
   const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(
     null,
   );
@@ -773,10 +806,96 @@ function App() {
   const [visualCorrectionRounds, setVisualCorrectionRounds] = useState(0);
   const [isApplyingVisualCorrection, setIsApplyingVisualCorrection] =
     useState(false);
+  const [workspaceModelStatus, setWorkspaceModelStatus] =
+    useState<ModelStatusResult | null>(null);
+  const [iterationLog, setIterationLog] = useState<IterationLogEntry[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(ITERATION_LOG_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed.slice(0, 40) : [];
+    } catch {
+      return [];
+    }
+  });
   const visualDiffBeforeRef = useRef<string | null>(null);
-  const addVisualReviewLog = useCallback((entry: string) => {
-    setVisualReviewLog((items) => [entry, ...items].slice(0, 5));
-  }, []);
+  const visualLoopRunRef = useRef(0);
+  const appendIterationLog = useCallback(
+    (entry: Omit<IterationLogEntry, "id" | "createdAt">) => {
+      setIterationLog((items) => {
+        const next = [
+          {
+            ...entry,
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            createdAt: Date.now(),
+          },
+          ...items,
+        ].slice(0, 40);
+        localStorage.setItem(ITERATION_LOG_KEY, JSON.stringify(next));
+        return next;
+      });
+    },
+    [],
+  );
+  const addVisualReviewLog = useCallback(
+    (entry: string) => {
+      setVisualReviewLog((items) => [entry, ...items].slice(0, 5));
+      appendIterationLog({
+        kind: "visual",
+        title: "Visual correction loop",
+        detail: entry,
+        rid: lastEngineRidRef.current,
+        scad: lastEngineScadRef.current,
+        gate: lastGateRef.current,
+        stepUrl: lastStepUrlRef.current,
+      });
+    },
+    [appendIterationLog],
+  );
+  const commitEngineOutcome = useCallback(
+    (
+      result: EngineDocOutcome,
+      opts: { pushUndo?: boolean; clearVisual?: boolean } = {},
+    ) => {
+      if (!result.ok || !result.scad) return;
+      renderCodeDirect(result.scad);
+      if (
+        opts.pushUndo !== false &&
+        lastEngineRidRef.current != null &&
+        lastEngineScadRef.current
+      ) {
+        const prev = {
+          scad: lastEngineScadRef.current,
+          rid: lastEngineRidRef.current,
+          gate: lastGateRef.current,
+          stepUrl: lastStepUrlRef.current,
+        };
+        setEngineUndoStack((s) => [...s, prev]);
+      }
+      lastEngineRidRef.current = result.rid ?? null;
+      lastEngineScadRef.current = result.scad ?? null;
+      lastGateRef.current = result.gate || null;
+      lastStepUrlRef.current = result.result?.step_url ?? null;
+      setCurrentStepUrl(result.result?.step_url ?? null);
+      setHasEngineDesign(true);
+      setLiveReadiness(result.gate || null);
+      appendIterationLog({
+        kind: "design",
+        title: result.headline || "Design candidate",
+        detail: result.gate,
+        rid: result.rid ?? null,
+        scad: result.scad,
+        gate: result.gate ?? null,
+        stepUrl: result.result?.step_url ?? null,
+      });
+      if (opts.clearVisual !== false) {
+        setVisualReviewSummary(null);
+        setVisualDiffSummary(null);
+        setVisualCorrectionPrompt(null);
+        setVisualReviewLog([]);
+      }
+      setLastSlicedRid(null);
+    },
+    [appendIterationLog, renderCodeDirect],
+  );
   const readinessWithVisual = useMemo(
     () =>
       [liveReadiness, visualReviewSummary, visualDiffSummary]
@@ -784,6 +903,33 @@ function App() {
         .join("\n"),
     [liveReadiness, visualReviewSummary, visualDiffSummary],
   );
+  useEffect(() => {
+    let cancelled = false;
+    void engine.modelStatus().then((r) => {
+      if (!cancelled && r.ok) setWorkspaceModelStatus(r.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const visualLoopModeLabel = useMemo(() => {
+    if (isApplyingVisualCorrection) return "VCL: installing correction into the loop";
+    if (visualReviewSummary) return `VCL: ${visualReviewSummary}`;
+    if (!hasEngineDesign) return "VCL: off until a design exists";
+    if (!workspaceModelStatus) return "VCL: model status unknown";
+    if (workspaceModelStatus.model_loading) return "VCL: vision model installing";
+    if (workspaceModelStatus.backend === "cloud") return "VCL: cloud vision available by chooser";
+    if (!workspaceModelStatus.running || !workspaceModelStatus.model_present) {
+      return "VCL: text model missing or offline";
+    }
+    if (workspaceModelStatus.vision_present === false) return "VCL: vision model missing";
+    return "VCL: local probe advisory, used by correction loop";
+  }, [
+    hasEngineDesign,
+    isApplyingVisualCorrection,
+    visualReviewSummary,
+    workspaceModelStatus,
+  ]);
   // Slice profile (§6.9): the printer + material "Make it real" will slice for, shown AND choosable
   // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
   // printer list comes from /api/options; the choice persists across sessions (localStorage).
@@ -819,18 +965,18 @@ function App() {
   // /api/design takes this as `history`. A fresh design (new part) resets it.
   const engineHistoryRef = useRef<EngineTurn[]>([]);
   const runVisualReview = useCallback(
-    async (rid: number) => {
+    async (rid: number): Promise<VisualReviewResult | null> => {
       setVisualReviewSummary("Visual review: running");
       addVisualReviewLog("Visual review started");
       await new Promise((resolve) => window.setTimeout(resolve, 400));
-      if (lastEngineRidRef.current !== rid) return;
+      if (lastEngineRidRef.current !== rid) return null;
       const images = await captureVisualReviewImages({
         viewerId: MAIN_PREVIEW_VIEWER_ID,
         svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
         targetWidth: 640,
         targetHeight: 480,
       });
-      if (lastEngineRidRef.current !== rid) return;
+      if (lastEngineRidRef.current !== rid) return null;
       if (images.length === 0) {
         const summary =
           "Visual review: unavailable - no rendered view captured";
@@ -839,7 +985,7 @@ function App() {
         setVisualDiffSummary(null);
         visualDiffBeforeRef.current = null;
         setVisualCorrectionPrompt(null);
-        return;
+        return null;
       }
       const beforeDiffImage = visualDiffBeforeRef.current;
       if (beforeDiffImage) {
@@ -848,7 +994,7 @@ function App() {
           beforeDiffImage,
           images[0].image,
         );
-        if (lastEngineRidRef.current !== rid) return;
+        if (lastEngineRidRef.current !== rid) return null;
         const diffSummary = formatVisualDifference(diff);
         setVisualDiffSummary(diffSummary);
         if (diffSummary) {
@@ -856,7 +1002,7 @@ function App() {
         }
       }
       const { data } = await engine.visualReview(rid, images);
-      if (lastEngineRidRef.current !== rid) return;
+      if (lastEngineRidRef.current !== rid) return null;
       const round = data.round_id ? ` round ${data.round_id}` : "";
       if (data.status === "issues") {
         const first =
@@ -871,7 +1017,7 @@ function App() {
           displayMessage: first,
           toastId: "engine-visual-review",
         });
-        return;
+        return data;
       }
       if (data.status === "ok") {
         const summary = `Visual review${round}: no obvious issues found`;
@@ -882,7 +1028,7 @@ function App() {
           toastId: "engine-visual-review",
           description: data.summary ?? "No obvious visual issues found.",
         });
-        return;
+        return data;
       }
       if (data.status === "needs_review") {
         const first =
@@ -897,17 +1043,126 @@ function App() {
           toastId: "engine-visual-review",
           description: first,
         });
-        return;
+        return data;
       }
       const summary = `Visual review: unavailable - ${data.summary || data.error || "not run"}`;
       setVisualReviewSummary(summary);
       addVisualReviewLog(summary);
       setVisualCorrectionPrompt(null);
+      return data;
     },
     [activePreviewKind, activePreviewSrc, addVisualReviewLog],
   );
+  const runAutonomousVisualLoop = useCallback(
+    async (initial: EngineDocOutcome) => {
+      if (!initial.ok || initial.rid == null || !initial.scad) return;
+      if (initial.template) {
+        const summary =
+          "Visual review: skipped - deterministic part family, math-gated";
+        setVisualReviewSummary(summary);
+        addVisualReviewLog(summary);
+        return;
+      }
+
+      const runId = ++visualLoopRunRef.current;
+      let best = {
+        rid: initial.rid,
+        scad: initial.scad,
+        gate: initial.gate,
+        score: readinessScore(initial.gate),
+      };
+      let active = best;
+
+      for (let round = 0; round < MAX_VISUAL_CORRECTION_ROUNDS; round += 1) {
+        if (visualLoopRunRef.current !== runId) return;
+        const review = await runVisualReview(active.rid);
+        if (visualLoopRunRef.current !== runId) return;
+        const prompt = review?.correction_prompt?.trim();
+        if (review?.status !== "issues" || !prompt) {
+          break;
+        }
+
+        const before = await captureCurrentPreview({
+          viewerId: MAIN_PREVIEW_VIEWER_ID,
+          svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
+          targetWidth: 320,
+          targetHeight: 240,
+        });
+        visualDiffBeforeRef.current = before;
+        setIsApplyingVisualCorrection(true);
+        const summary = visualCorrectionApplyingSummary(round);
+        setVisualReviewSummary(summary);
+        addVisualReviewLog(summary);
+
+        try {
+          const corrected = await describeIntoStudio(
+            prompt,
+            engineHistoryRef.current,
+          );
+          if (!corrected.ok || corrected.rid == null || !corrected.scad) {
+            addVisualReviewLog(
+              "Visual review: correction failed, keeping best candidate",
+            );
+            break;
+          }
+
+          engineHistoryRef.current = [
+            ...engineHistoryRef.current,
+            { role: "user", content: prompt },
+            { role: "assistant", content: corrected.gate },
+          ];
+          commitEngineOutcome(corrected, { pushUndo: true, clearVisual: false });
+          setVisualCorrectionRounds((rounds) => rounds + 1);
+
+          const candidate = {
+            rid: corrected.rid,
+            scad: corrected.scad,
+            gate: corrected.gate,
+            score: readinessScore(corrected.gate),
+          };
+          active = candidate;
+          if (candidate.score >= best.score) {
+            best = candidate;
+            addVisualReviewLog(
+              `Visual review: kept round ${round + 1} candidate (${candidate.score}/100)`,
+            );
+          } else {
+            addVisualReviewLog(
+              `Visual review: round ${round + 1} regressed; restored best candidate`,
+            );
+            commitEngineOutcome(
+              {
+                ok: true,
+                rid: best.rid,
+                scad: best.scad,
+                gate: best.gate,
+              },
+              { pushUndo: false, clearVisual: false },
+            );
+            setVisualReviewSummary(
+              "Visual review: restored best candidate after a regression",
+            );
+            break;
+          }
+        } finally {
+          setIsApplyingVisualCorrection(false);
+        }
+      }
+    },
+    [
+      activePreviewKind,
+      activePreviewSrc,
+      addVisualReviewLog,
+      commitEngineOutcome,
+      runVisualReview,
+    ],
+  );
   const handleEngineDescribe = useCallback(
-    async (prompt: string, opts?: { refine?: boolean }) => {
+    async (
+      prompt: string,
+      opts?: { refine?: boolean; skipVisualLoop?: boolean },
+    ) => {
+      visualLoopRunRef.current += 1;
       if (!opts?.refine) {
         engineHistoryRef.current = [];
         setVisualCorrectionRounds(0);
@@ -922,26 +1177,7 @@ function App() {
       });
       const result = await describeIntoStudio(prompt, engineHistoryRef.current);
       if (result.ok && result.scad) {
-        renderCodeDirect(result.scad);
-        // §6.3 undo: remember the design we're about to replace so the user can step back instantly.
-        if (lastEngineRidRef.current != null && lastEngineScadRef.current) {
-          const prev = {
-            scad: lastEngineScadRef.current,
-            rid: lastEngineRidRef.current,
-            gate: lastGateRef.current,
-          };
-          setEngineUndoStack((s) => [...s, prev]);
-        }
-        lastEngineRidRef.current = result.rid ?? null;
-        lastEngineScadRef.current = result.scad ?? null;
-        lastGateRef.current = result.gate || null;
-        setHasEngineDesign(true);
-        setLiveReadiness(result.gate || null);
-        setVisualReviewSummary(null);
-        setVisualDiffSummary(null);
-        setVisualCorrectionPrompt(null);
-        setVisualReviewLog([]);
-        setLastSlicedRid(null);
+        commitEngineOutcome(result);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
           { role: "user", content: prompt },
@@ -962,8 +1198,8 @@ function App() {
           toastId: "engine-design",
           description: `${explain}${preSlice} · Make it real to slice`,
         });
-        if (result.rid != null) {
-          void runVisualReview(result.rid);
+        if (result.rid != null && !opts?.skipVisualLoop) {
+          void runAutonomousVisualLoop(result);
         }
       } else {
         setVisualReviewSummary(null);
@@ -984,7 +1220,7 @@ function App() {
       }
       return result;
     },
-    [renderCodeDirect, runVisualReview],
+    [commitEngineOutcome, runAutonomousVisualLoop],
   );
   const handleApplyVisualCorrection = useCallback(async () => {
     const prompt = visualCorrectionPrompt?.trim() ?? "";
@@ -1008,7 +1244,10 @@ function App() {
     setVisualReviewSummary(summary);
     addVisualReviewLog(summary);
     try {
-      const result = await handleEngineDescribe(prompt, { refine: true });
+      const result = await handleEngineDescribe(prompt, {
+        refine: true,
+        skipVisualLoop: true,
+      });
       if (result.ok) {
         setVisualCorrectionRounds((rounds) => rounds + 1);
       }
@@ -1116,6 +1355,15 @@ function App() {
           a.remove();
         }
         setLastSlicedRid(rid);
+        appendIterationLog({
+          kind: "slice",
+          title: "Ready to print",
+          detail: `${data.estimate ?? ""}${data.printer ? ` - ${data.printer}` : ""}`.trim(),
+          rid,
+          scad: lastEngineScadRef.current,
+          gate: lastGateRef.current,
+          stepUrl: lastStepUrlRef.current,
+        });
         localStorage.setItem("tq-printed-real", "1");
       } else {
         setLastSlicedRid(null);
@@ -1136,6 +1384,7 @@ function App() {
       renderTargetContent,
       sliceProfileError,
       sliceProfileStatus,
+      appendIterationLog,
     ],
   );
 
@@ -1199,6 +1448,15 @@ function App() {
           description:
             "Cached slices were cleared; Make it real will use this pose.",
         });
+        appendIterationLog({
+          kind: "orient",
+          title: "Manual orientation",
+          detail: `Rotated ${axis.toUpperCase()} ${degrees > 0 ? "+90" : "-90"}`,
+          rid,
+          scad: lastEngineScadRef.current,
+          gate: lastGateRef.current,
+          stepUrl: lastStepUrlRef.current,
+        });
         setLastSlicedRid(null);
         setVisualReviewSummary(null);
         setVisualDiffSummary(null);
@@ -1217,6 +1475,7 @@ function App() {
       renderTargetTab,
       previewSceneStyle,
       settings.viewer.showModelColors,
+      appendIterationLog,
     ],
   );
 
@@ -1253,6 +1512,15 @@ function App() {
           description: data.job_id ? `Job ${data.job_id}` : data.printer_state,
         },
       );
+      appendIterationLog({
+        kind: "send",
+        title: data.simulated ? "Simulated send complete" : "Sent to printer",
+        detail: data.job_id ? `Job ${data.job_id}` : data.printer_state,
+        rid,
+        scad: lastEngineScadRef.current,
+        gate: lastGateRef.current,
+        stepUrl: lastStepUrlRef.current,
+      });
       setPrintOutcome({ rid, simulated: Boolean(data.simulated) });
       return;
     }
@@ -1262,7 +1530,7 @@ function App() {
       displayMessage: data.note || data.error || "Could not send this print.",
       toastId: "engine-send",
     });
-  }, [connectorName, lastSlicedRid]);
+  }, [connectorName, lastSlicedRid, appendIterationLog]);
 
   const handlePrintOutcome = useCallback(
     async (outcome: "clean" | "issues" | "failed" | "skip") => {
@@ -1271,6 +1539,15 @@ function App() {
       const { rid, simulated: simulatedOutcome } = currentOutcome;
       const { ok, data } = await engine.outcome(rid, outcome);
       if (ok && (data as { recorded?: boolean }).recorded !== false) {
+        appendIterationLog({
+          kind: "outcome",
+          title: "Print outcome recorded",
+          detail: outcome,
+          rid,
+          scad: lastEngineScadRef.current,
+          gate: lastGateRef.current,
+          stepUrl: lastStepUrlRef.current,
+        });
         notifySuccess(
           simulatedOutcome
             ? "Simulated outcome recorded"
@@ -1289,7 +1566,7 @@ function App() {
       }
       setPrintOutcome(null);
     },
-    [printOutcome],
+    [printOutcome, appendIterationLog],
   );
 
   // Save the current engine design to "My Designs" (§6.12). Empty name → the engine auto-names it by
@@ -1329,33 +1606,14 @@ function App() {
       const result = await reopenIntoStudio(id);
       if (result.ok && result.scad) {
         hideWelcomeScreen();
-        renderCodeDirect(result.scad);
-        // §6.3 undo: stepping into a saved design also pushes the one it replaces.
-        if (lastEngineRidRef.current != null && lastEngineScadRef.current) {
-          const prev = {
-            scad: lastEngineScadRef.current,
-            rid: lastEngineRidRef.current,
-            gate: lastGateRef.current,
-          };
-          setEngineUndoStack((s) => [...s, prev]);
-        }
-        lastEngineRidRef.current = result.rid ?? null;
-        lastEngineScadRef.current = result.scad;
-        lastGateRef.current = result.gate || null;
+        commitEngineOutcome(result);
         engineHistoryRef.current = [];
-        setHasEngineDesign(true);
-        setLiveReadiness(result.gate || null);
-        setVisualReviewSummary(null);
-        setVisualDiffSummary(null);
-        setVisualCorrectionPrompt(null);
-        setVisualReviewLog([]);
-        setLastSlicedRid(null);
         notifySuccess("Reopened", {
           toastId: "engine-design",
           description: result.gate,
         });
         if (result.rid != null) {
-          void runVisualReview(result.rid);
+          void runAutonomousVisualLoop(result);
         }
       } else {
         notifyError({
@@ -1366,7 +1624,7 @@ function App() {
         });
       }
     },
-    [renderCodeDirect, hideWelcomeScreen, runVisualReview],
+    [hideWelcomeScreen, commitEngineOutcome, runAutonomousVisualLoop],
   );
 
   // §6.3 undo: step back to the design that preceded the latest describe/refine/reopen. Restores the
@@ -1380,6 +1638,8 @@ function App() {
     lastEngineScadRef.current = prev.scad;
     lastEngineRidRef.current = prev.rid;
     lastGateRef.current = prev.gate;
+    lastStepUrlRef.current = prev.stepUrl;
+    setCurrentStepUrl(prev.stepUrl);
     setLiveReadiness(prev.gate);
     setVisualReviewSummary(null);
     setVisualDiffSummary(null);
@@ -1392,6 +1652,31 @@ function App() {
       toastId: "engine-design",
     });
   }, [engineUndoStack, renderCodeDirect]);
+
+  const handleRestoreIteration = useCallback(
+    (entry: IterationLogEntry) => {
+      if (!entry.scad) return;
+      setEngineDocument(entry.scad);
+      renderCodeDirect(entry.scad);
+      lastEngineScadRef.current = entry.scad;
+      lastEngineRidRef.current = null;
+      lastGateRef.current = entry.gate ?? null;
+      lastStepUrlRef.current = null;
+      setCurrentStepUrl(null);
+      setLiveReadiness(entry.gate ?? null);
+      setVisualReviewSummary(null);
+      setVisualDiffSummary(null);
+      setVisualCorrectionPrompt(null);
+      setVisualReviewLog([]);
+      setHasEngineDesign(false);
+      setLastSlicedRid(null);
+      notifySuccess("Restored iteration", {
+        toastId: "engine-design",
+        description: `${entry.title} - re-render before Make it real`,
+      });
+    },
+    [renderCodeDirect],
+  );
 
   // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
   // as a refine-in-context turn (the WelcomeScreen entry already routes the first describe to the
@@ -2387,16 +2672,16 @@ function App() {
       // ENGINE (describe → geometry + readiness), not a cloud chat agent. The conversational agent is
       // the optional refine/explain layer. Fall back to the agent only when there's no prompt text.
       const prompt = (draftOverride?.text ?? draft.text ?? "").trim();
-      void initProjectDirectory().then(() => {
-        if (prompt) {
-          void handleEngineDescribe(prompt).then((result) => {
-            if (result.ok) hideWelcomeScreen();
-          });
-        } else {
+      if (prompt) {
+        void handleEngineDescribe(prompt).then((result) => {
+          if (result.ok) hideWelcomeScreen();
+        });
+      } else {
+        void initProjectDirectory().then(() => {
           hideWelcomeScreen();
           void submitDraft(draftOverride);
-        }
-      });
+        });
+      }
     },
     [
       hideWelcomeScreen,
@@ -3994,6 +4279,208 @@ function App() {
             />
           </WorkspaceProvider>
         </div>
+        <aside
+          data-testid="make-it-real-panel"
+          className="hidden xl:flex w-80 shrink-0 flex-col gap-4 overflow-y-auto px-4 py-3"
+          style={{
+            borderLeft: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--bg-secondary)",
+          }}
+        >
+          <section data-testid="customize-section" className="space-y-3">
+            <div>
+              <div
+                className="text-[11px] font-semibold uppercase tracking-wide"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                Customize
+              </div>
+              <div className="mt-1 text-sm" style={{ color: "var(--text-primary)" }}>
+                {liveReadiness ? liveReadiness.split("\n")[0] : "No engine design yet"}
+              </div>
+            </div>
+            <div
+              data-testid="visual-loop-mode"
+              className="rounded-md border px-3 py-2 text-xs"
+              style={{
+                borderColor: "var(--border-primary)",
+                color: "var(--text-secondary)",
+                backgroundColor: "var(--bg-primary)",
+              }}
+            >
+              {visualLoopModeLabel}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!hasEngineDesign}
+                onClick={() => handleHeaderLayoutSelect("customizer-first")}
+              >
+                Customize
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={engineUndoStack.length === 0}
+                onClick={handleUndoEngine}
+              >
+                Undo design
+              </Button>
+            </div>
+          </section>
+
+          <section data-testid="make-it-real-section" className="space-y-3">
+            <div
+              className="text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Make it real
+            </div>
+            {hasEngineDesign && (
+              <div className="grid grid-cols-3 gap-1">
+                {(["x", "y", "z"] as const).map((axis) => (
+                  <Button
+                    key={axis}
+                    variant="ghost"
+                    size="sm"
+                    disabled={isRendering || isOrienting}
+                    onClick={() => void handleManualOrient(axis, 90)}
+                    title={`Rotate ${axis.toUpperCase()} +90 degrees`}
+                  >
+                    {axis.toUpperCase()}+90
+                  </Button>
+                ))}
+              </div>
+            )}
+            {hasEngineDesign && enginePrinters.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  aria-label="Rail printer"
+                  value={printerKey}
+                  onChange={(e) => {
+                    const k = e.target.value;
+                    setPrinterKey(k);
+                    localStorage.setItem("tq-printer", k);
+                    const p = enginePrinters.find((x) => x.key === k);
+                    if (p && !p.materials?.includes(material)) {
+                      const m = p.materials?.[0] ?? "";
+                      setMaterial(m);
+                      localStorage.setItem("tq-material", m);
+                    }
+                  }}
+                  className="border rounded px-2 py-1 text-xs"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                    borderColor: "var(--border-primary)",
+                  }}
+                >
+                  {enginePrinters.map((p) => (
+                    <option key={p.key} value={p.key} disabled={p.sliceable === false}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Rail material"
+                  value={material}
+                  onChange={(e) => {
+                    setMaterial(e.target.value);
+                    localStorage.setItem("tq-material", e.target.value);
+                  }}
+                  className="border rounded px-2 py-1 text-xs"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                    borderColor: "var(--border-primary)",
+                  }}
+                >
+                  {(enginePrinters.find((p) => p.key === printerKey)?.materials ?? []).map((m) => (
+                    <option key={m} value={m}>
+                      {m.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {selectedLayerHeight && (
+              <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Layer height: {selectedLayerHeight}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                data-testid="rail-make-it-real-button"
+                variant="primary"
+                size="sm"
+                disabled={makeItRealDisabled}
+                onClick={() => {
+                  if (!localStorage.getItem("tq-printed-real")) {
+                    setShowFirstRealDialog(true);
+                    return;
+                  }
+                  void handleMakeItReal();
+                }}
+              >
+                Slice
+              </Button>
+              <Button
+                data-testid="rail-send-to-printer-button"
+                variant="secondary"
+                size="sm"
+                disabled={!canSendCurrentSlice || !connectorName}
+                onClick={() => void handleSendToPrinter()}
+              >
+                Send
+              </Button>
+            </div>
+          </section>
+
+          <section data-testid="iteration-log" className="space-y-2">
+            <div
+              className="text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Iteration log
+            </div>
+            {iterationLog.length === 0 ? (
+              <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                No iterations yet.
+              </div>
+            ) : (
+              iterationLog.slice(0, 8).map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-md border px-3 py-2 text-xs"
+                  style={{
+                    borderColor: "var(--border-primary)",
+                    backgroundColor: "var(--bg-primary)",
+                  }}
+                >
+                  <div className="font-medium" style={{ color: "var(--text-primary)" }}>
+                    {entry.title}
+                  </div>
+                  {entry.detail && (
+                    <div className="mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>
+                      {entry.detail}
+                    </div>
+                  )}
+                  {entry.scad && entry.rid != null && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 text-xs px-0 py-0"
+                      onClick={() => handleRestoreIteration(entry)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </section>
+        </aside>
       </div>
 
       <ExportDialog
@@ -4002,6 +4489,20 @@ function App() {
         source={renderTargetContent}
         workingDir={projectRoot}
         previewKind={activePreviewKind}
+        stepUrl={currentStepUrl}
+        capturePreview={() =>
+          captureCurrentPreview({
+            viewerId: MAIN_PREVIEW_VIEWER_ID,
+            svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
+            targetWidth: 1280,
+            targetHeight: 960,
+          })
+        }
+        downloadStep={async () => {
+          if (!currentStepUrl) return null;
+          const r = await engine.downloadApiAsset(currentStepUrl);
+          return r.ok && r.data instanceof Uint8Array ? r.data : null;
+        }}
       />
       {showFirstRealDialog && (
         <FirstRealPrintDialog

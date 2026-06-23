@@ -23,6 +23,10 @@ export interface EngineDocOutcome {
   path?: string;
   /** The self-contained SCAD set as the document — the caller renders this directly (no state-timing). */
   scad?: string;
+  /** The raw engine design result, kept for product decisions such as template-vs-codegen VCL routing. */
+  result?: DesignResult;
+  /** Non-null when the engine produced a deterministic part-family/template design. */
+  template?: string | null;
   error?: string;
 }
 
@@ -98,17 +102,45 @@ export async function describeIntoStudio(
   const headline = result.report?.headline || undefined;
   const rid = ridFromResult(result);
   if (!ok || rid == null) {
-    return { ok: false, gate, rid, error: result.error ?? String(result.status ?? 'no design') };
+    return {
+      ok: false,
+      gate,
+      rid,
+      result,
+      template: result.template ?? null,
+      error: result.error ?? String(result.status ?? 'no design'),
+    };
   }
 
   // Inlined = self-contained SCAD (library use/include resolved), so Studio's WASM viewer renders
   // template parts too (LLM-codegen parts are already self-contained).
-  const { ok: srcOk, data } = await source(rid, true);
+  let { ok: srcOk, data } = await source(rid, true);
   if (!srcOk || !data?.scad) {
-    return { ok: false, gate, rid, error: 'engine returned no source' };
+    const fallback = await source(rid, false);
+    srcOk = fallback.ok;
+    data = fallback.data as typeof data;
+  }
+  if (!srcOk || !data?.scad) {
+    return {
+      ok: false,
+      gate,
+      rid,
+      result,
+      template: result.template ?? null,
+      error: 'engine returned no source',
+    };
   }
 
-  return { ok: true, gate, headline, rid, path: setEngineDocument(data.scad), scad: data.scad };
+  return {
+    ok: true,
+    gate,
+    headline,
+    rid,
+    path: setEngineDocument(data.scad),
+    scad: data.scad,
+    result,
+    template: result.template ?? null,
+  };
 }
 
 /** Set `scad` as the workspace's active document: replace the render-target file's content, or create
@@ -132,12 +164,31 @@ export function setEngineDocument(scad: string): string {
 export async function reopenIntoStudio(id: string): Promise<EngineDocOutcome> {
   const { ok, data } = await engine.reopenDesign(id);
   if (!ok || data.status !== 'completed') {
-    return { ok: false, gate: '', error: data.error ?? 'Could not reopen that design.' };
+    return {
+      ok: false,
+      gate: '',
+      result: data,
+      template: data.template ?? null,
+      error: data.error ?? 'Could not reopen that design.',
+    };
   }
   const rid = ridFromResult(data);
-  if (rid == null) return { ok: false, gate: '', error: 'Reopened design has no id.' };
+  if (rid == null) return {
+    ok: false,
+    gate: '',
+    result: data,
+    template: data.template ?? null,
+    error: 'Reopened design has no id.',
+  };
   const src = await engine.source(rid, true);
-  if (!src.ok || !src.data?.scad) return { ok: false, gate: '', rid, error: 'Reopened design has no source.' };
+  if (!src.ok || !src.data?.scad) return {
+    ok: false,
+    gate: '',
+    rid,
+    result: data,
+    template: data.template ?? null,
+    error: 'Reopened design has no source.',
+  };
   return {
     ok: true,
     gate: engineGateSummary(data),
@@ -145,5 +196,7 @@ export async function reopenIntoStudio(id: string): Promise<EngineDocOutcome> {
     rid,
     path: setEngineDocument(src.data.scad),
     scad: src.data.scad,
+    result: data,
+    template: data.template ?? null,
   };
 }

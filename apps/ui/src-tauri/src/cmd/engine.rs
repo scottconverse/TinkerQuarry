@@ -43,6 +43,7 @@ pub struct EngineInfo {
 struct EngineLaunch {
     program: PathBuf,
     prefix_args: Vec<String>,
+    install_root: Option<PathBuf>,
 }
 
 #[tauri::command]
@@ -58,11 +59,14 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
     }
 
     let engine_launch = resolve_engine_launch(&app)?;
-    let out_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Could not resolve TinkerQuarry app data directory: {e}"))?
-        .join("engine-output");
+    let out_dir = if let Some(path) = env::var_os("TINKERQUARRY_APPDATA_DIR").map(PathBuf::from) {
+        path
+    } else {
+        app.path()
+            .app_data_dir()
+            .map_err(|e| format!("Could not resolve TinkerQuarry app data directory: {e}"))?
+    }
+    .join("engine-output");
     std::fs::create_dir_all(&out_dir).map_err(|e| {
         format!(
             "Could not create engine output directory {}: {e}",
@@ -88,14 +92,22 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
 
     let mut command = Command::new(&engine_launch.program);
     command.args(&engine_launch.prefix_args);
-    let child = command
+    if let Some(root) = &engine_launch.install_root {
+        command.current_dir(root);
+        command.env("KIMCAD_INSTALL_ROOT", root);
+    }
+    command
         .arg("web")
         .arg("--host")
         .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string())
         .arg("--out")
-        .arg(&out_dir)
+        .arg(&out_dir);
+    if env::var_os("TINKERQUARRY_ENGINE_DEMO").is_some() {
+        command.arg("--demo");
+    }
+    let child = command
         .env("TINKERQUARRY_DEV_TOKEN", &session_token)
         .stdin(Stdio::null())
         .stdout(Stdio::from(log))
@@ -184,6 +196,7 @@ fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {
             return Ok(EngineLaunch {
                 program: path,
                 prefix_args: Vec::new(),
+                install_root: None,
             });
         }
         return Err(format!(
@@ -245,6 +258,7 @@ fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {
         return Ok(EngineLaunch {
             program,
             prefix_args: Vec::new(),
+            install_root: None,
         });
     }
 
@@ -252,6 +266,7 @@ fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {
         Ok(EngineLaunch {
             program: PathBuf::from("kimcad"),
             prefix_args: Vec::new(),
+            install_root: None,
         })
     } else {
         Err(
@@ -272,6 +287,7 @@ fn staged_engine_launch(resource_dir: &Path) -> Option<EngineLaunch> {
             return Some(EngineLaunch {
                 program,
                 prefix_args: vec![launcher.to_string_lossy().to_string()],
+                install_root: Some(engine_dir),
             });
         }
     }

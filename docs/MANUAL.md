@@ -11,8 +11,9 @@
 
 > **2026-06-23 correction:** the beta core is now real: describe -> preview ->
 > customize/orient -> slice -> download/mock-send is implemented and covered by automated proof. The
-> advisory local Visual Correction Loop v1 exists, but the full autonomous PRD loop,
-> external-library admission, richer Explain/iteration history, and full visual diff remain
+> advisory local Visual Correction Loop v1 exists, external-library admission is wired through a
+> sandbox with render proof, and iteration history exists as a source-snapshot transcript. Full
+> visual diff, rich Explain, server-side branching, and broad first-run/error-path coverage remain
 > incomplete. For current proof, see the canonical [STATUS matrix](STATUS.md).
 
 This manual has three parts. Read the one that fits you:
@@ -33,8 +34,8 @@ This manual has three parts. Read the one that fits you:
 
 ## What it is
 
-TinkerQuarry turns a plain-English description into a 3D-printable file. You describe a part — *"a
-desk cable clip for an 8 mm cable"* — and it designs the shape, checks that it will actually print
+TinkerQuarry turns a plain-English description into a 3D-printable file. You describe a part — _"a
+desk cable clip for an 8 mm cable"_ — and it designs the shape, checks that it will actually print
 on your printer, and gives you a ready-to-print file. You can also start from a **photo** or a
 **sketch**.
 
@@ -49,21 +50,25 @@ learning CAD. You don't draw anything. You describe it.
 TinkerQuarry needs a few tools on your machine. On Windows, the installer/setup brings them
 together; the pieces are:
 
-| Tool | What it's for | Roughly |
-|---|---|---|
-| **Python 3.13** | runs the engine | ~30 MB |
-| **OpenSCAD** | builds the geometry | ~25 MB |
-| **OrcaSlicer** | turns the part into printer instructions (G-code) | ~160 MB |
-| **Ollama + a model** | the on-device AI that reads your words | ~5 GB (downloaded once) |
+| Tool                 | What it's for                                     | Roughly                 |
+| -------------------- | ------------------------------------------------- | ----------------------- |
+| **Python 3.13**      | runs the engine                                   | ~30 MB                  |
+| **OpenSCAD**         | builds the geometry                               | ~25 MB                  |
+| **OrcaSlicer**       | turns the part into printer instructions (G-code) | ~160 MB                 |
+| **Ollama + a model** | the on-device AI that reads your words            | ~5 GB (downloaded once) |
 
 **The first time you open TinkerQuarry, a setup wizard walks you through it:**
+
+> Current beta proof note: the setup surfaces are implemented, and native smoke can run with an
+> isolated profile. The fully clean first-run/dependency-absent release matrix is still a gate item;
+> see [STATUS.md](STATUS.md) before treating this as a final installer guarantee.
 
 1. **Welcome** — what the app does.
 2. **Set up your AI** — one click. TinkerQuarry downloads and starts the local AI for you; you don't
    install anything by hand. (Already have a local AI engine? It reuses it.)
 3. **Pick your printer** — sets the build volume and quality checks so parts are validated against
-   *your* machine.
-4. **Direct printing** *(optional)* — connect a printer to send jobs straight from the app, or skip
+   _your_ machine.
+4. **Direct printing** _(optional)_ — connect a printer to send jobs straight from the app, or skip
    and just download files.
 5. **Ready** — you're in.
 
@@ -98,10 +103,10 @@ computer.
 
 The engine is best at **functional parts**. Tips:
 
-- **Give the key dimension.** *"a cable clip for an **8 mm** cable"*, *"an **80 × 60 × 40 mm** box
-  with a lid"*, *"a trinket dish **90 mm** across"*.
+- **Give the key dimension.** _"a cable clip for an **8 mm** cable"_, _"an **80 × 60 × 40 mm** box
+  with a lid"_, _"a trinket dish **90 mm** across"_.
 - **Name the use.** "for hanging keys", "to hold an SD card" — it informs the shape.
-- **Don't over-specify the geometry.** Describe the *thing*, not the CAD operations.
+- **Don't over-specify the geometry.** Describe the _thing_, not the CAD operations.
 - **Refine in the panel, not the prompt.** Get the shape, then tune sizes with the parameter sliders.
 
 The home screen's **TRY** chips are good starting points.
@@ -110,14 +115,14 @@ The home screen's **TRY** chips are good starting points.
 
 Every part is checked against your printer before you can slice it. You'll see:
 
-- **A readiness score (0–100)** and a verdict — *Ready to print*, *Check this*, or *Won't print*.
+- **A readiness score (0–100)** and a verdict — _Ready to print_, _Check this_, or _Won't print_.
 - **Named checks**, each pass/warn/fail, e.g.:
   - **Closed, watertight solid** — the mesh has no holes (printers need solids).
   - **Dimensions match** — the part is the size you asked for.
   - **Fits the build plate** — it's within your printer's volume.
   - **Wall thickness OK** — walls are thick enough to print.
 
-If a part **fails**, TinkerQuarry tells you *why* and **won't let you slice it** — that's the point.
+If a part **fails**, TinkerQuarry tells you _why_ and **won't let you slice it** — that's the point.
 It's catching the problem here instead of at the nozzle.
 
 ## 6. Saving your work
@@ -128,7 +133,7 @@ file (a portable backup) and re-import it later — it's re-checked from its act
 ## 7. FAQ
 
 **Does it need the internet?** No. The AI and all the manufacturing run locally. (There's an
-*optional* cloud model you can turn on in Settings; it's off by default.)
+_optional_ cloud model you can turn on in Settings; it's off by default.)
 
 **Do I need a 3D printer to use it?** No — you can design and download files without one. A printer
 (or a connected service) is only needed to print directly from the app.
@@ -145,13 +150,13 @@ TinkerQuarry. See the naming note.
 
 ## 8. Troubleshooting
 
-| Symptom | What to do |
-|---|---|
-| "Set up your AI" never finishes | It's downloading ~5 GB once; give it time. Re-open Settings → the AI setup shows progress. |
-| First design hangs on "Planning the shape" | The model is cold-loading (~1–2 min on CPU). The **Cancel** button is there if you want to stop. |
-| "Photos and sketches need one more download" | The vision model isn't fetched yet — use the wizard's or Settings' Download button. |
-| A part won't slice | It failed the printability check — read the named checks; fix the size/shape or pick a different printer. |
-| Slicing fails | Check OrcaSlicer is installed and a printer profile is selected (Settings). |
+| Symptom                                      | What to do                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| "Set up your AI" never finishes              | It's downloading ~5 GB once; give it time. Re-open Settings → the AI setup shows progress.                |
+| First design hangs on "Planning the shape"   | The model is cold-loading (~1–2 min on CPU). The **Cancel** button is there if you want to stop.          |
+| "Photos and sketches need one more download" | The vision model isn't fetched yet — use the wizard's or Settings' Download button.                       |
+| A part won't slice                           | It failed the printability check — read the named checks; fix the size/shape or pick a different printer. |
+| Slicing fails                                | Check OrcaSlicer is installed and a printer profile is selected (Settings).                               |
 
 ---
 
@@ -162,15 +167,15 @@ TinkerQuarry. See the naming note.
 TinkerQuarry is a **Python 3.13** engine (KimCad) driving external tools, with a **React/TypeScript**
 SPA front-end served by the engine's local web server.
 
-| Component | Role | Notes |
-|---|---|---|
-| Python 3.13 + `kimcad` (`pip install -e .`) | the engine & web server | `requires-python >=3.13` |
-| OpenSCAD | geometry kernel (SCAD → mesh, 3MF/STL) | path set in `config/local.yaml` → `binaries.openscad` |
-| OrcaSlicer | slicer (mesh → G-code, with printer profiles) | `binaries.orcaslicer` |
-| Ollama + `qwen2.5:7b` | on-device design-plan LLM | OpenAI-compatible endpoint at `:11434` |
-| Ollama + `qwen2.5vl:7b` | on-device vision (photo/sketch + visual critique) | optional |
-| trimesh / manifold3d / numpy / scipy | mesh validation & hardening | pip deps |
-| CadQuery | *optional* editable `.STEP` export | absent → that feature is simply off |
+| Component                                   | Role                                              | Notes                                                 |
+| ------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------- |
+| Python 3.13 + `kimcad` (`pip install -e .`) | the engine & web server                           | `requires-python >=3.13`                              |
+| OpenSCAD                                    | geometry kernel (SCAD → mesh, 3MF/STL)            | path set in `config/local.yaml` → `binaries.openscad` |
+| OrcaSlicer                                  | slicer (mesh → G-code, with printer profiles)     | `binaries.orcaslicer`                                 |
+| Ollama + `qwen2.5:7b`                       | on-device design-plan LLM                         | OpenAI-compatible endpoint at `:11434`                |
+| Ollama + `qwen2.5vl:7b`                     | on-device vision (photo/sketch + visual critique) | optional                                              |
+| trimesh / manifold3d / numpy / scipy        | mesh validation & hardening                       | pip deps                                              |
+| CadQuery                                    | _optional_ editable `.STEP` export                | absent → that feature is simply off                   |
 
 ## CLI reference
 
@@ -196,16 +201,16 @@ kimcad bench        # the Phase-1 benchmark / done-gate
 The web server speaks a small JSON API on loopback. Full contract:
 [`KimCadClaude/docs/api.md`](../../KimCadClaude/docs/api.md). The endpoints the app uses:
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/design` | prompt (or image) → a designed, gated part (async; poll `…/progress/<id>`) |
-| `POST /api/render/<rid>` | re-render with new parameter values (deterministic, no LLM) |
-| `POST /api/slice/<rid>` | slice a **passing** part to G-code |
-| `POST /api/send/<rid>` | send a sliced job to a connector (requires `confirm:true`) |
-| `POST /api/print-outcome/<rid>` | record how a real print went |
-| `GET /api/health` | engine + tool presence (`openscad`, `orcaslicer`, `cadquery`) |
-| `GET /api/model-status` | LLM/vision model presence & backend |
-| `GET /api/options` · `/api/templates` · `/api/connectors` · `/api/settings` | catalogs/config |
+| Endpoint                                                                    | Purpose                                                                    |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `POST /api/design`                                                          | prompt (or image) → a designed, gated part (async; poll `…/progress/<id>`) |
+| `POST /api/render/<rid>`                                                    | re-render with new parameter values (deterministic, no LLM)                |
+| `POST /api/slice/<rid>`                                                     | slice a **passing** part to G-code                                         |
+| `POST /api/send/<rid>`                                                      | send a sliced job to a connector (requires `confirm:true`)                 |
+| `POST /api/print-outcome/<rid>`                                             | record how a real print went                                               |
+| `GET /api/health`                                                           | engine + tool presence (`openscad`, `orcaslicer`, `cadquery`)              |
+| `GET /api/model-status`                                                     | LLM/vision model presence & backend                                        |
+| `GET /api/options` · `/api/templates` · `/api/connectors` · `/api/settings` | catalogs/config                                                            |
 
 **Security:** every state-changing `POST` must carry the per-boot session token in the
 `X-KimCad-Session` header. The SPA reads it from a `<meta name="kimcad-session-token">` tag the
@@ -219,14 +224,14 @@ sections of `local.yaml`:
 
 ```yaml
 binaries:
-  openscad: C:/path/to/openscad.exe        # absolute path, or fetched into tools/
+  openscad: C:/path/to/openscad.exe # absolute path, or fetched into tools/
   orcaslicer: C:/path/to/orca-slicer.exe
-backends:                                  # LLM backends; pick the active one
-  local:            # OpenAI-compatible (Ollama default)
+backends: # LLM backends; pick the active one
+  local: # OpenAI-compatible (Ollama default)
     provider: openai_compatible
     base_url: http://localhost:11434/v1
     model_name: qwen2.5:7b
-alt_backend: null                          # optional fallback (e.g. cloud when Ollama is down)
+alt_backend: null # optional fallback (e.g. cloud when Ollama is down)
 ```
 
 KimCad resolves binaries from `binaries.*` (or a fetched `tools/` dir) — **not** from the
@@ -241,12 +246,12 @@ optional `bambulabs-api` package), `moonraker`, `prusalink`. A send always requi
 
 ## File formats
 
-| Format | What |
-|---|---|
-| `.kimcad` | portable design export (a zip; re-checked from geometry on import) |
-| `.3mf` / `.stl` | the rendered mesh |
-| `part.gcode.3mf` | the sliced, print-ready file (G-code in a 3MF container) |
-| `.STEP` | *optional* editable CAD export (needs CadQuery) |
+| Format           | What                                                               |
+| ---------------- | ------------------------------------------------------------------ |
+| `.kimcad`        | portable design export (a zip; re-checked from geometry on import) |
+| `.3mf` / `.stl`  | the rendered mesh                                                  |
+| `part.gcode.3mf` | the sliced, print-ready file (G-code in a 3MF container)           |
+| `.STEP`          | _optional_ editable CAD export (needs CadQuery)                    |
 
 ## AI backends
 
@@ -385,12 +390,12 @@ derived from shipped config so a local override can't widen it; vision always ru
 
 The gate is what makes output **trustworthy**. It runs on the real mesh and **fails closed**:
 
-| Check | Asks |
-|---|---|
-| `mesh.solid` | Closed, watertight solid (no holes)? |
-| `dim.match` | Are the dimensions what was asked for? |
+| Check         | Asks                                        |
+| ------------- | ------------------------------------------- |
+| `mesh.solid`  | Closed, watertight solid (no holes)?        |
+| `dim.match`   | Are the dimensions what was asked for?      |
 | `volume.fits` | Within the selected printer's build volume? |
-| `wall.ok` | Walls thick enough to print? |
+| `wall.ok`     | Walls thick enough to print?                |
 
 A failing check **blocks slice and send** and is explained to the user. Output is a **readiness
 score** plus the named findings.

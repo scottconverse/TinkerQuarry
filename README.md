@@ -1,6 +1,6 @@
 # TinkerQuarry
 
-**Status: recovery gate passed for the verified beta lanes. Not final v1.**
+**Status: beta core flow implemented and under active gate hardening. Not final v1.**
 
 TinkerQuarry is a local-first CAD-to-print application: describe a part in plain English, tune it,
 inspect the generated OpenSCAD, and produce a checked printable file. The intended differentiator is a
@@ -27,19 +27,20 @@ What is real and worth trusting:
 
 What is still not done:
 
-- The Visual Correction Loop has an advisory local probe-mode v1, but not the full autonomous PRD
-  correction loop.
+- The Visual Correction Loop has an advisory local probe-mode v1 and bounded autonomous correction
+  pass, but not metrology-grade critique or a full before/after evidence viewer.
 - Bundled third-party SCAD libraries are vendored, with caveats noted below.
-- External-library admission is not wired to the engine sandbox.
-- Persistent per-iteration history, visual diff, and a full Explain view remain incomplete.
+- External-library admission is wired through consent, sandbox copy, manifest, sanitizer, and real
+  OpenSCAD render proof. User-provided libraries are not redistributed.
+- Persistent iteration history exists, but full structural/visual diff and server-side branching
+  remain incomplete.
 - Browser-level coverage is still narrow: happy-path desktop web flow through mock send/outcome and
-  native startup smoke are covered, but not a broad mobile/accessibility/error-path matrix.
+  native startup/workflow smoke are covered, but not a broad mobile/accessibility/error-path matrix.
 
 For the current detailed truth, read:
 
 - [docs/STATUS.md](docs/STATUS.md)
 - [docs/EVALUATE.md](docs/EVALUATE.md)
-- [docs/HANDOFF-TO-CODEX.md](docs/HANDOFF-TO-CODEX.md)
 - [docs/audits/honesty-audit-2026-06-22.md](docs/audits/honesty-audit-2026-06-22.md)
 
 ## Run
@@ -68,7 +69,9 @@ Then open `http://localhost:1420`.
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry
 pnpm -r lint
 pnpm -r type-check
-pnpm test:unit
+cd apps\ui
+node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js --runInBand
+cd ..\..
 pnpm test:web:unit
 
 # Durable browser flow: app boot -> prompt/build -> Make it real -> slice -> Send -> outcome
@@ -78,6 +81,9 @@ pnpm test:e2e:web
 # Native Tauri runtime smoke against the built release exe
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry
 pnpm test:e2e:tauri
+
+# Native Tauri workflow smoke against the installed app, with isolated user profile
+node scripts\smoke-tauri-runtime.mjs --exe="%TEMP%\TQSmokeInstall\openscad-studio.exe" --isolated-profile="%TEMP%\TQSmokeProfile" --workflow
 
 # Native Windows package build
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry
@@ -98,8 +104,8 @@ cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
 .\.venv\Scripts\python.exe -m pytest tests -m real_tool -q
 ```
 
-See [docs/HANDOFF-TO-CODEX.md](docs/HANDOFF-TO-CODEX.md) for proof logs, known caveats, and environment
-setup.
+See [docs/STATUS.md](docs/STATUS.md) and [docs/EVALUATE.md](docs/EVALUATE.md) for current proof
+commands, known gaps, and environment setup.
 
 ## Repository Decision
 

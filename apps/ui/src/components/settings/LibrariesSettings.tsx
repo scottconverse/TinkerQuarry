@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { TbFolderOpen, TbPlus, TbTrash } from 'react-icons/tb';
 import { Button, IconButton } from '../ui';
 import type { Settings } from '../../stores/settingsStore';
+import { engine, type ExternalLibraryEntry } from '../../services/engineClient';
+import { getPlatform } from '../../platform';
 import {
   SettingsCard,
   SettingsCardHeader,
@@ -29,6 +32,52 @@ export function LibrariesSettings({
   onAddPath,
   onRemovePath,
 }: LibrariesSettingsProps) {
+  const [externalLibraries, setExternalLibraries] = useState<ExternalLibraryEntry[]>([]);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [isAdmitting, setIsAdmitting] = useState(false);
+
+  const refreshAdmittedLibraries = async () => {
+    const r = await engine.libraries();
+    if (r.ok) {
+      setExternalLibraries(r.data.external ?? []);
+      setLibraryError(null);
+    } else {
+      setLibraryError(r.data.error || 'Could not read admitted libraries.');
+    }
+  };
+
+  useEffect(() => {
+    void refreshAdmittedLibraries();
+  }, []);
+
+  const handleAdmitLibrary = async () => {
+    const path = await getPlatform().pickDirectory();
+    if (!path) return;
+    const name = path.split(/[\\/]/).filter(Boolean).pop() || 'External library';
+    const ok = await getPlatform().confirm(
+      `Admit "${name}" as an external OpenSCAD library?\n\nTinkerQuarry will copy .scad files into its sandbox and use that copy for rendering.`,
+      { title: 'Admit SCAD library', kind: 'warning', okLabel: 'Admit library' }
+    );
+    if (!ok) return;
+    setIsAdmitting(true);
+    const r = await engine.admitLibrary(path, name);
+    setIsAdmitting(false);
+    if (!r.ok) {
+      setLibraryError(r.data.error || 'Could not admit that library.');
+      return;
+    }
+    await refreshAdmittedLibraries();
+  };
+
+  const handleRemoveAdmittedLibrary = async (slug: string) => {
+    const r = await engine.removeLibrary(slug);
+    if (!r.ok) {
+      setLibraryError(r.data.error || 'Could not remove that library.');
+      return;
+    }
+    await refreshAdmittedLibraries();
+  };
+
   return (
     <div className="flex flex-col" style={{ gap: 'var(--space-section-gap)' }}>
       <SettingsCard>
@@ -78,6 +127,88 @@ export function LibrariesSettings({
             )}
           </SettingsCardSection>
         )}
+      </SettingsCard>
+
+      <SettingsCard>
+        <SettingsCardHeader
+          title="Admitted External Libraries"
+          description="Copy a user-installed OpenSCAD library into TinkerQuarry's sandbox before rendering with it."
+          action={
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => void handleAdmitLibrary()}
+              disabled={isAdmitting}
+              className="flex items-center"
+              style={{
+                color: 'var(--accent-primary)',
+                border: '1px solid var(--border-primary)',
+                gap: 'var(--space-1)',
+              }}
+            >
+              <TbPlus size={14} /> {isAdmitting ? 'Admitting...' : 'Admit Library'}
+            </Button>
+          }
+        />
+
+        <SettingsCardSection>
+          {libraryError && (
+            <SettingsSupportBlock
+              className="text-sm"
+              style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
+            >
+              {libraryError}
+            </SettingsSupportBlock>
+          )}
+          {externalLibraries.length === 0 ? (
+            <SettingsSupportBlock
+              className="text-sm italic text-center border border-dashed"
+              style={{
+                color: 'var(--text-tertiary)',
+                borderColor: 'var(--border-primary)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              No external libraries admitted
+            </SettingsSupportBlock>
+          ) : (
+            <div className="flex flex-col" style={{ gap: 'var(--space-control-gap)' }}>
+              {externalLibraries.map((lib) => (
+                <SettingsSupportBlock
+                  key={lib.slug}
+                  className="flex items-center justify-between group"
+                  style={{
+                    gap: 'var(--space-control-gap)',
+                    backgroundColor: 'var(--bg-primary)',
+                  }}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                      {lib.name}
+                    </span>
+                    <span
+                      className="font-mono text-xs truncate"
+                      style={{ color: 'var(--text-secondary)' }}
+                      title={lib.include_prefix}
+                    >
+                      include &lt;{lib.include_prefix}...&gt; · {lib.file_count ?? 0} files
+                    </span>
+                  </div>
+                  <IconButton
+                    size="sm"
+                    onClick={() => void handleRemoveAdmittedLibrary(lib.slug)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    title="Remove admitted library"
+                  >
+                    <TbTrash size={14} />
+                  </IconButton>
+                </SettingsSupportBlock>
+              ))}
+            </div>
+          )}
+        </SettingsCardSection>
       </SettingsCard>
 
       <SettingsCard>

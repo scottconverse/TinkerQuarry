@@ -5,7 +5,7 @@
 Hi all 👋
 
 TinkerQuarry is a local-first, AI-native app for making real, printable things. You **describe** a
-part — *"a desk cable clip for an 8 mm cable"* — and it designs the shape, **checks that it will
+part — _"a desk cable clip for an 8 mm cable"_ — and it designs the shape, **checks that it will
 actually print** on your printer, and hands you a ready-to-print file. You can also start from a
 **photo** or a **sketch**.
 
@@ -15,7 +15,7 @@ designs stay on your machine.
 ### What makes it different
 
 - **Plain words in, printable file out.** No CAD to learn — you don't draw anything.
-- **It checks before it prints.** A *printability gate* validates every part against your printer's
+- **It checks before it prints.** A _printability gate_ validates every part against your printer's
   build volume and capabilities. A part that won't print is **blocked and explained**, not handed to
   you to discover at the nozzle.
 - **Genuinely local.** The AI runs on-device. It even sets itself up on first run and self-heals if
@@ -33,9 +33,10 @@ Words → print-ready G-code, on your machine.
 
 ### Where it's at
 
-The full pipeline (describe → AI plan → geometry → printability gate → slice → G-code) is proven
-end-to-end, and the project passes its adversarial release gate (**CLEAR TO ADVANCE**: 0 blockers,
-new users reach the core feature). The one step left to you is plugging in a physical printer.
+The beta happy path is proven end-to-end on the tested Windows environment: describe -> AI plan ->
+geometry -> printability gate -> slice -> G-code, with mock send/outcome proof. Broader first-run
+isolation, hardware connector proof, mobile/accessibility/error-path coverage, and final gate
+clearance are still in progress.
 
 ### Get involved
 

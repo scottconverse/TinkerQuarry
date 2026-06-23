@@ -209,15 +209,16 @@ def emit_scad(family: TemplateFamily, values: dict[str, float]) -> str:
     values, so the rendered mesh — and therefore the gate and slice — are byte-for-byte unchanged;
     only the *source text* differs, so the absorbed front end shows live sliders for template parts.
     Fixed args stay literal (they're not user-tunable)."""
-    header = "\n".join(
+    sliders = "\n".join(
         f"{p.name} = {_fmt(values[p.name], integer=p.integer)}; "
         f"// [{_fmt(p.min, integer=p.integer)}:{_fmt(p.step, integer=p.integer)}:{_fmt(p.max, integer=p.integer)}]"
         for p in family.params
     )
     args = [f"{p.name}={p.name}" for p in family.params]
     args += [f"{k}={_fmt(v)}" for k, v in family.fixed_args.items()]
-    body = f"use <library/{family.library_file}>;\n{family.module}({', '.join(args)});\n"
-    return f"{header}\n{body}" if header else body
+    library = f"use <library/{family.library_file}>;"
+    call = f"{family.module}({', '.join(args)});"
+    return "\n".join(part for part in (library, sliders, call) if part) + "\n"
 
 
 def _apply_gaps(family: TemplateFamily, values: dict[str, float]) -> dict[str, float]:

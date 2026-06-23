@@ -2,7 +2,8 @@
 
 Generated OpenSCAD is **untrusted**. Before it ever reaches the binary it is
 sanitized: file-I/O statements (``import()``, ``surface()``, and ``use``/``include``
-outside the approved ``library/`` path) are stripped, and ``minkowski()`` — which
+outside the approved ``library/`` or admitted ``external/<slug>/`` paths) are stripped,
+and ``minkowski()`` — which
 can pin a CPU for hours at high ``$fn`` — is treated as a hard block so the
 orchestrator re-prompts rather than rendering it.
 
@@ -32,11 +33,13 @@ import yaml
 
 from kimcad.config import PROJECT_ROOT
 from kimcad.errors import ToolMissingError
+from kimcad.external_libraries import sandbox_root
 
 LIBRARY_DIR = PROJECT_ROOT / "library"
 
-# Only `use`/`include` pointing inside this relative path survive sanitization.
+# Only `use`/`include` pointing inside these relative paths survive sanitization.
 _APPROVED_PREFIX = "library/"
+_APPROVED_EXTERNAL_PREFIX = "external/"
 
 _IMPORT_RE = re.compile(r"\b(?:import|surface)\s*\(")
 _MINKOWSKI_RE = re.compile(r"\bminkowski\s*\(")
@@ -114,16 +117,26 @@ class RenderResult:
 
 
 def _approved_library_path(path: str) -> bool:
-    """True only for a clean relative path inside ``library/`` (no traversal)."""
+    """True only for a clean relative path inside an approved include root (no traversal)."""
     p = path.strip()
-    if not p.startswith(_APPROVED_PREFIX):
-        return False
     if ".." in p or "\\" in p or p.startswith("/"):
         return False
     # reject a Windows drive-absolute path like C:library/...
     if re.match(r"^[A-Za-z]:", p):
         return False
-    return True
+    if p.startswith(_APPROVED_PREFIX):
+        return True
+    if p.startswith(_APPROVED_EXTERNAL_PREFIX):
+        parts = p.split("/", 2)
+        if len(parts) < 3 or not parts[1]:
+            return False
+        try:
+            from kimcad.external_libraries import admitted_slugs
+
+            return parts[1] in admitted_slugs()
+        except Exception:
+            return False
+    return False
 
 
 def _library_module_map(library_dir: Path = LIBRARY_DIR) -> dict[str, str]:
@@ -258,7 +271,8 @@ def sanitize_scad(code: str) -> SanitizeResult:
     ``use\\n</etc/x>`` — cannot slip past (the regexes' ``\\s*`` spans newlines once it
     isn't confined to a single line). Anything dangerous is **blocked** — the caller
     re-prompts — rather than stripped, so valid geometry is never silently destroyed and
-    there is no partial-strip bypass. Only ``use``/``include`` inside ``library/`` survive.
+    there is no partial-strip bypass. Only ``use``/``include`` inside ``library/`` or an
+    admitted ``external/<slug>/`` sandbox survive.
     """
     scan = _strip_comments(code)
     blocked: list[str] = []
@@ -270,14 +284,17 @@ def sanitize_scad(code: str) -> SanitizeResult:
     for m in _USE_INCLUDE_RE.finditer(scan):
         if not _approved_library_path(m.group(2)):
             blocked.append(
-                f"{m.group(1)} <{m.group(2)}> reaches outside the approved library/ path"
+                f"{m.group(1)} <{m.group(2)}> reaches outside approved library/ or admitted external/ paths"
             )
 
     return SanitizeResult(code=code, removed=[], blocked=blocked)
 
 
 def _run(cmd: list[str], *, cwd: Path, timeout_s: int) -> subprocess.CompletedProcess[str]:
-    env_path = str(PROJECT_ROOT)
+    env_paths = [str(PROJECT_ROOT)]
+    admitted_root = sandbox_root()
+    if admitted_root.exists():
+        env_paths.append(str(admitted_root))
     # ENG-003 (stage-C): the OpenSCAD child runs with the SAME secret-scrubbed environment
     # discipline as the CadQuery worker — generated code is the primary untrusted path, and
     # a geometry tool needs no credentials. One shared scrub (kimcad.subprocess_env) so the
@@ -287,6 +304,7 @@ def _run(cmd: list[str], *, cwd: Path, timeout_s: int) -> subprocess.CompletedPr
     env = scrubbed_env()
     # Let `use <library/...>` resolve while the working dir stays the isolated temp.
     existing = env.get("OPENSCADPATH")
+    env_path = os.pathsep.join(env_paths)
     env["OPENSCADPATH"] = env_path if not existing else f"{env_path}{os.pathsep}{existing}"
     return subprocess.run(
         cmd,
@@ -329,7 +347,10 @@ def render_scad(
     out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     scad_path = out_dir / f"{basename}.scad"
-    scad_path.write_text(sanitized.code, encoding="utf-8")
+    # The engine still stores/returns the clean source with approved `use <library/...>` lines, but
+    # the render subprocess gets a self-contained file. That makes the packaged Tauri runtime
+    # independent of OpenSCAD's platform-specific library search behavior.
+    scad_path.write_text(inline_library_includes(sanitized.code), encoding="utf-8")
 
     if not Path(binary).is_file():
         raise ToolMissingError("OpenSCAD", Path(binary))

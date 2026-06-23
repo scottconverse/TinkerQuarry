@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -44,6 +46,17 @@ test("demo engine flow reaches ready-to-print and records mock printer outcome",
   await expect(page.getByTestId("make-it-real-button")).toBeVisible({
     timeout: 120_000,
   });
+  await expect(page.getByTestId("make-it-real-panel")).toBeVisible();
+  await expect(page.getByTestId("customize-section")).toContainText(
+    /Customize/i,
+  );
+  await expect(page.getByTestId("make-it-real-section")).toContainText(
+    /Make it real/i,
+  );
+  await expect(page.getByTestId("visual-loop-mode")).toContainText(/VCL:/i);
+  await expect(page.getByTestId("iteration-log")).toContainText(
+    /Design|Visual/i,
+  );
   await expect(page.getByTestId("manufacturing-workflow-rail")).toBeVisible();
   await expect(page.getByTestId("visual-evidence-rail")).toBeVisible();
   await expect(page.getByTestId("workflow-slice")).toContainText(
@@ -67,9 +80,12 @@ test("demo engine flow reaches ready-to-print and records mock printer outcome",
     /Choose printer|Ready for/i,
     { timeout: 30_000 },
   );
-  await expect(page.getByText(/Ready to print/i)).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page.getByLabel("Notifications alt+T").getByText(/Ready to print/i),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("iteration-log")).toContainText(
+    /Ready to print/i,
+  );
 
   await page.getByTestId("connector-select").selectOption("mock");
   await expect(page.getByTestId("send-to-printer-button")).toBeEnabled({
@@ -92,4 +108,9 @@ test("demo engine flow reaches ready-to-print and records mock printer outcome",
 
   expect(consoleErrors).toEqual([]);
   expect(responseErrors).toEqual([]);
+
+  const profileRoot = process.env.TQ_E2E_PROFILE_ROOT;
+  if (profileRoot) {
+    expect(existsSync(path.join(profileRoot, "engine-output"))).toBe(true);
+  }
 });
