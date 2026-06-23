@@ -72,6 +72,7 @@ MAX_HISTORY_CONTENT = 4000  # chars per turn
 # would otherwise prepend ~80 KB of context to every refine, a latency tax on a CPU-bound local
 # model. Keep the most-recent turns within this budget (newest are the most relevant for a refine).
 MAX_HISTORY_TOTAL_CONTENT = 16000  # chars across all kept turns
+MAX_VISUAL_REVIEW_LOG = 12  # bounded per-design advisory VCL transcript; no images stored
 
 # ENG-010: map mesh file extensions to a content type.
 _MESH_CONTENT_TYPES = {".stl": "model/stl", ".3mf": "model/3mf"}
@@ -305,7 +306,29 @@ def _design_snapshot(
         # not persisted via store.save (which takes only ``payload``). Read-only here — it's the
         # engine's OWN generated source; the edit/rerun path stays behind the SCAD sandbox.
         "scad": getattr(result, "scad", None),
+        "visual_review_log": [],
     }
+
+
+def _append_visual_review_log(snap: dict[str, Any], review_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Record a bounded advisory VCL transcript without storing rendered images."""
+    raw = snap.get("visual_review_log")
+    log = list(raw) if isinstance(raw, list) else []
+    entry = {
+        "round": len(log) + 1,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": review_payload.get("status"),
+        "mode": review_payload.get("mode"),
+        "models": review_payload.get("models") or [review_payload.get("model")],
+        "summary": review_payload.get("summary"),
+        "findings": review_payload.get("findings") or [],
+        "probes": review_payload.get("probes") or [],
+    }
+    log.append(entry)
+    if len(log) > MAX_VISUAL_REVIEW_LOG:
+        log = log[-MAX_VISUAL_REVIEW_LOG:]
+    snap["visual_review_log"] = log
+    return log
 
 
 def _decode_data_url_png(value: Any) -> bytes | None:
@@ -2246,6 +2269,8 @@ def make_handler(
             with reg.lock:
                 current = reg.snapshot.get(rid)
                 if current is not None:
+                    out["review_log"] = _append_visual_review_log(current, out)
+                    out["round_id"] = len(out["review_log"])
                     current["visual_review"] = out
             self._json(200, out)
 
@@ -2629,6 +2654,7 @@ def make_handler(
                     # Restore the source so /api/source/<rid> serves it (code drawer + Studio's WASM
                     # viewer). None for designs saved before scad persistence — source stays view-only.
                     "scad": d.scad,
+                    "visual_review_log": [],
                 }
                 reg.enforce_caps_locked(MAX_REGISTRY)
             payload = dict(d.payload)

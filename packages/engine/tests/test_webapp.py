@@ -2650,6 +2650,8 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
         return VisualReview(
             status="ok",
             mode="local-probe",
+            model=",".join(kw["models"]),
+            models=kw["models"],
             summary="No obvious visual issues found by local advisory probes.",
             geometry_facts={"gate_status": kw["report"]["gate_status"]},
         )
@@ -2675,6 +2677,9 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
     assert st == 200
     assert review["status"] == "ok"
     assert review["advisory"] is True
+    assert review["round_id"] == 1
+    assert review["review_log"][0]["status"] == "ok"
+    assert review["review_log"][0]["models"] == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
     assert captured["intent"] == "a 20mm cube with a hole on the top face"
     assert captured["models"] == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
     assert captured["images_b64"] == ["YQ=="]

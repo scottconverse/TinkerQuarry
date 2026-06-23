@@ -80,6 +80,17 @@ export interface VisualReviewResult {
     findings?: string[];
     probes?: VisualProbeResult[];
   }>;
+  round_id?: number;
+  review_log?: Array<{
+    round?: number;
+    created_at?: string;
+    status?: string;
+    mode?: string;
+    models?: string[];
+    summary?: string;
+    findings?: string[];
+    probes?: VisualProbeResult[];
+  }>;
   geometry_facts?: Record<string, unknown>;
   correction_prompt?: string | null;
   error?: string;

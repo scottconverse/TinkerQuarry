@@ -711,9 +711,10 @@ function App() {
       }
       const { data } = await engine.visualReview(rid, [image]);
       if (lastEngineRidRef.current !== rid) return;
+      const round = data.round_id ? ` round ${data.round_id}` : '';
       if (data.status === 'issues') {
         const first = data.findings?.[0] ?? data.summary ?? 'likely visual issue found';
-        setVisualReviewSummary(`Visual review: likely issue - ${first}`);
+        setVisualReviewSummary(`Visual review${round}: likely issue - ${first}`);
         notifyError({
           operation: 'visual review',
           capture: false,
@@ -723,7 +724,7 @@ function App() {
         return;
       }
       if (data.status === 'ok') {
-        setVisualReviewSummary('Visual review: no obvious issues found');
+        setVisualReviewSummary(`Visual review${round}: no obvious issues found`);
         notifySuccess('Visual review complete', {
           toastId: 'engine-visual-review',
           description: data.summary ?? 'No obvious visual issues found.',
@@ -732,7 +733,7 @@ function App() {
       }
       if (data.status === 'needs_review') {
         const first = data.findings?.[0] ?? data.summary ?? 'local visual critics disagreed';
-        setVisualReviewSummary(`Visual review: needs review - ${first}`);
+        setVisualReviewSummary(`Visual review${round}: needs review - ${first}`);
         notifySuccess('Visual review needs review', {
           toastId: 'engine-visual-review',
           description: first,
