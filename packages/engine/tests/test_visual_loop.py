@@ -98,6 +98,8 @@ def test_review_design_images_with_models_requires_agreement_for_issues():
     assert review.models == ["qwen2.5vl:7b", "minicpm-v:8b"]
     assert len(review.model_reviews) == 2
     assert "side hole" in review.findings[0]
+    assert review.correction_prompt is not None
+    assert "side hole" in review.correction_prompt
 
 
 def test_review_design_images_with_models_marks_single_model_disagreement_for_review():

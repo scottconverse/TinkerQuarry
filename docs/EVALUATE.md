@@ -60,8 +60,9 @@ Then open `http://localhost:1420`.
   best-quality local option from the audit. The 3D viewer now supplies labeled `front` / `right` /
   `top` captures when ready and falls back to `current`; the API returns a bounded no-image
   `review_log`. Agreed issues can now generate a bounded user-triggered correction/refine loop with
-  Undo as the prior-candidate fallback. Autonomous correction policy, visual diff, browser-level
-  multiview proof, and automated wrong-face fixture proof still need to be built.
+  Undo as the prior-candidate fallback; the wrong-face handoff path is covered by a deterministic
+  probe fixture. Autonomous correction policy, visual diff, and browser-level real-image multiview
+  proof still need to be built.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.
