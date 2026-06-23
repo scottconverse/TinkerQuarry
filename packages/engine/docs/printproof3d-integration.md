@@ -26,7 +26,7 @@ engine" (`None`) and Smart Mesh proceeds on the gate alone. `validate_model` **n
 
 ## Enabling it
 
-**The Stage-11 installer bundles the engine (stable v0.5.0, pinned by SHA-256) — an
+**The Stage-11 installer bundles the engine (stable v0.6.2, pinned by SHA-256) — an
 installed KimCad has it ON by default** at `tools/printproof3d/printproof3d.exe`, the
 path the config names. The graceful degradation below remains the safety net.
 

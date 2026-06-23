@@ -166,16 +166,16 @@ def stage_payload() -> None:
     shutil.copy2(ROOT / "LICENSE", STAGING / "LICENSE")
 
 
-# Slice 11.7: the PrintProof3D validation engine reached STABLE v0.5.0 (2026-06-03) —
+# Slice 11.7: the PrintProof3D validation engine reached STABLE v0.6.2 (2026-06-23) —
 # the ROADMAP's bundling gate is met, so a default install gets the real overhang/bridge/
 # bed-adhesion validation, not gate-only. The wrapper already degrades gracefully if the
 # binary is absent or misbehaves, so bundling can't destabilize the install.
-PP3D_URL = "https://github.com/scottconverse/PrintProof3D/releases/download/v0.5.0/printproof3d.exe"
-PP3D_SHA256 = "a0257980c29376813993bf7b74668b8368ba5da0218e2b1e73d52833561a5def"
+PP3D_URL = "https://github.com/scottconverse/PrintProof3D/releases/download/v0.6.2/printproof3d.exe"
+PP3D_SHA256 = "52be1f844646a33b0aec1ea1fa7121c4b7abefeb0fac9ae987fe95c8ab50b1b6"
 
 
 def stage_printproof3d() -> None:
-    print("printproof3d: staging the validation engine (v0.5.0, pinned) …")
+    print("printproof3d: staging the validation engine (v0.6.2, pinned) …")
     cache = DIST / "cache" / "printproof3d.exe"
     _download_verified(PP3D_URL, PP3D_SHA256, cache)
     target = STAGING / "tools" / "printproof3d"

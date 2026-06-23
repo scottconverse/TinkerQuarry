@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     launcher = app / "kimcad_launcher.py"
     for p in (
         py, launcher, app / "tools" / "openscad", app / "config" / "default.yaml",
-        # Slice 11.7: the PrintProof3D engine ships (stable v0.5.0) — the default install
+        # Slice 11.7: the PrintProof3D engine ships (stable v0.6.2) — the default install
         # must carry it at the path the config names.
         app / "tools" / "printproof3d" / "printproof3d.exe",
     ):
