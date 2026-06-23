@@ -16,7 +16,12 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-DEFAULT_VCL_MODEL = "qwen2.5vl:7b"
+VCL_PROBE_ACCEPTANCE = 0.90
+VCL_MODEL_HIGH_QUALITY = "qwen3-vl:8b"
+VCL_MODEL_RECALL = "qwen2.5vl:7b"
+VCL_MODEL_PRECISION = "minicpm-v:8b"
+DEFAULT_VCL_MODEL = VCL_MODEL_RECALL
+DEFAULT_VCL_MODELS = (VCL_MODEL_HIGH_QUALITY, VCL_MODEL_RECALL, VCL_MODEL_PRECISION)
 
 
 @dataclass(frozen=True)
@@ -45,14 +50,16 @@ class VisualProbeResult:
 
 @dataclass(frozen=True)
 class VisualReview:
-    status: str  # unavailable | ok | issues | error
+    status: str  # unavailable | ok | issues | needs_review | error
     mode: str
     advisory: bool = True
     provider: str = "local-ollama"
     model: str = DEFAULT_VCL_MODEL
+    models: list[str] = field(default_factory=list)
     summary: str = ""
     findings: list[str] = field(default_factory=list)
     probes: list[VisualProbeResult] = field(default_factory=list)
+    model_reviews: list[dict[str, Any]] = field(default_factory=list)
     geometry_facts: dict[str, Any] = field(default_factory=dict)
     correction_prompt: str | None = None
 
@@ -63,9 +70,11 @@ class VisualReview:
             "advisory": self.advisory,
             "provider": self.provider,
             "model": self.model,
+            "models": self.models or [self.model],
             "summary": self.summary,
             "findings": list(self.findings),
             "probes": [p.to_payload() for p in self.probes],
+            "model_reviews": self.model_reviews,
             "geometry_facts": self.geometry_facts,
             "correction_prompt": self.correction_prompt,
         }
@@ -140,9 +149,31 @@ def unavailable_review(reason: str, *, model: str = DEFAULT_VCL_MODEL) -> Visual
         status="unavailable",
         mode="local-probe",
         model=model,
+        models=[model],
         summary=reason,
         findings=[reason],
     )
+
+
+def normalize_models(value: Any, *, fallback: tuple[str, ...] = DEFAULT_VCL_MODELS) -> list[str]:
+    """Return a de-duplicated model list from API input."""
+    raw: list[Any]
+    if value is None:
+        raw = list(fallback)
+    elif isinstance(value, str):
+        raw = [value]
+    elif isinstance(value, list):
+        raw = value
+    else:
+        raw = []
+    models: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        model = item.strip()
+        if model and model not in models:
+            models.append(model)
+    return models or list(fallback)
 
 
 def review_design_images(
@@ -156,6 +187,157 @@ def review_design_images(
     opener: Any = None,
 ) -> VisualReview:
     """Run local probe-mode visual review over supplied rendered images."""
+    return _review_design_images_single(
+        intent=intent,
+        images_b64=images_b64,
+        report=report,
+        model=model,
+        base_url=base_url,
+        timeout_s=timeout_s,
+        opener=opener,
+    )
+
+
+def review_design_images_with_models(
+    *,
+    intent: str,
+    images_b64: list[str],
+    report: dict[str, Any] | None = None,
+    models: list[str] | tuple[str, ...] | None = None,
+    base_url: str = "http://localhost:11434/v1",
+    timeout_s: float = 240.0,
+    opener: Any = None,
+) -> VisualReview:
+    """Run advisory probe reviews, using agreement when multiple local critics respond."""
+    chosen = normalize_models(list(models) if models is not None else None)
+    reviews = [
+        _review_design_images_single(
+            intent=intent,
+            images_b64=images_b64,
+            report=report,
+            model=model,
+            base_url=base_url,
+            timeout_s=timeout_s,
+            opener=opener,
+        )
+        for model in chosen
+    ]
+    usable = [r for r in reviews if r.status in {"ok", "issues"}]
+    if not usable:
+        first = reviews[0] if reviews else unavailable_review("No local visual review model was selected.")
+        return VisualReview(
+            status=first.status,
+            mode="local-probe-agreement",
+            model=chosen[0] if chosen else first.model,
+            models=chosen,
+            summary=first.summary,
+            findings=first.findings,
+            probes=first.probes,
+            model_reviews=[_model_review_payload(r) for r in reviews],
+            geometry_facts=geometry_facts_from_report(report),
+            correction_prompt=first.correction_prompt,
+        )
+    if len(usable) == 1:
+        only = usable[0]
+        return VisualReview(
+            status=only.status,
+            mode="local-probe-single",
+            model=only.model,
+            models=[only.model],
+            summary=f"{only.summary} Only one configured local critic responded.",
+            findings=only.findings,
+            probes=only.probes,
+            model_reviews=[_model_review_payload(r) for r in reviews],
+            geometry_facts=geometry_facts_from_report(report),
+            correction_prompt=only.correction_prompt,
+        )
+
+    by_probe: dict[str, list[VisualProbeResult]] = {}
+    question_by_probe: dict[str, str] = {}
+    for review in usable:
+        for probe in review.probes:
+            by_probe.setdefault(probe.id, []).append(probe)
+            question_by_probe[probe.id] = probe.question
+
+    agreed_findings: list[str] = []
+    disagreements: list[str] = []
+    combined: list[VisualProbeResult] = []
+    quorum = 2
+    for probe_id, probe_results in by_probe.items():
+        failures = [p for p in probe_results if p.pass_ is False]
+        passes = [p for p in probe_results if p.pass_ is True]
+        unknowns = [p for p in probe_results if p.pass_ is None]
+        if len(failures) >= quorum:
+            evidence = "; ".join(p.evidence or p.answer for p in failures if p.evidence or p.answer)
+            finding = evidence or f"{probe_id} failed visual review."
+            agreed_findings.append(finding)
+            combined.append(
+                VisualProbeResult(probe_id, question_by_probe[probe_id], "agreed-fail", False, finding)
+            )
+        elif failures and (passes or unknowns):
+            evidence = "; ".join(p.evidence or p.answer for p in failures if p.evidence or p.answer)
+            note = evidence or f"{probe_id} was flagged by one local critic."
+            disagreements.append(note)
+            combined.append(
+                VisualProbeResult(probe_id, question_by_probe[probe_id], "disagreement", None, note)
+            )
+        elif failures:
+            evidence = "; ".join(p.evidence or p.answer for p in failures if p.evidence or p.answer)
+            disagreements.append(evidence or f"{probe_id} was flagged by one local critic.")
+            combined.append(
+                VisualProbeResult(probe_id, question_by_probe[probe_id], "single-fail", None, evidence)
+            )
+        else:
+            combined.append(
+                VisualProbeResult(
+                    probe_id,
+                    question_by_probe[probe_id],
+                    "agreed-pass" if passes else "unknown",
+                    True if passes else None,
+                    "",
+                )
+            )
+
+    if agreed_findings:
+        status = "issues"
+        summary = "Multiple local visual critics agree on likely visual issues."
+    elif disagreements:
+        status = "needs_review"
+        summary = "Local visual critics disagreed; treat this as a human-review advisory."
+    else:
+        status = "ok"
+        summary = "No obvious visual issues found by local advisory probes."
+    correction = None
+    if agreed_findings:
+        correction = (
+            "Revise the generated CAD to address these agreed visual findings without changing "
+            f"deterministic geometry facts: {'; '.join(agreed_findings)}"
+        )
+    return VisualReview(
+        status=status,
+        mode="local-probe-agreement",
+        model=",".join(r.model for r in usable),
+        models=[r.model for r in usable],
+        summary=summary,
+        findings=agreed_findings if agreed_findings else disagreements,
+        probes=combined,
+        model_reviews=[_model_review_payload(r) for r in reviews],
+        geometry_facts=geometry_facts_from_report(report),
+        correction_prompt=correction,
+    )
+
+
+def _review_design_images_single(
+    *,
+    intent: str,
+    images_b64: list[str],
+    report: dict[str, Any] | None = None,
+    model: str = DEFAULT_VCL_MODEL,
+    base_url: str = "http://localhost:11434/v1",
+    timeout_s: float = 240.0,
+    opener: Any = None,
+) -> VisualReview:
+    """Run one local probe-mode visual review over supplied rendered images."""
     if not images_b64:
         return unavailable_review("Visual review needs rendered images to inspect.", model=model)
     probes = default_probes(intent)
@@ -216,6 +398,7 @@ def review_design_images(
         status=status,
         mode="local-probe",
         model=model,
+        models=[model],
         summary=(
             "No obvious visual issues found by local advisory probes."
             if status == "ok"
@@ -226,6 +409,16 @@ def review_design_images(
         geometry_facts=geometry_facts_from_report(report),
         correction_prompt=correction,
     )
+
+
+def _model_review_payload(review: VisualReview) -> dict[str, Any]:
+    return {
+        "status": review.status,
+        "model": review.model,
+        "summary": review.summary,
+        "findings": list(review.findings),
+        "probes": [p.to_payload() for p in review.probes],
+    }
 
 
 def _parse_probe_response(probe: VisualProbe, text: str) -> VisualProbeResult:

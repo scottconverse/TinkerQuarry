@@ -2654,7 +2654,7 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
             geometry_facts={"gate_status": kw["report"]["gate_status"]},
         )
 
-    monkeypatch.setattr("kimcad.visual_loop.review_design_images", _fake_review)
+    monkeypatch.setattr("kimcad.visual_loop.review_design_images_with_models", _fake_review)
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     with _serve(pipe, tmp_path) as (host, port):
         base = f"http://{host}:{port}"
@@ -2676,6 +2676,7 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
     assert review["status"] == "ok"
     assert review["advisory"] is True
     assert captured["intent"] == "a 20mm cube with a hole on the top face"
+    assert captured["models"] == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
     assert captured["images_b64"] == ["YQ=="]
     assert captured["report"]["gate_status"] == "pass"
 

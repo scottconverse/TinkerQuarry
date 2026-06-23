@@ -64,14 +64,22 @@ export interface VisualProbeResult {
 }
 
 export interface VisualReviewResult {
-  status?: 'unavailable' | 'ok' | 'issues' | 'error';
+  status?: 'unavailable' | 'ok' | 'issues' | 'needs_review' | 'error';
   mode?: string;
   advisory?: boolean;
   provider?: string;
   model?: string;
+  models?: string[];
   summary?: string;
   findings?: string[];
   probes?: VisualProbeResult[];
+  model_reviews?: Array<{
+    status?: string;
+    model?: string;
+    summary?: string;
+    findings?: string[];
+    probes?: VisualProbeResult[];
+  }>;
   geometry_facts?: Record<string, unknown>;
   correction_prompt?: string | null;
   error?: string;
@@ -268,8 +276,8 @@ export class EngineClient {
     return this.req<{ rid: number; scad: string; inlined?: boolean }>('GET', `/source/${rid}${q}`);
   }
   /** Advisory local visual critique. The caller supplies rendered preview images. */
-  visualReview(rid: number, images: string[], model?: string) {
-    return this.req<VisualReviewResult>('POST', `/visual-review/${rid}`, { images, model });
+  visualReview(rid: number, images: string[], model?: string, models?: string[]) {
+    return this.req<VisualReviewResult>('POST', `/visual-review/${rid}`, { images, model, models });
   }
 
   // --- saved designs (§6.12 version history) ---

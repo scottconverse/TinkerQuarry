@@ -730,6 +730,15 @@ function App() {
         });
         return;
       }
+      if (data.status === 'needs_review') {
+        const first = data.findings?.[0] ?? data.summary ?? 'local visual critics disagreed';
+        setVisualReviewSummary(`Visual review: needs review - ${first}`);
+        notifySuccess('Visual review needs review', {
+          toastId: 'engine-visual-review',
+          description: first,
+        });
+        return;
+      }
       setVisualReviewSummary(`Visual review: unavailable - ${data.summary || data.error || 'not run'}`);
     },
     [activePreviewKind, activePreviewSrc]
