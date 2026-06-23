@@ -709,7 +709,7 @@ function App() {
         setVisualReviewSummary('Visual review: unavailable - no rendered view captured');
         return;
       }
-      const { data } = await engine.visualReview(rid, [image]);
+      const { data } = await engine.visualReview(rid, [{ label: 'current', image }]);
       if (lastEngineRidRef.current !== rid) return;
       const round = data.round_id ? ` round ${data.round_id}` : '';
       if (data.status === 'issues') {

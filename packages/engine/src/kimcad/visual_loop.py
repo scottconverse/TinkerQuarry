@@ -89,19 +89,33 @@ def native_generate_url(base_url: str) -> str:
 
 def decode_image_payloads(values: Any) -> list[str]:
     """Return base64 image payloads from data URLs or raw base64 strings."""
+    return [item["image"] for item in decode_image_views(values)]
+
+
+def decode_image_views(values: Any) -> list[dict[str, str]]:
+    """Return labeled base64 image payloads from strings or {label,image} objects."""
     if not isinstance(values, list):
         raise ValueError("images must be a list")
-    out: list[str] = []
-    for value in values:
-        if not isinstance(value, str):
+    out: list[dict[str, str]] = []
+    for index, value in enumerate(values, start=1):
+        label = f"view_{index}"
+        raw = ""
+        if isinstance(value, dict):
+            label_value = value.get("label")
+            if isinstance(label_value, str) and label_value.strip():
+                label = re.sub(r"[^a-z0-9_-]+", "_", label_value.strip().lower())[:40] or label
+            image_value = value.get("image") or value.get("dataUrl") or value.get("data_url")
+            raw = image_value.strip() if isinstance(image_value, str) else ""
+        elif isinstance(value, str):
+            raw = value.strip()
+        else:
             continue
-        raw = value.strip()
         if not raw:
             continue
         if raw.startswith("data:image/"):
             _, _, raw = raw.partition(",")
         base64.b64decode(raw, validate=True)
-        out.append(raw)
+        out.append({"label": label, "image": raw})
     if not out:
         raise ValueError("at least one rendered image is required")
     return out
@@ -182,6 +196,7 @@ def review_design_images(
     images_b64: list[str],
     report: dict[str, Any] | None = None,
     model: str = DEFAULT_VCL_MODEL,
+    view_labels: list[str] | None = None,
     base_url: str = "http://localhost:11434/v1",
     timeout_s: float = 240.0,
     opener: Any = None,
@@ -192,6 +207,7 @@ def review_design_images(
         images_b64=images_b64,
         report=report,
         model=model,
+        view_labels=view_labels,
         base_url=base_url,
         timeout_s=timeout_s,
         opener=opener,
@@ -204,6 +220,7 @@ def review_design_images_with_models(
     images_b64: list[str],
     report: dict[str, Any] | None = None,
     models: list[str] | tuple[str, ...] | None = None,
+    view_labels: list[str] | None = None,
     base_url: str = "http://localhost:11434/v1",
     timeout_s: float = 240.0,
     opener: Any = None,
@@ -216,6 +233,7 @@ def review_design_images_with_models(
             images_b64=images_b64,
             report=report,
             model=model,
+            view_labels=view_labels,
             base_url=base_url,
             timeout_s=timeout_s,
             opener=opener,
@@ -333,6 +351,7 @@ def _review_design_images_single(
     images_b64: list[str],
     report: dict[str, Any] | None = None,
     model: str = DEFAULT_VCL_MODEL,
+    view_labels: list[str] | None = None,
     base_url: str = "http://localhost:11434/v1",
     timeout_s: float = 240.0,
     opener: Any = None,
@@ -340,6 +359,12 @@ def _review_design_images_single(
     """Run one local probe-mode visual review over supplied rendered images."""
     if not images_b64:
         return unavailable_review("Visual review needs rendered images to inspect.", model=model)
+    labels = [label for label in (view_labels or []) if label]
+    view_note = (
+        f"Rendered view labels, in image order: {', '.join(labels)}.\n"
+        if labels else
+        "Rendered view labels are unavailable; inspect the supplied images as current preview views.\n"
+    )
     probes = default_probes(intent)
     answers: list[VisualProbeResult] = []
     findings: list[str] = []
@@ -355,6 +380,7 @@ def _review_design_images_single(
                 "The pass key must be true, false, or null. "
                 "Do not estimate dimensions or exact counts.\n"
                 f"User intent: {intent}\n"
+                f"{view_note}"
                 f"Question: {probe.question}"
             ),
         }

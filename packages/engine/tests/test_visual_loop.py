@@ -3,6 +3,7 @@ import json
 
 from kimcad.visual_loop import (
     decode_image_payloads,
+    decode_image_views,
     default_probes,
     normalize_models,
     review_design_images,
@@ -12,6 +13,16 @@ from kimcad.visual_loop import (
 
 def test_decode_image_payloads_accepts_data_urls():
     assert decode_image_payloads(["data:image/png;base64,YQ=="]) == ["YQ=="]
+
+
+def test_decode_image_views_accepts_labeled_view_objects():
+    assert decode_image_views([
+        {"label": "Top Face", "image": "data:image/png;base64,YQ=="},
+        {"label": "front", "dataUrl": "Yg=="},
+    ]) == [
+        {"label": "top_face", "image": "YQ=="},
+        {"label": "front", "image": "Yg=="},
+    ]
 
 
 def test_default_probes_adds_face_feature_probe_for_face_hole_intent():
@@ -56,6 +67,7 @@ def test_review_design_images_runs_atomic_probes_and_keeps_geometry_facts():
     assert review.geometry_facts["readiness_score"] == 92
     assert "side" in review.findings[0]
     assert any("Answer only JSON" in prompt for prompt in calls)
+    assert any("Rendered view labels" in prompt for prompt in calls)
 
 
 def test_review_design_images_with_models_requires_agreement_for_issues():

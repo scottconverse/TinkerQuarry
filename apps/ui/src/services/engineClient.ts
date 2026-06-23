@@ -63,6 +63,13 @@ export interface VisualProbeResult {
   evidence?: string;
 }
 
+export type VisualReviewImageInput =
+  | string
+  | {
+      label: string;
+      image: string;
+    };
+
 export interface VisualReviewResult {
   status?: 'unavailable' | 'ok' | 'issues' | 'needs_review' | 'error';
   mode?: string;
@@ -287,7 +294,7 @@ export class EngineClient {
     return this.req<{ rid: number; scad: string; inlined?: boolean }>('GET', `/source/${rid}${q}`);
   }
   /** Advisory local visual critique. The caller supplies rendered preview images. */
-  visualReview(rid: number, images: string[], model?: string, models?: string[]) {
+  visualReview(rid: number, images: VisualReviewImageInput[], model?: string, models?: string[]) {
     return this.req<VisualReviewResult>('POST', `/visual-review/${rid}`, { images, model, models });
   }
 

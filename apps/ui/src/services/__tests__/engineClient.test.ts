@@ -132,6 +132,15 @@ describe('EngineClient — request shape + CSRF token (Phase 4)', () => {
     expect(calls[2].url).toBe('/api/designs/abc%201'); // id is URL-encoded
   });
 
+  it('posts labeled visual-review images for the advisory VCL', async () => {
+    await new EngineClient().visualReview(9, [{ label: 'top', image: 'data:image/png;base64,YQ==' }]);
+    expect(calls[0].url).toBe('/api/visual-review/9');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({
+      images: [{ label: 'top', image: 'data:image/png;base64,YQ==' }],
+    });
+  });
+
   it('returns a typed failure (not a throw) when the engine is unreachable', async () => {
     (globalThis as unknown as { fetch: typeof fetch }).fetch = (() =>
       Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch;

@@ -2671,7 +2671,7 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
             port,
             "POST",
             f"/api/visual-review/{rid}",
-            {"images": ["data:image/png;base64,YQ=="]},
+            {"images": [{"label": "Current View", "image": "data:image/png;base64,YQ=="}]},
         )
 
     assert st == 200
@@ -2683,6 +2683,7 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
     assert captured["intent"] == "a 20mm cube with a hole on the top face"
     assert captured["models"] == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
     assert captured["images_b64"] == ["YQ=="]
+    assert captured["view_labels"] == ["current_view"]
     assert captured["report"]["gate_status"] == "pass"
 
 
