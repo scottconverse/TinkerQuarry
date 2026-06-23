@@ -54,3 +54,17 @@ cell(14) tq_bolt(6, 1.0, 10, drive="phillips");    // Phillips drive
 cell(15) tq_phillips_tip(2);                        // Phillips bit
 cell(16) tq_tap(6, 1.0, L) cube([12,12,L]);        // child-wrapper tap
 cell(17) tq_drill(5, L) translate([-6,-6,0]) cube([12,12,L]);   // child-wrapper drill
+
+// v0.4 smoke cases: fine/Unified presets, fit class, more hardware, holes
+cell(18) tq_thread_preset("M10x1.25", L);          // metric fine preset
+cell(19) tq_thread_preset("#10-32", L);            // Unified numbered preset
+cell(20) tq_thread(8, 1.25, L, clearance=0, fit="6g");          // ISO 965 fit class
+cell(21) tq_countersunk_bolt(6, 1.0, 12, drive="phillips");     // countersunk + Phillips
+cell(22) tq_rod_coupler(8, 1.25, 12);              // coupler
+cell(23) tq_wood_screw(5, 14, point="cone", shank=3);           // wood screw (params)
+cell(24) tq_bottle_thread(24, 4, L);               // bottle thread
+cell(25) difference(){ translate([-7,-7,0]) cube([14,14,8]); tq_counterbore(5,8); }   // counterbore
+cell(26) difference(){ translate([-7,-7,0]) cube([14,14,8]); tq_countersink(5,8); }   // countersink
+
+// preset-table self-check runs at parse time here too (belt and braces)
+assert(tq_presets_selfcheck(), "fast tests: preset self-check failed");

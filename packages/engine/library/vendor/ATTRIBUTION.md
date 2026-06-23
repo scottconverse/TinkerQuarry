@@ -13,7 +13,7 @@ reviewed for GPLv2-compatible redistribution and pinned to explicit upstream com
 | Catch'n'Hole | https://github.com/mmalecki/catchnhole | `99428972ca2588f5ce33c0df54d097a14acf7f10` | MIT | Full upstream tree, excluding `.git`. Requires OpenSCAD JSON `import` support for its bolt/nut data. |
 | gridfinity-rebuilt-openscad | https://github.com/kennetek/gridfinity-rebuilt-openscad | `910e22d8607fd7f5f51ad5e5cbc5287a76810bfd` | MIT | Vendored without `src/external/threads-scad`, which is GPL-3.0-or-later. Thumbscrew features are disabled until TinkerQuarry has a clean-room thread library. |
 | MCAD | https://github.com/openscad/MCAD | `bd0a7ba3f042bfbced5ca1894b236cea08904e26` | LGPL-2.1-or-later, with some files under compatible permissive/CC-BY terms noted upstream | Full upstream tree, excluding `.git`. Preserve `lgpl-2.1.txt` and upstream notices. |
-| tq-threads | https://github.com/scottconverse/tq-threads | `c6e54ed60cacb7ecb58cc6e0a09c252434306c31` (post-`v0.3.0` docs/provenance follow-up) | MIT | Clean-room printable OpenSCAD thread library used as the GPLv2-compatible replacement for Dan Kirshner / rcolyer `threads.scad`. Full upstream tree, excluding `.git`. |
+| tq-threads | https://github.com/scottconverse/tq-threads | `cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00` (`v0.4.0`) | MIT | Clean-room printable OpenSCAD thread library used as the GPLv2-compatible replacement for Dan Kirshner / rcolyer `threads.scad`. Full upstream tree, excluding `.git`. |
 
 ## Explicit Exclusion
 

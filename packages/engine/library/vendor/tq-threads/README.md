@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GPL‑2.0 compatible](https://img.shields.io/badge/GPL--2.0-compatible-blue.svg)](#license--attribution)
 [![OpenSCAD](https://img.shields.io/badge/OpenSCAD-2021.01%2B-f9d72c.svg)](https://openscad.org)
-[![Version](https://img.shields.io/badge/version-0.3.0-informational.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0-informational.svg)](CHANGELOG.md)
 [![CI](https://github.com/scottconverse/tq-threads/actions/workflows/ci.yml/badge.svg)](https://github.com/scottconverse/tq-threads/actions/workflows/ci.yml)
 
 *Threaded rods, bolts, nuts, tapped holes, countersinks, washers, standoffs, couplers and caps — every thread is a single watertight `polyhedron`, so models stay manifold and export straight to STL.*
@@ -22,7 +22,7 @@
 - **Clean‑room & standards‑based.** Written from public engineering standards only (ISO 68‑1, ISO 261/262, ISO 273, ISO 4032, ISO 4762, ISO 7089, ISO 10642, ASME B1.1). No third‑party thread library was copied or consulted — see [REFERENCES.md](REFERENCES.md).
 - **Manifold by construction.** The thread surface is a helical *height‑field* turned into one closed `polyhedron` (no boolean unions to go non‑manifold). It renders cleanly and slices.
 - **Printable‑first.** Fit clearance, internal‑oversize / external‑undersize compensation, lead‑in chamfers, rounded roots, and `$fn/$fa/$fs` resolution are all parameters.
-- **Batteries included.** Presets **M2–M64** + common fine pitches + UNC/UNF, plus bolts, nuts, washers, countersunk screws, clearance/counterbore/countersink holes, standoffs, couplers, wood screws, and a debug view.
+- **Batteries included.** Presets **M2–M64** + common fine pitches + UNC/UNF, plus bolts (hex/socket/**Phillips**), nuts, washers, countersunk & wood screws, **augers**, clearance/counterbore/countersink holes, standoffs, couplers, child‑difference wrappers (`tq_tap`/`tq_drill`/…), and a debug view. Custom flank **angle**, explicit **tooth_height**, and **taper** round out the profile controls.
 - **MIT licensed** → permissive *and* GPL‑2.0‑compatible, so it drops into a GPL‑2.0‑only project (e.g. TinkerQuarry) unchanged.
 
 <div align="center">
@@ -140,8 +140,9 @@ with anything. Common combinations (full recipes in **[MANUAL.md](MANUAL.md#inte
 | ISO metric external thread | `tq_thread(internal=false)` |
 | ISO metric internal cutter | `tq_thread_cutter` / `internal=true` |
 | Unified external / internal | `tq_thread_tpi`, inch presets |
-| Named presets M2–M64 + fine + UNC/UNF | `tq_thread_preset`, `tq_preset` |
-| Custom Ø / pitch / TPI | `tq_thread`, `tq_thread_tpi` |
+| Named presets (101: metric coarse+fine + UNC/UNF) | `tq_thread_preset`, `tq_preset`, `tq_preset_count` |
+| ISO 965 fit class (allowance) | `fit="6g"`/`"6H"`/… |
+| Custom Ø / pitch / TPI / minor Ø | `tq_thread`, `tq_thread_tpi`, `minor_d=` |
 | Left / right hand | `hand="left"\|"right"` |
 | Multi‑start | `starts=N` |
 | Length / centering | `length=`, `center=` |
@@ -227,11 +228,13 @@ Reach for **brass heat‑set inserts** instead of a printed thread when the hole
 Concise list; **full signatures + every parameter are in [MANUAL.md](MANUAL.md#api)**.
 
 ```openscad
-// core (v0.3 adds angle, tooth_height, taper)
+// core (v0.4 adds fit, minor_d; v0.3 added angle, tooth_height, taper)
 tq_thread(d, pitch, length, internal=false, starts=1, hand="right",
-          clearance=0.4, profile="flat", angle=60, tooth_height, crest_flat, root_flat,
-          round=1, lead_in=true, lead_out=true, chamfer, taper=0,
+          clearance=0.4, fit=undef, profile="flat", angle=60, tooth_height, minor_d,
+          crest_flat, root_flat, round=1, lead_in=true, lead_out=true, chamfer, taper=0,
           arc=360, fn, steps_per_pitch=16, center=false);
+// preset introspection / table self-check
+tq_preset_count();  tq_presets_selfcheck();
 
 // presets / specs
 tq_preset(name) -> [major, pitch];   tq_thread_preset(name, length, ...);
@@ -280,15 +283,39 @@ tq_thread_debug(d,pitch,length,...);
 
 ---
 
-## Presets
+## Standards & fidelity (exact vs. approximate)
 
-Metric coarse: `M2 M2.5 M3 M3.5 M4 M5 M6 M7 M8 M10 M12 M14 M16 M18 M20 M22 M24 M27 M30 M33 M36 M39 M42 M45 M48 M52 M56 M60 M64`
-Metric fine: `M8x1 M10x1.25 M10x1 M12x1.5 M12x1.25 M16x1.5 M20x1.5 M24x2`
-Unified: `1/4-20 1/4-28 3/8-16 3/8-24 1/2-13 1/2-20`
+tq-threads is **printable-first, not metrology-grade** — it renders one nominal
+surface, so it cannot certify a tolerance class or replace gauges/calipers. Every
+table/formula is classified **EXACT / DERIVED / FDM / APPROX** in
+[REFERENCES.md §0](REFERENCES.md) and the [PROVENANCE ledger](PROVENANCE.md):
+
+- **Exact nominal**: metric coarse/fine Ø+pitch (ISO 261), Unified Ø+TPI (ASME B1.1), listed ISO hardware dims (273/4032/4762/7089/10642).
+- **Derived** (exact formula): the 60° form & `H`, custom-`angle` geometry, rounded fillets, and the optional **ISO 965 `fit=`** allowance (the *position*, e.g. `es=-(15+11·P)` µm for `g`; the tolerance *grade/band* is **not** modelled).
+- **FDM defaults**: `clearance` (0.4 mm) and resolution floors.
+- **Approx / generic** (no standard claimed): Phillips recess, `tq_auger`, `tq_bottle_thread`, `tq_wood_screw`, ratio fallbacks for unlisted sizes.
 
 ```openscad
-p = tq_preset("M12");   // -> [12, 1.75]
-tq_thread_preset("M12", 24);
+tq_thread(8,1.25,20);                          // printable default (FDM clearance)
+tq_thread(8,1.25,20, clearance=0);             // nominal geometry, no allowance
+tq_thread(8,1.25,20, clearance=0, fit="6g");   // + ISO 965 position-g allowance
+```
+What needs **physical prints + calipers** (real fit, class compliance, SPI/GPI
+interchange, pull-out strength) is listed in [PROVENANCE.md](PROVENANCE.md).
+
+---
+
+## Presets (101)
+
+Metric coarse (ISO 261): `M1.6 M2 M2.5 M3 M3.5 M4 M5 M6 M7 M8 M10 M12 M14 M16 M18 M20 M22 M24 M27 M30 M33 M36 M39 M42 M45 M48 M52 M56 M60 M64`
+Metric fine (ISO 261): `M3x0.35 M4x0.5 M5x0.5 M6x0.75 M8x1 M8x0.75 M10x1.25 M10x1 M10x0.75 M12x1.5 M12x1.25 M12x1 M14x1.5 M16x1.5 M16x1 M18x2 M18x1.5 M20x2 M20x1.5 M20x1 M22x1.5 M24x2 M24x1.5 M27x2 M30x3 M30x2 M30x1.5 M33x2 M36x3 M36x2 M42x3 M48x3`
+Unified numbered (ASME B1.1): `#0-80 #1-64 #1-72 #2-56 #2-64 #3-48 #3-56 #4-40 #4-48 #5-40 #5-44 #6-32 #6-40 #8-32 #8-36 #10-24 #10-32 #12-24 #12-28`
+Unified fractional: `1/4-20 1/4-28 5/16-18 5/16-24 3/8-16 3/8-24 7/16-14 7/16-20 1/2-13 1/2-20 9/16-12 9/16-18 5/8-11 5/8-18 3/4-10 3/4-16 7/8-9 7/8-14 1-8 1-12`
+
+```openscad
+p = tq_preset("M12");          // -> [12, 1.75]
+tq_thread_preset("#10-32", 16);
+echo(tq_preset_count());        // 101   (assert tq_presets_selfcheck())
 ```
 
 ---
@@ -297,17 +324,27 @@ tq_thread_preset("M12", 24);
 
 ```sh
 # fast smoke suite (preset assertions + small grid) — seconds
-openscad -o out.stl tq_threads_fast_tests.scad
+openscad -o selftest.stl tq_threads_selftest.scad   # standards-table asserts
+openscad -o out.stl      tq_threads_fast_tests.scad
 
 # full visual demo grid — minutes (N-way union); F5 preview is instant
 openscad -o demo.stl tq_threads_heavy_tests.scad
 ```
 PowerShell render‑proof (auto‑detects OpenSCAD, checks for manifold warnings):
 ```powershell
-pwsh scripts/render-tests.ps1            # fast suite
-pwsh scripts/render-tests.ps1 -Heavy     # + heavy grid
+powershell -ExecutionPolicy Bypass -File scripts\render_proof.ps1          # full proof: PASS/FAIL, version+timings, negative tests, exits nonzero on fail
+powershell -ExecutionPolicy Bypass -File scripts\render_proof.ps1 -Heavy   # + heavy grid
 ```
-A GitHub Actions workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the fast suite on every push.
+Runs on Windows PowerShell 5.1 and pwsh 7+. (`scripts/render-tests.ps1` is a deprecated alias.) On Windows it prefers `openscad.com` (returns console exit codes/output).
+
+**Running one example (Windows-robust, no fragile quoting):**
+```sh
+openscad -o bolt.stl examples/bolt.scad                  # wrapper file — works in every shell
+openscad -o nut.stl  -D PART=5 tq_threads_examples.scad  # shell-safe numeric index (no quotes)
+```
+> The legacy `-D SHOW="bolt"` form still works but needs careful PowerShell quoting (`-D 'SHOW=\"bolt\"'`); it's a fallback, not the primary path.
+
+A GitHub Actions workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the suites on every push.
 
 ---
 
@@ -319,6 +356,18 @@ A GitHub Actions workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml
 - A single fused STL of the *whole* heavy grid is slow (N‑way CGAL union) — that's the union, not any one part. Per‑part export and F5 preview are fast.
 - `profile="sharp"` makes knife‑edge crests (for self‑tapping screws / visualization), not for load.
 - Tapered pipe (NPT), ACME/trapezoidal, and buttress forms are out of scope of this 60°‑V library.
+
+---
+
+## Migration from v0.2 / v0.3
+
+v0.4 is **backward compatible** — no public API was removed or renamed.
+
+- `include <tq_threads.scad>;` unchanged; default `angle=60` keeps v0.2/v0.3 geometry bit-for-bit.
+- New **optional** params: `tq_thread(... fit=, minor_d=)`; `tq_wood_screw(... taper=, core_d=, thread_depth=, point="gimlet"|"cone"|"flat", shank=)` (old `point=true/false` still works); `tq_bottle_thread(... angle=, tooth_height=, profile=, lead_in=)`.
+- Presets expanded 43 → **101** (existing names unchanged).
+- Example selection: prefer **`examples/<part>.scad` wrappers** or **`-D PART=n`** over the old `-D SHOW="..."` string (still supported).
+- `scripts/render-tests.ps1` → **`scripts/render_proof.ps1`** (old name kept as a deprecated alias).
 
 ---
 

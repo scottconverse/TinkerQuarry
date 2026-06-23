@@ -10,6 +10,50 @@ formulae); the *code* expressing them is original to this project.
 
 ---
 
+## 0. Fidelity classification (what is exact vs. approximate)
+
+tq-threads is **not metrology-grade**: it renders a single nominal surface, so it
+cannot certify a fit class or replace gauges/calipers (see §6). Every data item
+below is labelled with one of four classes:
+
+- **EXACT** — nominal standard value (a published fact), used verbatim.
+- **DERIVED** — exact geometric formula from the standard's definition.
+- **FDM** — a printability default chosen by this library (not a standard).
+- **APPROX** — a deliberate approximation or ratio fallback for unlisted sizes.
+
+| Data / feature | Class | Source | Notes |
+|---|---|---|---|
+| 60° thread form, `H=(√3/2)·P` | DERIVED | ISO 68-1 | exact trig |
+| Custom flank angle `H=(P/2)/tan(α/2)` | DERIVED | trig | α=60 ⇒ ISO form |
+| Flat profile truncations (crest `P/8`, root `P/4`, engaged `0.5413·P`) | EXACT | ISO 68-1 basic profile | |
+| Rounded fillets `rr=H/6`, `rc=H/12` | DERIVED | UNR/ISO-class | from 60° triangle |
+| Metric coarse major Ø + pitch (presets) | EXACT | ISO 261 | nominal |
+| Metric fine pitches (presets) | EXACT | ISO 261 | nominal |
+| Unified numbered/fractional major + TPI | EXACT | ASME B1.1 | `major=0.060+0.013·N` (numbered) |
+| ISO 965 fit-class allowance (`fit=`) | DERIVED (EXACT formula) | ISO 965-1 §13.1 | **formula** value; tables round to whole µm. Tolerance *grade/band* NOT modelled |
+| ISO 273 clearance-hole Ø | EXACT (listed) / APPROX (fallback) | ISO 273 | ratio fallback for unlisted sizes |
+| ISO 7089 washer dims | EXACT (listed) / APPROX (fallback) | ISO 7089 form A | |
+| ISO 4032 nut thickness + across-flats | EXACT (listed) / APPROX (fallback) | ISO 4032 | |
+| ISO 4762 SHCS head `dk`,`k`; hex-key AF | EXACT (listed) / APPROX (fallback) | ISO 4762 | |
+| ISO 10642 countersunk head Ø | EXACT (listed) / APPROX (fallback) | ISO 10642 | 90° |
+| FDM `clearance` default 0.4 mm (split ½/½) | FDM | — | print-fit allowance, not a standard |
+| Phillips cross recess | APPROX | ISO 4757 *concept* | printable approximation, not gauge-accurate |
+| Auger flight (`tq_auger`) | APPROX/GENERIC | — | generic deep coarse flight, no standard |
+| Bottle/closure thread (`tq_bottle_thread`) | APPROX/GENERIC | — | generic; **not** SPI/GPI/ISO closure |
+| Wood/self-tapping screw (`tq_wood_screw`) | APPROX/GENERIC | — | generic printable, no standard |
+| Linear `taper` | DERIVED | geometry | NPT (ASME B1.20.1) is 1:16; NPT profile NOT implemented |
+| Ratio fallbacks for unlisted hardware sizes | APPROX | — | `function` fallbacks; documented per function |
+
+**On `fit=` (ISO 965):** the implemented value is the *fundamental deviation*
+(tolerance **position**/allowance) from ISO 965-1 Clause 13.1, computed from the
+exact formula (e.g. external g: `es=-(15+11·P)` µm). Published ISO tables present
+these rounded to whole µm; tq-threads uses the unrounded formula. The tolerance
+**grade** (band width, e.g. the “6” in “6g”) is **not** modelled — there is one
+nominal surface, not a min/max envelope. Small-pitch footnote exceptions in the
+standard (e for P≤0.45, f for P≤0.3) are not special-cased.
+
+---
+
 ## 1. Thread form — the 60° metric/Unified V
 
 Both ISO metric and the Unified Thread Standard share the same **60° symmetric V**

@@ -1,5 +1,6 @@
 # Render output / scratch
 _render_out/
+proof/
 *.stl
 *.3mf
 *.off

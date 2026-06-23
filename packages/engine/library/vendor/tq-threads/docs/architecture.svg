@@ -58,15 +58,15 @@
     <text x="262" y="240" font-size="11.5" fill="#33536e">tq_bolt · tq_countersunk_bolt · tq_nut</text>
     <text x="494" y="222" font-weight="700">Holes &amp; parts</text>
     <text x="494" y="240" font-size="11.5" fill="#33536e">tq_threaded_hole · tq_washer · tq_rod_*</text>
-    <text x="726" y="222" font-weight="700">Wood/coarse</text>
-    <text x="726" y="240" font-size="11.5" fill="#33536e">tq_wood_screw · tq_bottle_thread</text>
+    <text x="726" y="222" font-weight="700">Coarse / auger</text>
+    <text x="726" y="240" font-size="11.5" fill="#33536e">tq_auger · tq_wood_screw · …</text>
     <text x="40" y="282" font-weight="700">Dimension tables (ISO data, functions)</text>
     <text x="40" y="300" font-size="11.5" fill="#33536e">tq_clearance_dia · tq_nut_thickness · tq_shcs_head · tq_csk_head_dia</text>
     <text x="372" y="282" font-weight="700" fill="#10324f"> </text>
     <text x="372" y="282" font-size="11.5" fill="#10324f" font-weight="700">Clearance / counterbore / countersink</text>
     <text x="372" y="300" font-size="11.5" fill="#33536e">tq_clearance_hole · *_recessed_* · *_countersunk_*</text>
-    <text x="674" y="282" font-weight="700">Hex / drive + debug</text>
-    <text x="674" y="300" font-size="11.5" fill="#33536e">tq_hex · tq_hex_drive · tq_thread_debug</text>
+    <text x="674" y="282" font-weight="700">Drives + debug</text>
+    <text x="674" y="300" font-size="11.5" fill="#33536e">tq_hex_drive · tq_phillips_drive</text>
   </g>
 
   <line x1="470" y1="320" x2="470" y2="344" stroke="#6b7c8c" stroke-width="1.8" marker-end="url(#arrow)"/>

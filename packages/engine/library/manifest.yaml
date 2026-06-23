@@ -224,20 +224,24 @@ modules:
 
   - file: vendor/tq-threads/tq_threads.scad
     summary: >-
-      Vendored tq-threads (MIT), pinned to post-v0.2.0 review-fix commit
-      73aa7c0a1ed741bd09dc6747505f6a85ad1421ae. A clean-room printable
-      screw-thread library for ISO metric and Unified threads. Use for threaded
-      rods, tapped holes, bolts, nuts, washers, countersunk screws,
-      clearance/counterbore/countersink holes, standoffs, couplers, and coarse
-      bottle/wood-style threads.
+      Vendored tq-threads v0.4.0 (MIT), pinned to commit
+      cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00. A clean-room printable
+      screw-thread library for ISO metric and Unified threads, ISO 965-1 fit
+      offsets, printable hardware helpers, threaded rods, tapped holes, bolts,
+      nuts, washers, countersunk screws, clearance/counterbore/countersink
+      holes, standoffs, couplers, generic bottle/wood-style threads, and
+      generic auger-style flights.
     signatures:
-      - "tq_thread_preset(name, length, internal=false, clearance=0.4)"
-      - "tq_thread(d, pitch, length, internal=false, starts=1, hand=\"right\", clearance=0.4)"
-      - "tq_thread_tpi(d, tpi, length, internal=false, clearance=0.4)"
+      - "tq_thread_preset(name, length, internal=false, starts=1, hand=\"right\", clearance=0.4)"
+      - "tq_thread(d, pitch, length, internal=false, starts=1, hand=\"right\", clearance=0.4, fit=undef)"
+      - "tq_thread_tpi(d, tpi, length, internal=false, starts=1, hand=\"right\", clearance=0.4)"
+      - "tq_preset(name)"
+      - "tq_preset_count()"
       - "tq_threaded_hole(d, pitch, depth, through=true)"
       - "tq_thread_cutter(d, pitch, length, through=true)"
       - "tq_bolt(d, pitch, length, head=\"socket\", shank=0)"
       - "tq_countersunk_bolt(d, pitch, length, shank=0)"
+      - "tq_wood_screw(d, length, pitch=undef, taper=undef, point=\"gimlet\")"
       - "tq_nut(d, pitch, clearance=0.4)"
       - "tq_washer(size)"
       - "tq_clearance_hole(size, depth, fit=\"medium\")"
@@ -245,3 +249,6 @@ modules:
       - "tq_countersunk_clearance_hole(size, depth, angle=90)"
       - "tq_rod_coupler(d, pitch, length)"
       - "tq_bottle_thread(d, pitch, length, internal=false)"
+      - "tq_auger(d, length, pitch=undef, flight=undef)"
+      - "tq_tap(d, pitch, depth)"
+      - "tq_drill(size, depth, fit=\"medium\")"

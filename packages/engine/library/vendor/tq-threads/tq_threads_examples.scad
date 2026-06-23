@@ -3,19 +3,25 @@
 // tq_threads_examples.scad  --  worked examples for every major feature plus
 // realistic printable parts.
 //
-// Pick what to show WITHOUT editing this file:
-//   command line:  openscad -D 'SHOW="bolt"' -o bolt.stl tq_threads_examples.scad
-//   wrapper file:  SHOW="bolt"; include <tq_threads_examples.scad>
-// SHOW is read only if the caller defined it; this file never assigns it, so a
-// wrapper's value (or a -D value) survives and "all" is the default.
-//
-// Recognised ids are listed in the dispatch at the bottom.
+// Pick what to show WITHOUT editing this file. Three ways, most robust first:
+//   1. wrapper .scad (NO -D, works in every shell):   openscad -o bolt.stl examples/bolt.scad
+//   2. numeric index (shell-safe, no quotes anywhere): openscad -D PART=4 -o bolt.stl tq_threads_examples.scad
+//   3. string id (handy, but PowerShell needs care):   openscad -D SHOW=\"bolt\" -o bolt.stl tq_threads_examples.scad
+// The numeric PART index maps to TQ_EX_IDS below. PART defaults to -1 (use SHOW
+// / "all"); SHOW is never assigned here so a wrapper's SHOW survives an include.
 // ----------------------------------------------------------------------------
 
 include <tq_threads.scad>
 
 $fn = 64;
-_show = is_undef(SHOW) ? "all" : SHOW;
+PART = -1;                          // shell-safe numeric selector (-D PART=n)
+TQ_EX_IDS = ["all","features","parts","bolt","hexbolt","nut","csk_bolt","washer",
+             "wood","coupler","standoff","adapter","knob","cap","neck","insert",
+             "csk_plate","counterbore","debug","auger","phillips","ph_tip",
+             "tapered","angle","relief","tap"];
+_show = (is_num(PART) && PART >= 0)
+            ? (PART < len(TQ_EX_IDS) ? TQ_EX_IDS[PART] : "BADPART")
+            : (is_undef(SHOW) ? "all" : SHOW);
 
 // ============================================================================
 //  FEATURE GALLERY

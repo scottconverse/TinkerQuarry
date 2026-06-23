@@ -43,7 +43,7 @@
 
 // Library version (filenames are fixed by the `include` API; version lives
 // here and in the git tag / CHANGELOG / GitHub release).
-TQ_THREADS_VERSION = "0.3.0";
+TQ_THREADS_VERSION = "0.4.0";
 
 // sqrt(3)/2 : height of a sharp 60-degree V per unit pitch (H = 0.86603 * P)
 _TQ_H = 0.86602540378;
@@ -149,6 +149,29 @@ module _tq_sector(ang, r, seg) {
     polygon(pts);
 }
 
+// ----------------------------------------------------------------------------
+//  ISO 965-1 tolerance POSITION (fundamental deviation / allowance)
+//  These are the standard ISO 965-1 formulae for the fundamental deviation in
+//  micrometres (P in mm).  This models the tolerance *position* (allowance)
+//  only -- NOT the tolerance grade (band width); tq-threads renders a single
+//  nominal surface, so it is NOT metrology-grade.  See REFERENCES.md / docs.
+//    external positions e,f,g,h ; internal positions G,H
+//  Returns the DIAMETRAL deviation in mm (negative shrinks, positive grows),
+//  or undef for an unknown position letter.
+function _tq_fit_dev_mm(letter, P) =
+      letter=="e" ? -(50 + 11*P)/1000
+    : letter=="f" ? -(30 + 11*P)/1000
+    : letter=="g" ? -(15 + 11*P)/1000
+    : letter=="h" ?  0
+    : letter=="G" ? +(15 + 11*P)/1000
+    : letter=="H" ?  0
+    : undef;
+// position letter from a class string: last char ("6g"->"g", "6H"->"H", "g"->"g")
+function _tq_fit_letter(cls) = cls[len(cls)-1];
+function _tq_fit_is_external(letter) =
+    letter=="e" || letter=="f" || letter=="g" || letter=="h";
+function _tq_fit_is_internal(letter) = letter=="G" || letter=="H";
+
 // ============================================================================
 //  PUBLIC :  tq_thread()  --  the one module everything else is built on
 // ============================================================================
@@ -157,9 +180,11 @@ module tq_thread(d, pitch, length,
                  starts         = 1,
                  hand           = "right",
                  clearance      = 0.4,
+                 fit            = undef,
                  profile        = "flat",
                  angle          = 60,
                  tooth_height   = undef,
+                 minor_d        = undef,
                  crest_flat     = undef,
                  root_flat      = undef,
                  round          = 1,
@@ -199,13 +224,24 @@ module tq_thread(d, pitch, length,
            "tq_thread: tooth_height must be > 0 (or undef to derive from angle)");
     assert(is_num(taper) && taper >= 0,
            str("tq_thread: taper (total dia reduction over length) must be >= 0, got ", taper));
+    assert(is_undef(minor_d) || (is_num(minor_d) && minor_d > 0 && minor_d < d),
+           str("tq_thread: minor_d must be in (0, d=", d, "), got ", minor_d));
+    // ISO 965 fit position (optional). Case must match internal/external.
+    _fl  = is_undef(fit) ? undef : _tq_fit_letter(fit);
+    assert(is_undef(fit) || (internal ? _tq_fit_is_internal(_fl) : _tq_fit_is_external(_fl)),
+           str("tq_thread: fit '", fit, "' must be an ISO 965 position letter matching the ",
+               internal ? "internal thread (G or H, e.g. \"6H\")" : "external thread (e/f/g/h, e.g. \"6g\")"));
 
     P   = pitch;
     cf  = is_undef(crest_flat) ? P/8 : crest_flat;
     rf  = is_undef(root_flat)  ? P/4 : root_flat;
-    // radial flank height: derived from the flank angle, OR set explicitly.
-    h   = is_undef(tooth_height) ? (P - cf - rf) / (2 * tan(angle/2)) : tooth_height;
-    off = (internal ? +1 : -1) * clearance / 2;       // tolerance shift (radial)
+    // radial flank height: explicit, or from minor_d, or derived from the angle.
+    h   = !is_undef(tooth_height) ? tooth_height
+        : !is_undef(minor_d)      ? (d - minor_d) / 2
+        :                           (P - cf - rf) / (2 * tan(angle/2));
+    // tolerance shift (radial): FDM clearance + optional ISO 965 allowance.
+    fit_dev = is_undef(fit) ? 0 : _tq_fit_dev_mm(_fl, P);   // diametral (mm)
+    off  = (internal ? +1 : -1) * clearance / 2 + fit_dev / 2;
     Rmaj = d/2 + off;
     Rmin = Rmaj - h;
     // worst-case core radius: rounded roots dip ~0.5*rr below Rmin, and a taper
@@ -250,25 +286,55 @@ module tq_thread(d, pitch, length,
 //  Metric coarse per ISO 261/262; common metric fine; Unified per ASME B1.1.
 // ============================================================================
 TQ_PRESETS = [
-    // -- metric coarse (ISO 261 general plan / ISO 262 selected sizes) -----
-    ["M2",  2.0, 0.40], ["M2.5", 2.5, 0.45], ["M3",  3.0, 0.50],
-    ["M3.5",3.5, 0.60], ["M4",   4.0, 0.70], ["M5",  5.0, 0.80],
-    ["M6",  6.0, 1.00], ["M7",   7.0, 1.00], ["M8",  8.0, 1.25],
-    ["M10",10.0, 1.50], ["M12", 12.0, 1.75], ["M14",14.0, 2.00],
-    ["M16",16.0, 2.00], ["M18", 18.0, 2.50], ["M20",20.0, 2.50],
-    ["M22",22.0, 2.50], ["M24", 24.0, 3.00], ["M27",27.0, 3.00],
-    ["M30",30.0, 3.50], ["M33", 33.0, 3.50], ["M36",36.0, 4.00],
-    ["M39",39.0, 4.00], ["M42", 42.0, 4.50], ["M45",45.0, 4.50],
-    ["M48",48.0, 5.00], ["M52", 52.0, 5.00], ["M56",56.0, 5.50],
-    ["M60",60.0, 5.50], ["M64", 64.0, 6.00],
-    // -- common metric fine ----------------------------------------------
-    ["M8x1",   8.0, 1.00], ["M10x1.25",10.0,1.25], ["M10x1",10.0,1.00],
-    ["M12x1.5",12.0,1.50], ["M12x1.25",12.0,1.25], ["M16x1.5",16.0,1.50],
-    ["M20x1.5",20.0,1.50], ["M24x2",   24.0,2.00],
-    // -- Unified (major = inch*25.4 ; pitch = 25.4/TPI) ------------------
-    ["1/4-20", tq_in(1/4), 25.4/20], ["1/4-28", tq_in(1/4), 25.4/28],
-    ["3/8-16", tq_in(3/8), 25.4/16], ["3/8-24", tq_in(3/8), 25.4/24],
-    ["1/2-13", tq_in(1/2), 25.4/13], ["1/2-20", tq_in(1/2), 25.4/20],
+    // == metric COARSE (ISO 261 general plan; nominal major + coarse pitch) ==
+    ["M1.6",1.6, 0.35], ["M2",  2.0, 0.40], ["M2.5", 2.5, 0.45],
+    ["M3",  3.0, 0.50], ["M3.5",3.5, 0.60], ["M4",   4.0, 0.70],
+    ["M5",  5.0, 0.80], ["M6",  6.0, 1.00], ["M7",   7.0, 1.00],
+    ["M8",  8.0, 1.25], ["M10",10.0, 1.50], ["M12", 12.0, 1.75],
+    ["M14",14.0, 2.00], ["M16",16.0, 2.00], ["M18", 18.0, 2.50],
+    ["M20",20.0, 2.50], ["M22",22.0, 2.50], ["M24", 24.0, 3.00],
+    ["M27",27.0, 3.00], ["M30",30.0, 3.50], ["M33", 33.0, 3.50],
+    ["M36",36.0, 4.00], ["M39",39.0, 4.00], ["M42", 42.0, 4.50],
+    ["M45",45.0, 4.50], ["M48",48.0, 5.00], ["M52", 52.0, 5.00],
+    ["M56",56.0, 5.50], ["M60",60.0, 5.50], ["M64", 64.0, 6.00],
+    // == metric FINE (ISO 261 fine-pitch series) ===========================
+    ["M3x0.35",3.0,0.35], ["M4x0.5",4.0,0.50], ["M5x0.5",5.0,0.50],
+    ["M6x0.75",6.0,0.75], ["M8x1",8.0,1.00], ["M8x0.75",8.0,0.75],
+    ["M10x1.25",10.0,1.25], ["M10x1",10.0,1.00], ["M10x0.75",10.0,0.75],
+    ["M12x1.5",12.0,1.50], ["M12x1.25",12.0,1.25], ["M12x1",12.0,1.00],
+    ["M14x1.5",14.0,1.50], ["M16x1.5",16.0,1.50], ["M16x1",16.0,1.00],
+    ["M18x2",18.0,2.00], ["M18x1.5",18.0,1.50], ["M20x2",20.0,2.00],
+    ["M20x1.5",20.0,1.50], ["M20x1",20.0,1.00], ["M22x1.5",22.0,1.50],
+    ["M24x2",24.0,2.00], ["M24x1.5",24.0,1.50], ["M27x2",27.0,2.00],
+    ["M30x3",30.0,3.00], ["M30x2",30.0,2.00], ["M30x1.5",30.0,1.50],
+    ["M33x2",33.0,2.00], ["M36x3",36.0,3.00], ["M36x2",36.0,2.00],
+    ["M42x3",42.0,3.00], ["M48x3",48.0,3.00],
+    // == Unified NUMBERED (ASME B1.1; major = 0.060+0.013*N in) ============
+    // UNC
+    ["#1-64",tq_in(0.073),25.4/64], ["#2-56",tq_in(0.086),25.4/56],
+    ["#3-48",tq_in(0.099),25.4/48], ["#4-40",tq_in(0.112),25.4/40],
+    ["#5-40",tq_in(0.125),25.4/40], ["#6-32",tq_in(0.138),25.4/32],
+    ["#8-32",tq_in(0.164),25.4/32], ["#10-24",tq_in(0.190),25.4/24],
+    ["#12-24",tq_in(0.216),25.4/24],
+    // UNF
+    ["#0-80",tq_in(0.060),25.4/80], ["#1-72",tq_in(0.073),25.4/72],
+    ["#2-64",tq_in(0.086),25.4/64], ["#3-56",tq_in(0.099),25.4/56],
+    ["#4-48",tq_in(0.112),25.4/48], ["#5-44",tq_in(0.125),25.4/44],
+    ["#6-40",tq_in(0.138),25.4/40], ["#8-36",tq_in(0.164),25.4/36],
+    ["#10-32",tq_in(0.190),25.4/32], ["#12-28",tq_in(0.216),25.4/28],
+    // == Unified FRACTIONAL (ASME B1.1; major = fraction*25.4) =============
+    // UNC
+    ["1/4-20",tq_in(1/4),25.4/20], ["5/16-18",tq_in(5/16),25.4/18],
+    ["3/8-16",tq_in(3/8),25.4/16], ["7/16-14",tq_in(7/16),25.4/14],
+    ["1/2-13",tq_in(1/2),25.4/13], ["9/16-12",tq_in(9/16),25.4/12],
+    ["5/8-11",tq_in(5/8),25.4/11], ["3/4-10",tq_in(3/4),25.4/10],
+    ["7/8-9",tq_in(7/8),25.4/9],   ["1-8",tq_in(1),25.4/8],
+    // UNF
+    ["1/4-28",tq_in(1/4),25.4/28], ["5/16-24",tq_in(5/16),25.4/24],
+    ["3/8-24",tq_in(3/8),25.4/24], ["7/16-20",tq_in(7/16),25.4/20],
+    ["1/2-20",tq_in(1/2),25.4/20], ["9/16-18",tq_in(9/16),25.4/18],
+    ["5/8-18",tq_in(5/8),25.4/18], ["3/4-16",tq_in(3/4),25.4/16],
+    ["7/8-14",tq_in(7/8),25.4/14], ["1-12",tq_in(1),25.4/12],
 ];
 
 // linear search; returns [major, pitch] or undef
@@ -279,6 +345,20 @@ function _tq_find(name, i = 0) =
 
 // Public: [major_diameter_mm, pitch_mm] for a preset name, or undef.
 function tq_preset(name) = _tq_find(name);
+
+// Number of named presets (for tests/introspection).
+function tq_preset_count() = len(TQ_PRESETS);
+
+// Table self-check: returns true iff EVERY preset row is well-formed (string
+// name, positive major & pitch) AND resolves through tq_preset() to its own
+// values.  Use in a parse/render-time assert: assert(tq_presets_selfcheck()).
+function tq_presets_selfcheck(i = 0) =
+      i >= len(TQ_PRESETS) ? true
+    : ( is_string(TQ_PRESETS[i][0])
+        && is_num(TQ_PRESETS[i][1]) && TQ_PRESETS[i][1] > 0
+        && is_num(TQ_PRESETS[i][2]) && TQ_PRESETS[i][2] > 0
+        && tq_preset(TQ_PRESETS[i][0]) == [TQ_PRESETS[i][1], TQ_PRESETS[i][2]] )
+      ? tq_presets_selfcheck(i + 1) : false;
 
 // Thread by preset name.  Extra args forwarded to tq_thread().
 module tq_thread_preset(name, length, internal=false, starts=1, hand="right",
@@ -572,35 +652,59 @@ module tq_countersunk_bolt(d, pitch, length, head_d=undef, head_angle=90,
     }
 }
 
-// Coarse, sharp-profile "wood / self-tapping" screw with a gimlet point.
-// Generic printable screw, NOT a specific wood-screw standard (see README).
+// GENERIC printable "wood / self-tapping" screw -- a coarse, sharp-profile
+// thread with a configurable point.  This is wood-screw-LIKE geometry for FDM,
+// NOT a specific wood-screw standard (no ANSI/DIN dimensions are claimed).
+//   pitch        coarse pitch (default 0.6*d)        head   "countersunk"|"pan"|"none"
+//   point        "gimlet" (sharp) | "cone" | "flat"  (bool true=gimlet, false=flat)
+//   taper        diameter reduction over the threaded length (toward the tip)
+//   core_d       core/root diameter (sets thread depth)   thread_depth  radial depth (overrides core_d)
+//   shank        smooth unthreaded shank length under the head (dia ~ core)
 module tq_wood_screw(d, length, pitch=undef, head="countersunk", head_d=undef,
-                     point=true, hand="right", clearance=0.0, fn=undef) {
-    p   = is_undef(pitch)  ? d * 0.6 : pitch;    // coarse pitch ~ 0.6*d
-    hd  = is_undef(head_d) ? d * 2.0 : head_d;
-    tip = point ? d * 0.9 : 0;                   // point length
+                     point="gimlet", taper=0, core_d=undef, thread_depth=undef,
+                     shank=0, hand="right", clearance=0.0, fn=undef) {
+    assert(is_num(d) && d > 0,           str("tq_wood_screw: d must be > 0, got ", d));
+    assert(is_num(length) && length > 0, "tq_wood_screw: length must be > 0");
+    assert(is_num(shank) && shank >= 0 && shank < length,
+           str("tq_wood_screw: shank must be in [0, length), got ", shank));
+    assert(is_num(taper) && taper >= 0, "tq_wood_screw: taper must be >= 0");
+    assert(is_undef(core_d) || (is_num(core_d) && core_d > 0 && core_d < d),
+           str("tq_wood_screw: core_d must be in (0, d), got ", core_d));
+    assert(is_undef(thread_depth) || (is_num(thread_depth) && thread_depth > 0),
+           "tq_wood_screw: thread_depth must be > 0");
+    pt = is_bool(point) ? (point ? "gimlet" : "flat") : point;
+    assert(pt=="gimlet" || pt=="cone" || pt=="flat",
+           str("tq_wood_screw: point must be gimlet|cone|flat (or bool), got ", point));
+    p    = is_undef(pitch)  ? d * 0.6 : pitch;
+    hd   = is_undef(head_d) ? d * 2.0 : head_d;
+    tipL = pt=="flat" ? 0 : (pt=="cone" ? d*0.6 : d*0.9);
+    tipD = pt=="cone" ? d*0.4 : 0.2;
+    md   = is_undef(thread_depth) ? core_d : undef;        // don't pass both
+    shd  = is_undef(core_d) ? d*0.72 : core_d;             // reduced smooth shank
+    tl   = length - shank;                                  // threaded length
     union() {
-        // head
         if (head == "countersunk") {
             hk = (hd/2) / tan(45);
             translate([0,0,-hk]) cylinder(h=hk + TQ_EPS, d1=hd, d2=d, $fn=_tq_aseg(hd, fn));
         } else if (head == "pan") {
             translate([0,0,-d*0.5]) cylinder(h=d*0.5 + TQ_EPS, d=hd, $fn=_tq_aseg(hd, fn));
         }
-        // coarse sharp thread, carved to a point at the far end by an envelope
-        intersection() {
-            translate([0,0,-TQ_EPS])
-                tq_thread(d=d, pitch=p, length=length + TQ_EPS, hand=hand,
-                          clearance=clearance, profile="sharp",
-                          lead_in=false, lead_out=false, fn=fn);
-            union() {
+        if (shank > 0)
+            translate([0,0,-TQ_EPS]) cylinder(h=shank + TQ_EPS, d=shd, $fn=_tq_aseg(d, fn));
+        translate([0,0,shank])
+            intersection() {
                 translate([0,0,-TQ_EPS])
-                    cylinder(h=length - tip + TQ_EPS, d=d + 1, $fn=_tq_aseg(d, fn));
-                if (tip > 0)
-                    translate([0,0,length - tip])
-                        cylinder(h=tip, d1=d + 1, d2=0.2, $fn=_tq_aseg(d, fn));
+                    tq_thread(d=d, pitch=p, length=tl + TQ_EPS, hand=hand,
+                              clearance=clearance, profile="sharp",
+                              tooth_height=thread_depth, minor_d=md, taper=taper,
+                              lead_in=false, lead_out=false, fn=fn);
+                union() {
+                    translate([0,0,-TQ_EPS]) cylinder(h=tl - tipL + TQ_EPS, d=d + 1, $fn=_tq_aseg(d, fn));
+                    if (tipL > 0)
+                        translate([0,0,tl - tipL])
+                            cylinder(h=tipL, d1=d + 1, d2=tipD, $fn=_tq_aseg(d, fn));
+                }
             }
-        }
     }
 }
 
@@ -688,17 +792,28 @@ module tq_rod_coupler(d, pitch, length, od=undef, hand="right", clearance=0.4,
     }
 }
 
-// Generic coarse, rounded "bottle / jar" thread (external or internal).  A
-// generic printable rounded coarse thread, NOT a specific GPI/SP-finish.
+// GENERIC coarse "bottle / jar / closure" thread (external or internal).  A
+// generic printable rounded coarse thread for caps and necks -- it is NOT a
+// specific SPI/GPI or ISO closure finish, and claims no compatibility with one
+// (use exact, sourced values via tq_thread if you have a real finish drawing).
+//   d            neck / finish diameter        starts   multi-start (common on caps)
+//   depth_frac   <1 widens flats -> shallower tooth   tooth_height  explicit radial depth
+//   angle        flank angle (flat/sharp profiles)    profile  "rounded"(default)|"flat"|"sharp"
+//   lead_in      taper both ends (default: external yes / internal no)
+//   internal     true = cap (cut as a thread), false = neck/spout
 module tq_bottle_thread(d, pitch, length, starts=1, hand="right",
-                        clearance=0.4, depth_frac=0.6, internal=false,
-                        fn=undef, center=false) {
+                        clearance=0.4, depth_frac=0.6, tooth_height=undef,
+                        angle=60, profile="rounded", lead_in=undef,
+                        internal=false, fn=undef, center=false) {
     cf = pitch * 0.18 / depth_frac;
     rf = pitch * 0.30 / depth_frac;
+    li = is_undef(lead_in) ? !internal : lead_in;
+    uf = is_undef(tooth_height);                       // use flats to set depth?
     tq_thread(d=d, pitch=pitch, length=length, internal=internal, starts=starts,
-              hand=hand, clearance=clearance, profile="rounded", crest_flat=cf,
-              root_flat=rf, lead_in=!internal, lead_out=!internal,
-              fn=fn, center=center);
+              hand=hand, clearance=clearance, profile=profile,
+              crest_flat = uf ? cf : undef, root_flat = uf ? rf : undef,
+              tooth_height=tooth_height, angle=angle,
+              lead_in=li, lead_out=li, fn=fn, center=center);
 }
 
 // ============================================================================

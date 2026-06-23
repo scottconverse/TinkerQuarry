@@ -25,6 +25,16 @@ def test_approved_vendor_libraries_are_present_with_attribution():
         assert name in attribution
 
 
+def test_tq_threads_vendor_pin_and_provenance_are_current():
+    attribution = (VENDOR_DIR / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    manifest = (PROJECT_ROOT / "library" / "manifest.yaml").read_text(encoding="utf-8")
+    assert "cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00" in attribution
+    assert "v0.4.0" in attribution
+    assert "cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00" in manifest
+    assert (VENDOR_DIR / "tq-threads" / "PROVENANCE.md").exists()
+    assert (VENDOR_DIR / "tq-threads" / "ACCEPTANCE-REPORT-v0.4.0.md").exists()
+
+
 def test_gpl3_threads_library_is_not_vendored():
     assert not (VENDOR_DIR / "gridfinity-rebuilt-openscad" / "src" / "external" / "threads-scad").exists()
     attribution = (VENDOR_DIR / "ATTRIBUTION.md").read_text(encoding="utf-8")

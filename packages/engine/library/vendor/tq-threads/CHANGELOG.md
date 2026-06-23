@@ -4,6 +4,46 @@
 All notable changes to tq-threads. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions are git tags.
 
+## [0.4.0] — 2026-06-22
+
+Stronger standards fidelity + honesty, robust Windows workflow, expanded proof.
+
+### Added
+- **ISO 965-1 fit classes** — optional `fit=` on `tq_thread` applies the
+  fundamental deviation (tolerance *position*/allowance) from the exact ISO 965-1
+  §13.1 formulae (external e/f/g/h, internal G/H), separate from the FDM
+  `clearance`. Verified: 6g M8 → Ø7.971, 6h → Ø8.000.
+- **Precision overrides** — `minor_d` (set core diameter / thread depth), in
+  addition to v0.3's `angle`, `tooth_height`, `crest_flat`, `root_flat`, `taper`.
+- **Preset table expansion to 101** (from 43): full ISO 261 fine-pitch series and
+  the complete Unified numbered (#0–#12) + fractional (¼–1″) UNC/UNF sets, plus
+  `tq_preset_count()` and `tq_presets_selfcheck()` introspection/test functions.
+- **Robust example/test selection** — zero-`-D` wrapper `.scad` files in
+  `examples/`, plus a shell-safe numeric `-D PART=n` selector. The fragile
+  `-D SHOW="..."` string is now a documented fallback only.
+- **`tq_threads_selftest.scad`** — parse/render-time assertions (preset table,
+  count floor, ISO 965 formulae).
+- **`scripts/render_proof.ps1`** — PASS/FAIL summary, OpenSCAD version + timings,
+  13 negative/assert tests, exits nonzero on failure (PS 5.1 + pwsh compatible).
+- **`PROVENANCE.md`** and a fidelity-classification table in `REFERENCES.md`
+  (EXACT / DERIVED / FDM / APPROX) for every table and formula.
+- **`ACCEPTANCE-REPORT-v0.4.0.md`**.
+
+### Changed
+- **`tq_wood_screw`** gained `taper`, `core_d`, `thread_depth`, `point`
+  (`gimlet`|`cone`|`flat`, accepts the old bool), and `shank`; still explicitly a
+  generic printable wood-screw-LIKE form (no standard claimed).
+- **`tq_bottle_thread`** gained `angle`, `tooth_height`, `profile`, and `lead_in`
+  (with `starts`/`internal` from before); still explicitly generic (not SPI/GPI).
+- `scripts/render-tests.ps1` is now a deprecation shim → `render_proof.ps1`.
+- Docs distinguish **printable/FDM defaults** vs **nominal standards** vs
+  **tolerance/fit** throughout; metrology limits stated plainly.
+
+### Compatibility
+- All v0.2/v0.3 public APIs and `include <tq_threads.scad>;` usage preserved;
+  `tq_wood_screw(..., point=true/false)` still works; default `angle=60` keeps
+  v0.2/v0.3 geometry bit-for-bit.
+
 ## [0.3.0] — 2026-06-22
 
 Stronger-than-baseline release: adds the remaining helper categories users

@@ -75,10 +75,12 @@ default (or an oversize internal **cutter** with `internal=true`).
 | `internal` | `false` | `true` → oversize negative cutter for nuts/holes. |
 | `starts` | `1` | Number of thread starts (integer ≥ 1). `lead = starts·pitch`. |
 | `hand` | `"right"` | `"right"` or `"left"`. |
-| `clearance` | `0.4` | **Total diametral** fit gap (mm); external shrinks `clearance/2`, internal grows `clearance/2`. |
+| `clearance` | `0.4` | **Total diametral** FDM fit gap (mm); external shrinks `clearance/2`, internal grows `clearance/2`. |
+| `fit` | `undef` | Optional **ISO 965** tolerance *position* (allowance): external `"e"/"f"/"g"/"h"` or internal `"G"/"H"` (also accepts `"6g"`,`"6H"`,…; the grade digit is ignored — band width is not modelled). Applied on top of `clearance`. Case must match `internal`. |
 | `profile` | `"flat"` | `"flat"` (ISO/UN basic), `"sharp"` (full V), `"rounded"` (filleted root/crest). |
 | `angle` | `60` | Included flank angle (degrees). 60 = ISO/UN; e.g. 55 ≈ Whitworth. Thread height derives from it. |
 | `tooth_height` | `undef` | Explicit radial flight depth (mm). Overrides the angle-derived height. |
+| `minor_d` | `undef` | Set the core/minor diameter directly (mm, in `(0,d)`); thread depth becomes `(d − minor_d)/2`. |
 | `taper` | `0` | Total **diameter** reduction over the length (mm), applied linearly (base full, top reduced) — NPT-ish tapers / auger tips. |
 | `crest_flat` | `pitch/8` | Axial crest-flat width (mm) for `flat`. |
 | `root_flat` | `pitch/4` | Axial root-flat width (mm) for `flat`. |
