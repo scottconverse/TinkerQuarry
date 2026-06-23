@@ -22,6 +22,8 @@ VCL_MODEL_RECALL = "qwen2.5vl:7b"
 VCL_MODEL_PRECISION = "minicpm-v:8b"
 DEFAULT_VCL_MODEL = VCL_MODEL_RECALL
 DEFAULT_VCL_MODELS = (VCL_MODEL_HIGH_QUALITY, VCL_MODEL_RECALL, VCL_MODEL_PRECISION)
+MAX_VCL_MODELS = len(DEFAULT_VCL_MODELS)
+ALLOWED_VCL_MODELS = frozenset(DEFAULT_VCL_MODELS)
 
 
 @dataclass(frozen=True)
@@ -170,7 +172,7 @@ def unavailable_review(reason: str, *, model: str = DEFAULT_VCL_MODEL) -> Visual
 
 
 def normalize_models(value: Any, *, fallback: tuple[str, ...] = DEFAULT_VCL_MODELS) -> list[str]:
-    """Return a de-duplicated model list from API input."""
+    """Return a bounded, configured VCL model list from API input."""
     raw: list[Any]
     if value is None:
         raw = list(fallback)
@@ -185,8 +187,10 @@ def normalize_models(value: Any, *, fallback: tuple[str, ...] = DEFAULT_VCL_MODE
         if not isinstance(item, str):
             continue
         model = item.strip()
-        if model and model not in models:
+        if model in ALLOWED_VCL_MODELS and model not in models:
             models.append(model)
+        if len(models) >= MAX_VCL_MODELS:
+            break
     return models or list(fallback)
 
 

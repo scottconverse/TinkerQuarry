@@ -23,6 +23,7 @@ def _rec(object_type: str, score: int, **kw) -> PrintRecord:
         max_dim_mm=kw.get("max_dim_mm", 80.0),
         created_at=kw.get("created_at"),
         print_outcome=kw.get("print_outcome"),
+        print_outcome_simulated=kw.get("print_outcome_simulated"),
     )
 
 
@@ -102,7 +103,11 @@ def test_compare_phrase_at_two_same_type_still_falls_back_to_all_parts():
 def test_record_and_load_round_trip(tmp_path):
     store = HistoryStore(tmp_path / "h.json")
     store.record(_rec(
-        "box", 88, created_at="2026-06-02T00:00:00+00:00", print_outcome="clean"
+        "box",
+        88,
+        created_at="2026-06-02T00:00:00+00:00",
+        print_outcome="clean",
+        print_outcome_simulated=False,
     ))
     store.record(_rec("bracket", 72))
     loaded = store.load()
@@ -110,7 +115,9 @@ def test_record_and_load_round_trip(tmp_path):
     assert loaded[0].score == 88
     assert loaded[0].created_at == "2026-06-02T00:00:00+00:00"
     assert loaded[0].print_outcome == "clean"
+    assert loaded[0].print_outcome_simulated is False
     assert loaded[1].print_outcome is None
+    assert loaded[1].print_outcome_simulated is None
 
 
 def test_load_is_empty_when_the_file_is_absent():

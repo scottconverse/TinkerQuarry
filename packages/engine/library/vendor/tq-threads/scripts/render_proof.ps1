@@ -42,7 +42,7 @@ function Resolve-OpenSCAD([string]$hint) {
 }
 
 $oscad = Resolve-OpenSCAD $OpenSCAD
-$outAbs = Join-Path $root $OutDir
+$outAbs = if ([System.IO.Path]::IsPathRooted($OutDir)) { $OutDir } else { Join-Path $root $OutDir }
 New-Item -ItemType Directory -Force -Path $outAbs | Out-Null
 # OpenSCAD prints --version to stderr; capture via redirect (no 2>&1 -> avoids
 # PowerShell 5.1 NativeCommandError noise).
@@ -60,11 +60,12 @@ Write-Host "============================================================"
 $pass = 0; $fail = 0; $rows = @()
 
 # ---- run one render, return $true on success -------------------------------
-function Invoke-Render([string]$name, [string]$scad, [string]$desc) {
+function Invoke-Render([string]$name, [string]$scad, [string]$desc, [string[]]$ExtraArgs = @()) {
     $stl = Join-Path $outAbs "$name.stl"
     $err = Join-Path $outAbs "$name.stderr.txt"
     $sw  = [System.Diagnostics.Stopwatch]::StartNew()
-    $p = Start-Process -FilePath $script:oscad -ArgumentList @("-o", $stl, $scad) `
+    $args = @("-o", $stl) + $ExtraArgs + @($scad)
+    $p = Start-Process -FilePath $script:oscad -ArgumentList $args `
                        -NoNewWindow -Wait -PassThru -RedirectStandardError $err
     $sw.Stop()
     $secs = [math]::Round($sw.Elapsed.TotalSeconds, 1)
@@ -82,14 +83,15 @@ function Invoke-Negative([string]$name, [string]$snippet) {
     $tmp = Join-Path $env:TEMP "tqneg_$name.scad"
     $stl = Join-Path $env:TEMP "tqneg_$name.stl"
     $err = Join-Path $env:TEMP "tqneg_$name.txt"
-    Set-Content -Path $tmp -Value ("include <tq_threads.scad>`n" + $snippet) -Encoding utf8
+    [System.IO.File]::WriteAllText($tmp, "include <tq_threads.scad>`n$snippet", [System.Text.UTF8Encoding]::new($false))
     $oldp = $env:OPENSCADPATH; $env:OPENSCADPATH = $root
     $p = Start-Process -FilePath $script:oscad -ArgumentList @("-o", $stl, $tmp) `
                        -NoNewWindow -Wait -PassThru -RedirectStandardError $err
     $env:OPENSCADPATH = $oldp
-    $ok = ($p.ExitCode -ne 0)   # PASS when the bad input is REJECTED
+    $stderr = if (Test-Path $err) { Get-Content $err -Raw } else { "" }
+    $ok = ($p.ExitCode -ne 0) -and ($stderr -match "assert")   # PASS only when an assert rejects it
     $script:rows += [pscustomobject]@{ Test=$name; Kind="negative"; Result=$(if($ok){"PASS"}else{"FAIL"}); Sec="-"; Facets="-"; Note="must reject" }
-    if ($ok) { $script:pass++ } else { $script:fail++ }
+    if ($ok) { $script:pass++ } else { $script:fail++; if ($stderr) { Write-Host "  [$name] stderr:`n$stderr" -ForegroundColor DarkYellow } }
     Remove-Item $tmp,$stl,$err -ErrorAction SilentlyContinue
     return $ok
 }
@@ -97,7 +99,10 @@ function Invoke-Negative([string]$name, [string]$snippet) {
 # ============================ POSITIVE RENDERS ==============================
 Write-Host "`n-- standards self-test + suites --"
 Invoke-Render "selftest"   (Join-Path $root "tq_threads_selftest.scad")    "preset table + ISO 965 asserts" | Out-Null
-Invoke-Render "fast"       (Join-Path $root "tq_threads_fast_tests.scad")  "fast smoke grid (27 cells)"     | Out-Null
+$fastScad = Join-Path $root "tq_threads_fast_tests.scad"
+foreach ($i in 0..26) {
+    Invoke-Render ("fast_{0:00}" -f $i) $fastScad ("fast smoke cell {0}" -f $i) @("-D", "TQ_FAST_PART=$i") | Out-Null
+}
 if ($Heavy) { Invoke-Render "heavy" (Join-Path $root "tq_threads_heavy_tests.scad") "full visual grid" | Out-Null }
 
 Write-Host "`n-- example wrappers (zero -D, every shell) --"

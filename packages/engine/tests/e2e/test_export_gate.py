@@ -17,12 +17,19 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.browser_serial, pytest.mark.needs_browser, pytest.mark.real_tool]
 
 
+def _choose_sliceable_profile(page: Page) -> None:
+    page.get_by_label("Printer").select_option("bambu_p2s")
+    page.get_by_label("Material").select_option("pla")
+    expect(page.get_by_role("button", name="Slice & prepare file")).to_be_enabled(timeout=30_000)
+
+
 def test_a_gate_passing_part_slices_to_a_downloadable_print_file(design, console_errors: list[str]) -> None:  # noqa: ANN001
     page: Page = design("a 40 mm desk cable clip")
     page.get_by_role("tab", name="Export").click()
 
     # The model download is always offered; slicing produces the print file.
     expect(page.get_by_role("link", name=re.compile(r"Download 3D model"))).to_be_visible()
+    _choose_sliceable_profile(page)
     page.get_by_role("button", name="Slice & prepare file").click()
     expect(page.get_by_role("link", name=re.compile(r"Download print file"))).to_be_visible(
         timeout=60_000

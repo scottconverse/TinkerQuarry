@@ -97,7 +97,7 @@ class Material:
 # planned the prompt set 4/4 where gemma4:e4b managed 1/4 and llama3.1:8b 0/4; the
 # grammar-constrained plan path (llm_provider._complete_plan) keeps small-model output parseable.
 DEFAULT_CHAT_MODEL = "qwen2.5:7b"
-DEFAULT_VISION_MODEL = "qwen2.5vl:3b"
+DEFAULT_VISION_MODEL = "qwen2.5vl:7b"
 
 
 @dataclass(frozen=True)
@@ -384,7 +384,7 @@ class Config:
             max_tokens=int(b.get("max_tokens", 8192)),
             supports_structured_output=bool(b.get("supports_structured_output", False)),
             timeout_s=float(b.get("timeout_s", 1200.0)),
-            vision_model=str(b.get("vision_model", "qwen2.5vl:3b")),
+            vision_model=str(b.get("vision_model", DEFAULT_VISION_MODEL)),
         )
 
     @staticmethod

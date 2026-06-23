@@ -1,5 +1,5 @@
 {
-  "verified_at": "2026-06-22T00:14:22.812496+00:00",
+  "verified_at": "2026-06-23T02:24:12.656879+00:00",
   "catalog_sha256": "cb194831a68ff8b1b184e510d1d69865cbac425bb6fda514404ea700ee763770",
   "slice_proven_printers": [
     "anycubic_kobra2",
@@ -17,8 +17,6 @@
     "creality_k1_max",
     "creality_k1c",
     "creality_k2_plus",
-    "elegoo_neptune4",
-    "elegoo_neptune4_pro",
     "prusa_mini",
     "prusa_mk4",
     "qidi_q1_pro",

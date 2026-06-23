@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GPL‑2.0 compatible](https://img.shields.io/badge/GPL--2.0-compatible-blue.svg)](#license--attribution)
 [![OpenSCAD](https://img.shields.io/badge/OpenSCAD-2021.01%2B-f9d72c.svg)](https://openscad.org)
-[![Version](https://img.shields.io/badge/version-0.4.0-informational.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-informational.svg)](CHANGELOG.md)
 [![CI](https://github.com/scottconverse/tq-threads/actions/workflows/ci.yml/badge.svg)](https://github.com/scottconverse/tq-threads/actions/workflows/ci.yml)
 
 *Threaded rods, bolts, nuts, tapped holes, countersinks, washers, standoffs, couplers and caps — every thread is a single watertight `polyhedron`, so models stay manifold and export straight to STL.*
@@ -22,7 +22,7 @@
 - **Clean‑room & standards‑based.** Written from public engineering standards only (ISO 68‑1, ISO 261/262, ISO 273, ISO 4032, ISO 4762, ISO 7089, ISO 10642, ASME B1.1). No third‑party thread library was copied or consulted — see [REFERENCES.md](REFERENCES.md).
 - **Manifold by construction.** The thread surface is a helical *height‑field* turned into one closed `polyhedron` (no boolean unions to go non‑manifold). It renders cleanly and slices.
 - **Printable‑first.** Fit clearance, internal‑oversize / external‑undersize compensation, lead‑in chamfers, rounded roots, and `$fn/$fa/$fs` resolution are all parameters.
-- **Batteries included.** Presets **M2–M64** + common fine pitches + UNC/UNF, plus bolts (hex/socket/**Phillips**), nuts, washers, countersunk & wood screws, **augers**, clearance/counterbore/countersink holes, standoffs, couplers, child‑difference wrappers (`tq_tap`/`tq_drill`/…), and a debug view. Custom flank **angle**, explicit **tooth_height**, and **taper** round out the profile controls.
+- **Batteries included.** **101 presets** (M1.6–M64 coarse + full ISO 261 fine + UNC/UNF #0–1″), plus bolts (hex/socket/**Phillips**), nuts, washers, countersunk & wood screws, **augers**, clearance/counterbore/countersink holes, standoffs, couplers, child‑difference wrappers (`tq_tap`/`tq_drill`/…), and a debug view. Profile control: custom flank **angle**, **tooth_height**, **minor_d**, **taper**, and optional **ISO 965 `fit=`** allowance.
 - **MIT licensed** → permissive *and* GPL‑2.0‑compatible, so it drops into a GPL‑2.0‑only project (e.g. TinkerQuarry) unchanged.
 
 <div align="center">
@@ -219,6 +219,10 @@ its nut with the **same** `clearance` and they fit.
 
 ## When to use heat‑set inserts
 
+`fit=` is nominal ISO 965 position intent, not an FDM fit knob. For example,
+M8 `6g` shifts diameter by about 0.029 mm, below typical printed clearance and
+layer-line effects; tune `clearance` for real printed fit.
+
 Reach for **brass heat‑set inserts** instead of a printed thread when the hole is small/fine (≤ M3), the joint is assembled/disassembled often, you need high pull‑out/torque, or you're threading across layer lines (side walls). For those, print a smooth tapered pilot (a plain `cylinder()` or `tq_standoff` with a plain bore) sized to the insert spec and melt it in. Reserve `tq_threaded_hole` for printed threads ≥ M4 and coarse/cap threads. Details in [MANUAL.md](MANUAL.md#heat-set-inserts).
 
 ---
@@ -291,7 +295,7 @@ table/formula is classified **EXACT / DERIVED / FDM / APPROX** in
 [REFERENCES.md §0](REFERENCES.md) and the [PROVENANCE ledger](PROVENANCE.md):
 
 - **Exact nominal**: metric coarse/fine Ø+pitch (ISO 261), Unified Ø+TPI (ASME B1.1), listed ISO hardware dims (273/4032/4762/7089/10642).
-- **Derived** (exact formula): the 60° form & `H`, custom-`angle` geometry, rounded fillets, and the optional **ISO 965 `fit=`** allowance (the *position*, e.g. `es=-(15+11·P)` µm for `g`; the tolerance *grade/band* is **not** modelled).
+- **Derived** (exact formula): the 60° form & `H`, custom-`angle` geometry, rounded fillets, and the optional **ISO 965 `fit=`** allowance (the *position*, e.g. `es=-(15+11·P)` µm for `g`; the tolerance *grade/band* is **not** modelled). On M8 `6g`, this is about 0.029 mm diametral shift, so treat it as nominal intent and use `clearance` for FDM fit.
 - **FDM defaults**: `clearance` (0.4 mm) and resolution floors.
 - **Approx / generic** (no standard claimed): Phillips recess, `tq_auger`, `tq_bottle_thread`, `tq_wood_screw`, ratio fallbacks for unlisted sizes.
 
@@ -361,7 +365,7 @@ A GitHub Actions workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml
 
 ## Migration from v0.2 / v0.3
 
-v0.4 is **backward compatible** — no public API was removed or renamed.
+v0.5 is **backward compatible** — no public API was removed or renamed.
 
 - `include <tq_threads.scad>;` unchanged; default `angle=60` keeps v0.2/v0.3 geometry bit-for-bit.
 - New **optional** params: `tq_thread(... fit=, minor_d=)`; `tq_wood_screw(... taper=, core_d=, thread_depth=, point="gimlet"|"cone"|"flat", shank=)` (old `point=true/false` still works); `tq_bottle_thread(... angle=, tooth_height=, profile=, lead_in=)`.

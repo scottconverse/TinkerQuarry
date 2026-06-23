@@ -1,22 +1,33 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { ModelSelectionSurface } from '../analytics/runtime';
-import { Button, IconButton, Text } from './ui';
-import { AiComposer } from './AiComposer';
-import { ModelSelector } from './ModelSelector';
-import { TbCopy, TbFileText, TbFolder, TbFolderOpen, TbPencil } from 'react-icons/tb';
-import { getPlatform } from '../platform';
-import { type AiProvider } from '../stores/apiKeyStore';
-import type { AiDraft, AttachmentStore } from '../types/aiChat';
+import { useState, useEffect, useMemo } from "react";
+import type { ModelSelectionSurface } from "../analytics/runtime";
+import { Button, IconButton, Text } from "./ui";
+import { AiComposer } from "./AiComposer";
+import { ModelSelector } from "./ModelSelector";
+import {
+  TbCopy,
+  TbFileText,
+  TbFolder,
+  TbFolderOpen,
+  TbPencil,
+} from "react-icons/tb";
+import { getPlatform } from "../platform";
+import { type AiProvider } from "../stores/apiKeyStore";
+import type { AiDraft, AttachmentStore } from "../types/aiChat";
 import {
   loadRecentFiles,
   removeRecentFile,
   saveRecentFiles,
   type RecentFile,
-} from '../utils/recentFiles';
-import { engine, type SavedDesignEntry } from '../services/engineClient';
-import { isOpenScadProjectFilePath } from '../../../../packages/shared/src/openscadProjectFiles';
+} from "../utils/recentFiles";
+import {
+  engine,
+  type ModelPullProgressResult,
+  type ModelStatusResult,
+  type SavedDesignEntry,
+} from "../services/engineClient";
+import { isOpenScadProjectFilePath } from "../../../../packages/shared/src/openscadProjectFiles";
 
-export type RecentFileOpenResult = 'opened' | 'removed' | 'cancelled';
+export type RecentFileOpenResult = "opened" | "removed" | "cancelled";
 
 interface WelcomeScreenProps {
   draft: AiDraft;
@@ -27,13 +38,22 @@ interface WelcomeScreenProps {
   canSubmitDraft: boolean;
   isProcessingAttachments: boolean;
   onDraftTextChange: (text: string) => void;
-  onDraftFilesSelected: (files: File[], sourceSurface?: ModelSelectionSurface) => void;
-  onDraftRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
+  onDraftFilesSelected: (
+    files: File[],
+    sourceSurface?: ModelSelectionSurface,
+  ) => void;
+  onDraftRemoveAttachment: (
+    attachmentId: string,
+    sourceSurface?: ModelSelectionSurface,
+  ) => void;
   onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
   /** Reopen a saved engine design (§6.12 "My Designs"). */
   onReopenDesign?: (id: string) => void;
-  onOpenRecent: (path: string, type?: 'file' | 'folder') => Promise<RecentFileOpenResult>;
+  onOpenRecent: (
+    path: string,
+    type?: "file" | "folder",
+  ) => Promise<RecentFileOpenResult>;
   onOpenFile?: () => void;
   onOpenFolder?: () => void;
   onOpenSettings?: () => void;
@@ -44,7 +64,7 @@ interface WelcomeScreenProps {
   onModelChange?: (
     model: string,
     sourceSurface?: ModelSelectionSurface,
-    provider?: AiProvider
+    provider?: AiProvider,
   ) => void;
   /** Resolved default project directory path (null on web → hidden) */
   projectDirectory?: string | null;
@@ -55,11 +75,11 @@ interface WelcomeScreenProps {
 }
 
 const EXAMPLE_PROMPTS = [
-  'Create a 3D printable mini lamp',
-  'Design a parametric phone stand',
-  'Make a custom gear with 20 teeth',
-  'Create a simple mounting bracket',
-  'Design a pencil holder with holes',
+  "Create a 3D printable mini lamp",
+  "Design a parametric phone stand",
+  "Make a custom gear with 20 teeth",
+  "Create a simple mounting bracket",
+  "Design a pencil holder with holes",
 ];
 
 export function WelcomeScreen({
@@ -81,7 +101,7 @@ export function WelcomeScreen({
   onOpenSettings,
   showRecentFiles = true,
   currentProvider,
-  currentModel = 'claude-sonnet-4-5',
+  currentModel = "claude-sonnet-4-5",
   availableProviders = [],
   onModelChange,
   projectDirectory,
@@ -90,13 +110,22 @@ export function WelcomeScreen({
 }: WelcomeScreenProps) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
+  const [modelStatus, setModelStatus] = useState<ModelStatusResult | null>(
+    null,
+  );
+  const [modelStatusError, setModelStatusError] = useState<string | null>(null);
+  const [modelPull, setModelPull] = useState<ModelPullProgressResult | null>(
+    null,
+  );
+  const [modelPulling, setModelPulling] = useState(false);
   // §6.12 "My Designs": the engine's saved designs, the "recent surface on entry".
   const [savedDesigns, setSavedDesigns] = useState<SavedDesignEntry[]>([]);
   useEffect(() => {
     if (!onReopenDesign) return;
     let cancelled = false;
     void engine.listDesigns().then((r) => {
-      if (!cancelled && r.ok && Array.isArray(r.data.designs)) setSavedDesigns(r.data.designs);
+      if (!cancelled && r.ok && Array.isArray(r.data.designs))
+        setSavedDesigns(r.data.designs);
     });
     return () => {
       cancelled = true;
@@ -111,12 +140,12 @@ export function WelcomeScreen({
     if (r.ok) setSavedDesigns((s) => s.filter((x) => x.id !== id));
   };
   const handleRenameDesign = async (design: SavedDesignEntry) => {
-    const nextName = window.prompt('Rename design', design.name)?.trim();
+    const nextName = window.prompt("Rename design", design.name)?.trim();
     if (!nextName || nextName === design.name) return;
     const r = await engine.renameDesign(design.id, nextName);
     if (r.ok) {
       setSavedDesigns((s) =>
-        s.map((x) => (x.id === design.id ? { ...x, name: nextName } : x))
+        s.map((x) => (x.id === design.id ? { ...x, name: nextName } : x)),
       );
     }
   };
@@ -136,15 +165,95 @@ export function WelcomeScreen({
   // TinkerQuarry (PRD §6.1, local-first): the bundled local engine is always the brain, so the
   // describe surface is always available — there is no "configure a provider" wall.
   const hasApiKey: boolean = true;
-  const canSubmitLocalDraft = draft.text.trim().length > 0 && draftErrors.length === 0;
+  const canSubmitLocalDraft =
+    draft.text.trim().length > 0 && draftErrors.length === 0;
   const showModelSelector = availableProviders.length > 0;
+  const modelReady =
+    modelStatus?.backend === "cloud" ||
+    Boolean(
+      modelStatus?.running &&
+      modelStatus.model_present &&
+      modelStatus.vision_present !== false,
+    );
+  const modelNeedsSetup =
+    modelStatus != null &&
+    modelStatus.backend === "local" &&
+    (!modelStatus.running ||
+      !modelStatus.model_present ||
+      modelStatus.vision_present === false);
+  const canBuildLocalDraft = canSubmitLocalDraft && modelReady;
+
+  const refreshModelStatus = async () => {
+    const r = await engine.modelStatus();
+    if (r.ok) {
+      setModelStatus(r.data);
+      setModelStatusError(null);
+    } else {
+      setModelStatus(null);
+      setModelStatusError(r.data.error || "Could not reach the local engine.");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void engine.modelStatus().then((r) => {
+      if (cancelled) return;
+      if (r.ok) {
+        setModelStatus(r.data);
+        setModelStatusError(null);
+      } else {
+        setModelStatus(null);
+        setModelStatusError(
+          r.data.error || "Could not reach the local engine.",
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSetupModels = async () => {
+    setModelPulling(true);
+    const start = await engine.modelPull();
+    setModelPull(start.data);
+    if (!start.ok) {
+      setModelStatusError(
+        start.data.error || "Could not start local model setup.",
+      );
+      setModelPulling(false);
+      return;
+    }
+    const poll = window.setInterval(() => {
+      void engine.modelPullProgress().then((r) => {
+        if (!r.ok) {
+          setModelStatusError(
+            r.data.error || "Could not read model setup progress.",
+          );
+          window.clearInterval(poll);
+          setModelPulling(false);
+          return;
+        }
+        setModelPull(r.data);
+        if (
+          r.data.done ||
+          r.data.status === "done" ||
+          r.data.status === "error"
+        ) {
+          window.clearInterval(poll);
+          setModelPulling(false);
+          void refreshModelStatus();
+        }
+      });
+    }, 1000);
+  };
 
   // Shorten home directory to ~/ for display
   const displayPath = useMemo(() => {
     if (!projectDirectory) return null;
     try {
       // Match /Users/<username>/ or /home/<username>/
-      return projectDirectory.replace(/^\/(?:Users|home)\/[^/]+/, '~');
+      return projectDirectory.replace(/^\/(?:Users|home)\/[^/]+/, "~");
     } catch {
       return projectDirectory;
     }
@@ -175,12 +284,14 @@ export function WelcomeScreen({
         stored.map(async (file) => ({
           file,
           exists: await platform.fileExists(file.path),
-        }))
+        })),
       );
 
       if (cancelled) return;
 
-      const validFiles = validity.filter((entry) => entry.exists).map((entry) => entry.file);
+      const validFiles = validity
+        .filter((entry) => entry.exists)
+        .map((entry) => entry.file);
       if (validFiles.length !== stored.length) {
         saveRecentFiles(validFiles);
       }
@@ -198,7 +309,7 @@ export function WelcomeScreen({
 
   const handleOpenRecent = async (file: RecentFile) => {
     const result = await onOpenRecent(file.path, file.type);
-    if (result === 'removed') {
+    if (result === "removed") {
       setRecentFiles(removeRecentFile(file.path));
     }
   };
@@ -207,7 +318,7 @@ export function WelcomeScreen({
     <div
       data-testid="welcome-screen"
       className="h-full flex flex-col items-center justify-center px-8"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
+      style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <div className="w-full max-w-3xl space-y-8">
         <Text variant="page-heading" className="text-center mb-8">
@@ -215,13 +326,16 @@ export function WelcomeScreen({
         </Text>
 
         {hasApiKey ? (
-          <div data-testid="welcome-ai-entry" className="space-y-6 ph-no-capture">
+          <div
+            data-testid="welcome-ai-entry"
+            className="space-y-6 ph-no-capture"
+          >
             <div>
               <AiComposer
                 draft={draft}
                 attachments={attachments}
                 isProcessingAttachments={isProcessingAttachments}
-                canSubmit={canSubmitLocalDraft}
+                canSubmit={canBuildLocalDraft}
                 blockedMessage={draftVisionBlockMessage}
                 warningMessage={draftVisionWarningMessage}
                 errors={draftErrors}
@@ -236,7 +350,9 @@ export function WelcomeScreen({
                       currentModel={currentModel}
                       currentProvider={currentProvider}
                       availableProviders={availableProviders}
-                      onChange={(model, provider) => onModelChange?.(model, 'welcome', provider)}
+                      onChange={(model, provider) =>
+                        onModelChange?.(model, "welcome", provider)
+                      }
                       compact
                     />
                   ) : null
@@ -246,6 +362,64 @@ export function WelcomeScreen({
                 onRemoveAttachment={onDraftRemoveAttachment}
                 onSubmit={onStartWithDraft}
               />
+              <div
+                role={modelReady ? "status" : "alert"}
+                data-testid="welcome-model-status"
+                className="mt-3 rounded-md border px-3 py-2 text-xs"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: modelReady
+                    ? "var(--border-secondary)"
+                    : "var(--status-warning)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                {modelReady ? (
+                  <span>
+                    Local AI ready: {modelStatus?.model}
+                    {modelStatus?.vision_model
+                      ? ` + ${modelStatus.vision_model}`
+                      : ""}
+                  </span>
+                ) : modelStatusError ? (
+                  <span>{modelStatusError}</span>
+                ) : modelNeedsSetup ? (
+                  <span>
+                    Local AI setup needed for {modelStatus.model}
+                    {modelStatus.vision_model
+                      ? ` + ${modelStatus.vision_model}`
+                      : ""}
+                    .
+                  </span>
+                ) : (
+                  <span>Checking local AI...</span>
+                )}
+                {(modelNeedsSetup || modelStatusError) && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="ml-3"
+                    disabled={modelPulling}
+                    onClick={() => {
+                      void handleSetupModels();
+                    }}
+                  >
+                    {modelPulling ? "Setting up..." : "Set up local AI"}
+                  </Button>
+                )}
+                {modelPull && !modelReady && (
+                  <span
+                    className="ml-3"
+                    data-testid="welcome-model-pull-progress"
+                  >
+                    {modelPull.detail || modelPull.phase || modelPull.status}
+                    {typeof modelPull.percent === "number"
+                      ? ` ${Math.round(modelPull.percent)}%`
+                      : ""}
+                  </span>
+                )}
+              </div>
               {displayPath && (
                 <div
                   className="flex items-center gap-2 mt-2"
@@ -253,7 +427,7 @@ export function WelcomeScreen({
                 >
                   <TbFolderOpen
                     size={14}
-                    style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}
+                    style={{ color: "var(--text-tertiary)", flexShrink: 0 }}
                   />
                   <Text
                     variant="caption"
@@ -271,7 +445,7 @@ export function WelcomeScreen({
                         onChangeProjectDirectory();
                       }}
                       className="text-xs shrink-0 underline hover:no-underline"
-                      style={{ color: 'var(--accent-primary)' }}
+                      style={{ color: "var(--accent-primary)" }}
                     >
                       Change
                     </a>
@@ -293,7 +467,11 @@ export function WelcomeScreen({
                       onStartWithDraft({ text: example, attachmentIds: [] });
                     }}
                     disabled={!hasApiKey}
-                    title={!hasApiKey ? 'Configure an AI provider in Settings to use AI' : example}
+                    title={
+                      !hasApiKey
+                        ? "Configure an AI provider in Settings to use AI"
+                        : example
+                    }
                   >
                     {example}
                   </Button>
@@ -305,8 +483,8 @@ export function WelcomeScreen({
           <div
             className="rounded-lg p-4 text-center"
             style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-secondary)',
+              backgroundColor: "var(--bg-secondary)",
+              border: "1px solid var(--border-secondary)",
             }}
           >
             <Text variant="body" className="mb-2">
@@ -320,10 +498,10 @@ export function WelcomeScreen({
                   onOpenSettings?.();
                 }}
                 className="underline hover:no-underline"
-                style={{ color: 'var(--accent-primary)' }}
+                style={{ color: "var(--accent-primary)" }}
               >
                 Open Settings
-              </a>{' '}
+              </a>{" "}
               to configure (⌘,)
             </Text>
           </div>
@@ -340,9 +518,11 @@ export function WelcomeScreen({
                   <div
                     key={d.id}
                     className="inline-flex items-center gap-2 px-3 rounded-md border text-xs"
-                    style={{ borderColor: 'var(--border-primary)' }}
+                    style={{ borderColor: "var(--border-primary)" }}
                   >
-                    <span style={{ color: 'var(--text-secondary)' }}>Delete &ldquo;{d.name}&rdquo;?</span>
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      Delete &ldquo;{d.name}&rdquo;?
+                    </span>
                     <Button
                       variant="danger"
                       size="sm"
@@ -352,7 +532,11 @@ export function WelcomeScreen({
                     >
                       Delete
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -361,7 +545,7 @@ export function WelcomeScreen({
                     <Button
                       variant="secondary"
                       onClick={() => onReopenDesign(d.id)}
-                      title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ''}`}
+                      title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ""}`}
                       className="rounded-r-none"
                     >
                       {d.name}
@@ -400,7 +584,7 @@ export function WelcomeScreen({
                       ×
                     </IconButton>
                   </div>
-                )
+                ),
               )}
             </div>
           </div>
@@ -421,29 +605,33 @@ export function WelcomeScreen({
                   }}
                   className="w-full text-left px-4 py-3 rounded-lg transition-colors border flex items-center justify-between group"
                   style={{
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderColor: 'var(--border-primary)',
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-primary)",
                   }}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div
                       className="flex items-center justify-center shrink-0"
-                      style={{ color: 'var(--text-tertiary)' }}
+                      style={{ color: "var(--text-tertiary)" }}
                       aria-hidden="true"
                     >
-                      {file.type === 'folder' || !isOpenScadProjectFilePath(file.path) ? (
+                      {file.type === "folder" ||
+                      !isOpenScadProjectFilePath(file.path) ? (
                         <TbFolder size={22} />
                       ) : (
                         <TbFileText size={22} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <div
+                        className="text-sm font-medium"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         {file.name}
                       </div>
                       <div
                         className="text-xs truncate"
-                        style={{ color: 'var(--text-tertiary)' }}
+                        style={{ color: "var(--text-tertiary)" }}
                         title={file.path}
                       >
                         {file.path}
@@ -457,7 +645,7 @@ export function WelcomeScreen({
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
-                    style={{ color: 'var(--text-tertiary)' }}
+                    style={{ color: "var(--text-tertiary)" }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <path d="M5 12h14M12 5l7 7-7 7" />
@@ -498,7 +686,9 @@ export function WelcomeScreen({
             className="text-sm"
             data-testid="welcome-start-empty-project"
           >
-            {hasCustomProjectDirectory ? 'Start in folder →' : 'Start with empty project →'}
+            {hasCustomProjectDirectory
+              ? "Start in folder →"
+              : "Start with empty project →"}
           </Button>
         </div>
       </div>

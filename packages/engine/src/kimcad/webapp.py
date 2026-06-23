@@ -548,17 +548,41 @@ def settings_response(
 def effective_defaults(config: Any, saved: dict[str, Any] | None) -> tuple[str | None, str | None]:
     """The default printer + material the app should use: the user's saved Settings choice when it's
     still a known config key, else the shipped config default. A saved key that no longer exists
-    (a printer/material removed from config between sessions) falls back rather than dangling."""
+    (a printer/material removed from config between sessions) falls back rather than dangling.
+    Saved or shipped defaults that are known-unsliceable also fall back to the first usable printer,
+    so the UI never boots into a disabled slice path for a valid design."""
     defaults = config.raw.get("defaults", {})
     saved = saved or {}
-    printer_keys = set(config.raw.get("printers", {}))
+    printer_keys = list(config.raw.get("printers", {}))
     material_keys = set(config.raw.get("materials", {}))
     sp = saved.get("default_printer")
     sm = saved.get("default_material")
-    return (
-        sp if sp in printer_keys else defaults.get("printer"),
-        sm if sm in material_keys else defaults.get("material"),
-    )
+
+    def is_sliceable_printer(key: Any) -> bool:
+        if not isinstance(key, str) or key not in printer_keys:
+            return False
+        if key in KNOWN_UNSLICEABLE_PRINTERS:
+            return False
+        try:
+            return config.printer(key).orca_process_profile is not None
+        except Exception:  # noqa: BLE001 - malformed config falls through to another default
+            return False
+
+    default_printer = sp if is_sliceable_printer(sp) else defaults.get("printer")
+    if not is_sliceable_printer(default_printer):
+        default_printer = next((key for key in printer_keys if is_sliceable_printer(key)), None)
+
+    valid_materials = set()
+    if default_printer is not None:
+        try:
+            valid_materials = set(config.printer(default_printer).orca_filament_profiles)
+        except Exception:  # noqa: BLE001 - keep the fallback material validation below
+            valid_materials = set()
+    default_material = sm if sm in material_keys and (not valid_materials or sm in valid_materials) else defaults.get("material")
+    if default_material not in material_keys or (valid_materials and default_material not in valid_materials):
+        default_material = next(iter(valid_materials), None)
+
+    return default_printer, default_material
 
 
 def web_options(config: Any, saved_settings: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -898,10 +922,10 @@ def make_handler(
     # key space ever grows unexpectedly, the cache resets rather than growing without limit.
     static_cache: dict[str, tuple[float, int, str, bytes]] = {}
     _STATIC_CACHE_MAX = 256
-    # UI-v2 epic close: print-outcome feedback is intentionally accepted only after a real
-    # hardware send in this server process. The SPA already asks at the right time; this closes
-    # the API trust boundary for non-browser callers.
-    real_print_sends: set[int] = set()
+    # Print-outcome feedback is accepted only after a successful send in this server process.
+    # A simulated connector still represents the user's safe beta send flow; the response keeps
+    # that honesty via `simulated: true`, while the outcome gate prevents arbitrary POSTs.
+    outcome_eligible_sends: dict[int, bool] = {}
     config_box: dict[str, Any] = {"config": config}
 
     def get_config() -> Any:
@@ -2170,13 +2194,12 @@ def make_handler(
                 info["printer_detail"] = st.detail
             except ConnectorError:
                 pass
-            if not simulated:
-                with reg.lock:
-                    real_print_sends.add(rid)
+            with reg.lock:
+                outcome_eligible_sends[rid] = simulated
             self._json(200, info)
 
         def _handle_print_outcome(self, raw_id: str) -> None:
-            """Record a real-world print outcome in the local Smart Mesh history store."""
+            """Record post-send feedback in the local Smart Mesh history store."""
             from kimcad.history import HistoryStore, PrintRecord
 
             try:
@@ -2196,12 +2219,13 @@ def make_handler(
                 return
             with reg.lock:
                 snap = reg.snapshot.get(rid)
-                can_record = rid in real_print_sends
+                outcome_send_simulated = outcome_eligible_sends.get(rid)
+                can_record = outcome_send_simulated is not None
             if snap is None:
                 self._json(404, {"error": "That design is no longer available."})
                 return
             if not can_record:
-                self._json(409, {"error": "Record an outcome after a real printer send."})
+                self._json(409, {"error": "Record an outcome after sending the print job."})
                 return
             try:
                 score = int(snap.get("readiness_score"))
@@ -2218,9 +2242,17 @@ def make_handler(
                     max_dim_mm=_max_actual_dim_from_payload(payload),
                     created_at=datetime.now(timezone.utc).isoformat(),
                     print_outcome=str(outcome),
+                    print_outcome_simulated=bool(outcome_send_simulated),
                 )
             )
-            self._json(200, {"recorded": True, "outcome": outcome})
+            self._json(
+                200,
+                {
+                    "recorded": True,
+                    "outcome": outcome,
+                    "simulated": bool(outcome_send_simulated),
+                },
+            )
 
         def _handle_visual_review(self, raw_id: str) -> None:
             """Run advisory visual review for an already-rendered design."""

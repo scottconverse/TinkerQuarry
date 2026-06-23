@@ -1,16 +1,21 @@
-import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
-import { ChatImage, ChatImageGrid } from './ChatImage';
-import { Button } from './ui';
-import { MarkdownMessage } from './MarkdownMessage';
-import { ModelSelector } from './ModelSelector';
-import { AiComposer, type AiComposerRef } from './AiComposer';
-import { AiAccessEmptyState } from './AiAccessEmptyState';
-import { useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
-import { useHistory } from '../hooks/useHistory';
-import { getPlatform } from '../platform';
-import { useHasApiKey } from '../stores/apiKeyStore';
-import type { AiProvider } from '../stores/apiKeyStore';
-import { notifyError, notifySuccess } from '../utils/notifications';
+import {
+  useRef,
+  useEffect,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import { ChatImage, ChatImageGrid } from "./ChatImage";
+import { Button } from "./ui";
+import { MarkdownMessage } from "./MarkdownMessage";
+import { ModelSelector } from "./ModelSelector";
+import { AiComposer, type AiComposerRef } from "./AiComposer";
+import { AiAccessEmptyState } from "./AiAccessEmptyState";
+import { useAnalytics, type ModelSelectionSurface } from "../analytics/runtime";
+import { useHistory } from "../hooks/useHistory";
+import { getPlatform } from "../platform";
+import type { AiProvider } from "../stores/apiKeyStore";
+import { notifyError, notifySuccess } from "../utils/notifications";
 import type {
   AiDraft,
   AssistantMessage,
@@ -19,16 +24,16 @@ import type {
   ToolCall,
   ToolCallMessage,
   ToolCallState,
-} from '../types/aiChat';
-import { getUserMessageText } from '../types/aiChat';
+} from "../types/aiChat";
+import { getUserMessageText } from "../types/aiChat";
 
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
 function getImageDataUrlFromResult(result: unknown): string | null {
   if (!result) return null;
 
-  if (typeof result === 'string') {
-    if (result.startsWith('data:image/')) return result;
+  if (typeof result === "string") {
+    if (result.startsWith("data:image/")) return result;
     try {
       const parsed = JSON.parse(result);
       if (parsed.image_data_url) return parsed.image_data_url;
@@ -37,7 +42,11 @@ function getImageDataUrlFromResult(result: unknown): string | null {
     }
   }
 
-  if (typeof result === 'object' && result !== null && 'image_data_url' in result) {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "image_data_url" in result
+  ) {
     return (result as { image_data_url: string }).image_data_url;
   }
 
@@ -45,43 +54,43 @@ function getImageDataUrlFromResult(result: unknown): string | null {
 }
 
 function getAssistantStateLabel(message: AssistantMessage): string | null {
-  if (message.state === 'cancelled') return 'Cancelled';
-  if (message.state === 'error') return 'Stopped due to error';
+  if (message.state === "cancelled") return "Cancelled";
+  if (message.state === "error") return "Stopped due to error";
   return null;
 }
 
 function getToolStateMeta(state: ToolCallState) {
   switch (state) {
-    case 'completed':
+    case "completed":
       return {
-        color: 'var(--color-success)',
-        borderColor: 'var(--color-success)',
-        label: 'completed',
-        icon: <span style={{ color: 'var(--color-success)' }}>✓</span>,
+        color: "var(--color-success)",
+        borderColor: "var(--color-success)",
+        label: "completed",
+        icon: <span style={{ color: "var(--color-success)" }}>✓</span>,
       };
-    case 'error':
+    case "error":
       return {
-        color: 'var(--color-error)',
-        borderColor: 'var(--color-error)',
-        label: 'error',
-        icon: <span style={{ color: 'var(--color-error)' }}>!</span>,
+        color: "var(--color-error)",
+        borderColor: "var(--color-error)",
+        label: "error",
+        icon: <span style={{ color: "var(--color-error)" }}>!</span>,
       };
-    case 'denied':
+    case "denied":
       return {
-        color: 'var(--color-warning)',
-        borderColor: 'var(--color-warning)',
-        label: 'denied',
-        icon: <span style={{ color: 'var(--color-warning)' }}>•</span>,
+        color: "var(--color-warning)",
+        borderColor: "var(--color-warning)",
+        label: "denied",
+        icon: <span style={{ color: "var(--color-warning)" }}>•</span>,
       };
     default:
       return {
-        color: 'var(--color-warning)',
-        borderColor: 'var(--color-warning)',
-        label: 'running',
+        color: "var(--color-warning)",
+        borderColor: "var(--color-warning)",
+        label: "running",
         icon: (
           <svg
             className="animate-spin h-4 w-4"
-            style={{ color: 'var(--color-warning)' }}
+            style={{ color: "var(--color-warning)" }}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -106,28 +115,31 @@ function getToolStateMeta(state: ToolCallState) {
 }
 
 function sanitizeToolDetailString(value: string): string {
-  if (value.startsWith('data:image/')) {
+  if (value.startsWith("data:image/")) {
     return `[image data URL omitted, ${value.length.toLocaleString()} characters]`;
   }
 
   return value;
 }
 
-function sanitizeToolDetailValue(value: unknown, seen = new WeakSet<object>()): unknown {
-  if (typeof value === 'string') {
+function sanitizeToolDetailValue(
+  value: unknown,
+  seen = new WeakSet<object>(),
+): unknown {
+  if (typeof value === "string") {
     return sanitizeToolDetailString(value);
   }
 
   if (
     value === null ||
     value === undefined ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
+    typeof value === "number" ||
+    typeof value === "boolean"
   ) {
     return value;
   }
 
-  if (typeof value === 'bigint') {
+  if (typeof value === "bigint") {
     return value.toString();
   }
 
@@ -135,9 +147,9 @@ function sanitizeToolDetailValue(value: unknown, seen = new WeakSet<object>()): 
     return value.map((item) => sanitizeToolDetailValue(item, seen));
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     if (seen.has(value)) {
-      return '[Circular]';
+      return "[Circular]";
     }
 
     seen.add(value);
@@ -152,8 +164,11 @@ function sanitizeToolDetailValue(value: unknown, seen = new WeakSet<object>()): 
 
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .filter(([key]) => key !== 'rationale' && !key.startsWith('__'))
-        .map(([key, entryValue]) => [key, sanitizeToolDetailValue(entryValue, seen)])
+        .filter(([key]) => key !== "rationale" && !key.startsWith("__"))
+        .map(([key, entryValue]) => [
+          key,
+          sanitizeToolDetailValue(entryValue, seen),
+        ]),
     );
   }
 
@@ -162,14 +177,18 @@ function sanitizeToolDetailValue(value: unknown, seen = new WeakSet<object>()): 
 
 function formatToolDetailValue(value: unknown): string {
   if (value === undefined) {
-    return '';
+    return "";
   }
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const trimmed = value.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
       try {
-        return JSON.stringify(sanitizeToolDetailValue(JSON.parse(trimmed)), null, 2);
+        return JSON.stringify(
+          sanitizeToolDetailValue(JSON.parse(trimmed)),
+          null,
+          2,
+        );
       } catch {
         return sanitizeToolDetailString(value);
       }
@@ -186,14 +205,18 @@ function formatToolDetailValue(value: unknown): string {
 }
 
 function getMissingToolResultLabel(state: ToolCallState): string {
-  if (state === 'pending') return 'Waiting for result...';
-  if (state === 'error') return 'No result returned before the tool failed.';
-  if (state === 'denied') return 'No result returned because the tool output was denied.';
-  return 'No result returned.';
+  if (state === "pending") return "Waiting for result...";
+  if (state === "error") return "No result returned before the tool failed.";
+  if (state === "denied")
+    return "No result returned because the tool output was denied.";
+  return "No result returned.";
 }
 
 function isTranscriptNearBottom(node: HTMLDivElement): boolean {
-  return node.scrollHeight - node.scrollTop - node.clientHeight <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
+  return (
+    node.scrollHeight - node.scrollTop - node.clientHeight <=
+    AUTO_SCROLL_BOTTOM_THRESHOLD_PX
+  );
 }
 
 interface ToolCallDetailSectionProps {
@@ -202,33 +225,41 @@ interface ToolCallDetailSectionProps {
   emptyLabel: string;
 }
 
-function ToolCallDetailSection({ label, value, emptyLabel }: ToolCallDetailSectionProps) {
-  const formattedValue = value === undefined ? '' : formatToolDetailValue(value);
+function ToolCallDetailSection({
+  label,
+  value,
+  emptyLabel,
+}: ToolCallDetailSectionProps) {
+  const formattedValue =
+    value === undefined ? "" : formatToolDetailValue(value);
 
   return (
     <div className="space-y-1">
       <div
         className="text-[11px] font-semibold uppercase tracking-[0.08em]"
-        style={{ color: 'var(--text-tertiary)' }}
+        style={{ color: "var(--text-tertiary)" }}
       >
         {label}
       </div>
       <div
         className="rounded-md border px-2 py-2"
         style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: 'var(--border-secondary)',
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--border-secondary)",
         }}
       >
         {formattedValue ? (
           <pre
             className="m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed"
-            style={{ color: 'var(--text-secondary)' }}
+            style={{ color: "var(--text-secondary)" }}
           >
             {formattedValue}
           </pre>
         ) : (
-          <div className="text-xs italic" style={{ color: 'var(--text-tertiary)' }}>
+          <div
+            className="text-xs italic"
+            style={{ color: "var(--text-tertiary)" }}
+          >
             {emptyLabel}
           </div>
         )}
@@ -245,17 +276,25 @@ interface ToolCallCardProps {
   errorText?: string;
 }
 
-function ToolCallCard({ toolName, state, args, result, errorText }: ToolCallCardProps) {
+function ToolCallCard({
+  toolName,
+  state,
+  args,
+  result,
+  errorText,
+}: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(false);
   const toolStateMeta = getToolStateMeta(state);
   const imageDataUrl =
-    toolName === 'get_preview_screenshot' ? getImageDataUrlFromResult(result) : null;
+    toolName === "get_preview_screenshot"
+      ? getImageDataUrlFromResult(result)
+      : null;
 
   return (
     <div
       className="rounded-lg px-3 py-2 border"
       style={{
-        backgroundColor: 'var(--bg-primary)',
+        backgroundColor: "var(--bg-primary)",
         borderColor: toolStateMeta.borderColor,
       }}
     >
@@ -264,16 +303,16 @@ function ToolCallCard({ toolName, state, args, result, errorText }: ToolCallCard
         variant="ghost"
         size="sm"
         className="flex w-full items-center justify-start gap-2 p-0 text-left text-sm"
-        style={{ height: 'auto' }}
+        style={{ height: "auto" }}
         onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} details for ${toolName}`}
+        aria-label={`${expanded ? "Collapse" : "Expand"} details for ${toolName}`}
       >
         {toolStateMeta.icon}
         <span className="font-semibold" style={{ color: toolStateMeta.color }}>
           {toolName}
         </span>
-        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
           {toolStateMeta.label}
         </span>
         <span className="ml-auto flex h-5 w-5 items-center justify-center">
@@ -284,9 +323,9 @@ function ToolCallCard({ toolName, state, args, result, errorText }: ToolCallCard
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             style={{
-              color: 'var(--text-tertiary)',
-              transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-              transition: 'transform 120ms ease',
+              color: "var(--text-tertiary)",
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 120ms ease",
             }}
           >
             <path
@@ -301,25 +340,37 @@ function ToolCallCard({ toolName, state, args, result, errorText }: ToolCallCard
       </Button>
       {imageDataUrl && !expanded && (
         <div className="mt-2">
-          <ChatImage src={imageDataUrl} alt="Preview screenshot" filename="preview.png" />
+          <ChatImage
+            src={imageDataUrl}
+            alt="Preview screenshot"
+            filename="preview.png"
+          />
         </div>
       )}
       {expanded && (
         <div
           className="mt-2 space-y-2 border-t pt-2"
-          style={{ borderColor: 'var(--border-secondary)' }}
+          style={{ borderColor: "var(--border-secondary)" }}
         >
           {errorText && (
-            <div className="text-xs" style={{ color: 'var(--color-error)' }}>
+            <div className="text-xs" style={{ color: "var(--color-error)" }}>
               {errorText}
             </div>
           )}
           {imageDataUrl && (
             <div>
-              <ChatImage src={imageDataUrl} alt="Preview screenshot" filename="preview.png" />
+              <ChatImage
+                src={imageDataUrl}
+                alt="Preview screenshot"
+                filename="preview.png"
+              />
             </div>
           )}
-          <ToolCallDetailSection label="Input" value={args} emptyLabel="No input parameters." />
+          <ToolCallDetailSection
+            label="Input"
+            value={args}
+            emptyLabel="No input parameters."
+          />
           <ToolCallDetailSection
             label="Result"
             value={result}
@@ -355,9 +406,12 @@ export interface AiPromptPanelProps {
   onModelChange?: (
     model: string,
     sourceSurface?: ModelSelectionSurface,
-    provider?: AiProvider
+    provider?: AiProvider,
   ) => void;
-  onRestoreCheckpoint?: (checkpointId: string, truncatedMessages: Message[]) => void;
+  onRestoreCheckpoint?: (
+    checkpointId: string,
+    truncatedMessages: Message[],
+  ) => void;
   onOpenSettings?: () => void;
 }
 
@@ -386,23 +440,25 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       onNewConversation,
       currentToolCalls = [],
       currentProvider,
-      currentModel = 'claude-sonnet-4-5',
+      currentModel = "claude-sonnet-4-5",
       availableProviders = [],
       onModelChange,
       onRestoreCheckpoint,
       onOpenSettings,
     },
-    ref
+    ref,
   ) => {
     const analytics = useAnalytics();
-    const hasApiKey = useHasApiKey();
+    // TinkerQuarry is local-first: cloud API keys are optional model-chooser inputs, not a gate for
+    // the workspace describe/refine surface.
+    const hasApiKey = true;
     const responseRef = useRef<HTMLDivElement>(null);
     const composerRef = useRef<AiComposerRef>(null);
     const emptyStateHostRef = useRef<HTMLDivElement>(null);
     const autoScrollPinnedRef = useRef(true);
-    const [emptyStatePanelLayout, setEmptyStatePanelLayout] = useState<'stacked' | 'split'>(
-      'stacked'
-    );
+    const [emptyStatePanelLayout, setEmptyStatePanelLayout] = useState<
+      "stacked" | "split"
+    >("stacked");
     const [showJumpToLatest, setShowJumpToLatest] = useState(false);
     const { restoreToCheckpoint } = useHistory();
 
@@ -443,7 +499,11 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     }, [messages, streamingResponse, currentToolCalls]);
 
     useEffect(() => {
-      if (messages.length > 0 || streamingResponse || currentToolCalls.length > 0) {
+      if (
+        messages.length > 0 ||
+        streamingResponse ||
+        currentToolCalls.length > 0
+      ) {
         return;
       }
 
@@ -453,13 +513,16 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
 
     useEffect(() => {
       if (import.meta.env?.DEV) {
-        console.log('[AiPromptPanel] Messages updated. Count:', messages.length);
+        console.log(
+          "[AiPromptPanel] Messages updated. Count:",
+          messages.length,
+        );
       }
     }, [messages]);
 
     useEffect(() => {
-      analytics.track('ai panel opened', {
-        source_surface: 'ai_panel',
+      analytics.track("ai panel opened", {
+        source_surface: "ai_panel",
         has_messages: messages.length > 0,
       });
       // Only fire once per panel mount.
@@ -467,8 +530,8 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     }, []);
 
     useEffect(() => {
-      if (typeof ResizeObserver === 'undefined') {
-        setEmptyStatePanelLayout('stacked');
+      if (typeof ResizeObserver === "undefined") {
+        setEmptyStatePanelLayout("stacked");
         return;
       }
 
@@ -477,7 +540,9 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
 
       const updateLayout = (width: number, height: number) => {
         setEmptyStatePanelLayout(
-          width >= 760 && width / Math.max(height, 1) >= 1.45 ? 'split' : 'stacked'
+          width >= 760 && width / Math.max(height, 1) >= 1.45
+            ? "split"
+            : "stacked",
         );
       };
 
@@ -494,20 +559,26 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       return () => observer.disconnect();
     }, []);
 
-    const handleRestoreCheckpoint = async (checkpointId: string, messageId: string) => {
+    const handleRestoreCheckpoint = async (
+      checkpointId: string,
+      messageId: string,
+    ) => {
       try {
-        const messageIndex = messages.findIndex((message) => message.id === messageId);
-        const hasLaterMessages = messageIndex !== -1 && messageIndex < messages.length - 1;
+        const messageIndex = messages.findIndex(
+          (message) => message.id === messageId,
+        );
+        const hasLaterMessages =
+          messageIndex !== -1 && messageIndex < messages.length - 1;
 
         if (hasLaterMessages) {
           const shouldProceed = await getPlatform().confirm(
-            'This will restore the code to before this turn and remove all subsequent conversation. Continue?',
+            "This will restore the code to before this turn and remove all subsequent conversation. Continue?",
             {
-              title: 'Restore Checkpoint',
-              kind: 'warning',
-              okLabel: 'Restore',
-              cancelLabel: 'Cancel',
-            }
+              title: "Restore Checkpoint",
+              kind: "warning",
+              okLabel: "Restore",
+              cancelLabel: "Cancel",
+            },
           );
 
           if (!shouldProceed) return;
@@ -515,7 +586,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
 
         const checkpoint = await restoreToCheckpoint(checkpointId);
         if (!checkpoint) {
-          throw new Error('Checkpoint could not be restored.');
+          throw new Error("Checkpoint could not be restored.");
         }
 
         if (messageIndex !== -1 && onRestoreCheckpoint) {
@@ -523,16 +594,16 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           onRestoreCheckpoint(checkpointId, truncatedMessages);
         }
 
-        notifySuccess('Restored checkpoint', {
-          toastId: 'restore-checkpoint-success',
+        notifySuccess("Restored checkpoint", {
+          toastId: "restore-checkpoint-success",
         });
       } catch (error) {
         notifyError({
-          operation: 'restore-checkpoint',
+          operation: "restore-checkpoint",
           error,
-          fallbackMessage: 'Failed to restore checkpoint',
-          toastId: 'restore-checkpoint-error',
-          logLabel: '[AiPromptPanel] Failed to restore checkpoint',
+          fallbackMessage: "Failed to restore checkpoint",
+          toastId: "restore-checkpoint-error",
+          logLabel: "[AiPromptPanel] Failed to restore checkpoint",
         });
       }
     };
@@ -544,10 +615,10 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           ref={emptyStateHostRef}
           className={
             isDesktop
-              ? 'h-full overflow-y-auto flex items-start justify-center px-6 py-6'
-              : 'h-full overflow-y-auto flex items-center justify-center px-6'
+              ? "h-full overflow-y-auto flex items-start justify-center px-6 py-6"
+              : "h-full overflow-y-auto flex items-center justify-center px-6"
           }
-          style={{ backgroundColor: 'var(--bg-primary)' }}
+          style={{ backgroundColor: "var(--bg-primary)" }}
         >
           {isDesktop ? (
             <AiAccessEmptyState
@@ -557,10 +628,17 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             />
           ) : (
             <div className="text-center max-w-xs">
-              <div className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <div
+                className="text-sm mb-3"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Configure an AI provider to get started
               </div>
-              <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => onOpenSettings?.()}
+              >
                 Open Settings
               </Button>
             </div>
@@ -573,7 +651,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       <div
         data-testid="ai-prompt-panel"
         className="relative h-full flex flex-col ph-no-capture"
-        style={{ backgroundColor: 'var(--bg-primary)' }}
+        style={{ backgroundColor: "var(--bg-primary)" }}
       >
         {onNewConversation && (
           <Button
@@ -592,16 +670,19 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
         {messages.length === 0 && !streamingResponse ? (
           <div
             className="flex-1 flex items-center justify-center px-4"
-            style={{ backgroundColor: 'var(--bg-secondary)' }}
+            style={{ backgroundColor: "var(--bg-secondary)" }}
           >
             <div className="text-center">
               <div
                 className="text-lg font-semibold mb-2"
-                style={{ color: 'var(--text-secondary)' }}
+                style={{ color: "var(--text-secondary)" }}
               >
                 No conversation yet
               </div>
-              <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              <div
+                className="text-sm"
+                style={{ color: "var(--text-tertiary)" }}
+              >
                 Describe the changes you want to make below
               </div>
             </div>
@@ -613,15 +694,17 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             className="flex-1 overflow-y-auto px-4 py-3 space-y-3 ph-no-capture"
             onScroll={handleTranscriptScroll}
             style={{
-              backgroundColor: 'var(--bg-secondary)',
-              borderBottom: '1px solid var(--border-primary)',
-              paddingTop: onNewConversation ? '3rem' : undefined,
+              backgroundColor: "var(--bg-secondary)",
+              borderBottom: "1px solid var(--border-primary)",
+              paddingTop: onNewConversation ? "3rem" : undefined,
             }}
           >
             {messages.map((message) => {
-              if (message.type === 'user') {
+              if (message.type === "user") {
                 const userText = getUserMessageText(message);
-                const imageParts = message.parts.filter((part) => part.type === 'image');
+                const imageParts = message.parts.filter(
+                  (part) => part.type === "image",
+                );
 
                 return (
                   <div key={message.id} className="space-y-1">
@@ -629,26 +712,29 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                       <div
                         className="max-w-[85%] rounded-lg px-3 py-2"
                         style={{
-                          backgroundColor: 'var(--accent-primary)',
-                          color: 'var(--text-inverse)',
+                          backgroundColor: "var(--accent-primary)",
+                          color: "var(--text-inverse)",
                         }}
                       >
                         <div className="text-xs mb-1" style={{ opacity: 0.8 }}>
                           You
                         </div>
                         {userText ? (
-                          <div className="text-sm whitespace-pre-wrap font-mono">{userText}</div>
+                          <div className="text-sm whitespace-pre-wrap font-mono">
+                            {userText}
+                          </div>
                         ) : null}
                         {imageParts.length > 0 && (
                           <ChatImageGrid
-                            className={userText ? 'mt-2' : ''}
+                            className={userText ? "mt-2" : ""}
                             images={imageParts
                               .map((part) => {
                                 const att = attachments[part.attachmentId];
                                 return {
-                                  src: att?.previewUrl ?? '',
+                                  src: att?.previewUrl ?? "",
                                   fullSrc:
-                                    att?.normalizedData && att.normalizedMimeType
+                                    att?.normalizedData &&
+                                    att.normalizedMimeType
                                       ? `data:${att.normalizedMimeType};base64,${att.normalizedData}`
                                       : undefined,
                                   width: att?.width,
@@ -666,7 +752,12 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => handleRestoreCheckpoint(message.checkpointId!, message.id)}
+                          onClick={() =>
+                            handleRestoreCheckpoint(
+                              message.checkpointId!,
+                              message.id,
+                            )
+                          }
                           title="Restore code to before this turn"
                         >
                           ↶ Restore to before this turn
@@ -677,26 +768,32 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 );
               }
 
-              if (message.type === 'assistant') {
+              if (message.type === "assistant") {
                 const stateLabel = getAssistantStateLabel(message);
                 return (
                   <div key={message.id} className="flex gap-2 justify-start">
                     <div
                       className="max-w-[85%] rounded-lg px-3 py-2 border"
                       style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--text-primary)',
-                        borderColor: 'var(--border-secondary)',
+                        backgroundColor: "var(--bg-primary)",
+                        color: "var(--text-primary)",
+                        borderColor: "var(--border-secondary)",
                       }}
                     >
-                      <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <div
+                        className="text-xs mb-1"
+                        style={{ color: "var(--text-tertiary)" }}
+                      >
                         AI
                       </div>
                       <div className="text-sm">
                         <MarkdownMessage content={message.content} />
                       </div>
                       {stateLabel && (
-                        <div className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        <div
+                          className="mt-2 text-xs"
+                          style={{ color: "var(--text-tertiary)" }}
+                        >
                           {stateLabel}
                         </div>
                       )}
@@ -705,7 +802,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 );
               }
 
-              if (message.type === 'tool-call') {
+              if (message.type === "tool-call") {
                 const toolMessage = message as ToolCallMessage;
 
                 return (
@@ -746,12 +843,15 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 <div
                   className="max-w-[85%] rounded-lg px-3 py-2 border"
                   style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    color: 'var(--text-primary)',
-                    borderColor: 'var(--border-secondary)',
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                    borderColor: "var(--border-secondary)",
                   }}
                 >
-                  <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                  <div
+                    className="text-xs mb-1"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
                     AI
                   </div>
                   <div className="text-sm">
@@ -763,14 +863,16 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
 
             {isStreaming &&
               !streamingResponse &&
-              currentToolCalls.filter((toolCall) => toolCall.state === 'pending').length === 0 && (
+              currentToolCalls.filter(
+                (toolCall) => toolCall.state === "pending",
+              ).length === 0 && (
                 <div className="flex gap-2 justify-start">
                   <div
                     className="rounded-lg px-3 py-2 border"
                     style={{
-                      backgroundColor: 'var(--bg-primary)',
-                      color: 'var(--text-primary)',
-                      borderColor: 'var(--border-secondary)',
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-primary)",
+                      borderColor: "var(--border-secondary)",
                     }}
                   >
                     <div className="flex items-center gap-2">
@@ -780,14 +882,17 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                             key={idx}
                             className="w-2 h-2 rounded-full animate-pulse"
                             style={{
-                              backgroundColor: 'var(--accent-primary)',
+                              backgroundColor: "var(--accent-primary)",
                               animationDelay: `${idx * 200}ms`,
-                              animationDuration: '1.4s',
+                              animationDuration: "1.4s",
                             }}
                           />
                         ))}
                       </div>
-                      <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      <span
+                        className="text-sm"
+                        style={{ color: "var(--text-tertiary)" }}
+                      >
                         Thinking...
                       </span>
                     </div>
@@ -835,7 +940,9 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 currentModel={currentModel}
                 currentProvider={currentProvider}
                 availableProviders={availableProviders}
-                onChange={(model, provider) => onModelChange?.(model, 'ai_panel', provider)}
+                onChange={(model, provider) =>
+                  onModelChange?.(model, "ai_panel", provider)
+                }
                 disabled={isStreaming}
                 compact
               />
@@ -849,7 +956,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
-AiPromptPanel.displayName = 'AiPromptPanel';
+AiPromptPanel.displayName = "AiPromptPanel";

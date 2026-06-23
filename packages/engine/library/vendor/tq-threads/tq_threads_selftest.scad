@@ -15,8 +15,8 @@ include <tq_threads.scad>
 // -- preset table integrity --------------------------------------------------
 assert(tq_presets_selfcheck(),
        "SELFTEST: preset table self-check failed (a row is malformed or unresolvable)");
-assert(tq_preset_count() >= 54,
-       str("SELFTEST: preset count regressed below 54: ", tq_preset_count()));
+assert(tq_preset_count() >= 101,
+       str("SELFTEST: preset count regressed below 101 (v0.4 baseline): ", tq_preset_count()));
 
 // -- spot-check nominal preset values (exact) --------------------------------
 assert(tq_preset("M3")  == [3.0, 0.50],  "SELFTEST: M3 nominal");

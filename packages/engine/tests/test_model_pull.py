@@ -548,7 +548,7 @@ def test_pull_ignores_an_attacker_named_model_in_the_body(tmp_path, monkeypatch)
             conn.close()
     assert resp.status == 200 and data["status"] == "ok"
     # The model names come from CONFIG (chat + vision), never the request body.
-    assert started["chat"] == "gemma4:e4b" and started["vision"] == "qwen2.5vl:3b"
+    assert started["chat"] == "gemma4:e4b" and started["vision"] == "qwen2.5vl:7b"
     assert "evil" not in started["chat"] and "evil" not in started["vision"]
 
 
@@ -624,4 +624,4 @@ def test_pull_setup_uses_native_root_and_config_models(tmp_path, monkeypatch):
         status, data = _jreq(host, port, "POST", "/api/model-pull")
     assert status == 200 and data["status"] == "ok"
     assert started["base"] == "http://127.0.0.1:11434"  # native root, not the /v1 base
-    assert started["chat"] == "gemma4:e4b" and started["vision"] == "qwen2.5vl:3b"
+    assert started["chat"] == "gemma4:e4b" and started["vision"] == "qwen2.5vl:7b"

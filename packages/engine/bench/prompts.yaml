@@ -1,0 +1,43 @@
+# Phase-1 done-gate benchmark prompt set.
+# Source: docs/design/KimCad-Unified-Product-Spec-v3.0.md Appendix B.
+cases:
+  - id: b01
+    prompt: "Design a sturdy wall hook for hanging a 2 kg bag, with two countersunk screw holes and rounded edges."
+    expect_object_type: hook
+    max_bbox_mm: [90, 70, 35]
+  - id: b02
+    prompt: "Design an L-bracket with two M4 mounting holes on each leg, 60 mm long legs, and 5 mm thick walls."
+    expect_object_type: bracket
+    max_bbox_mm: [70, 70, 30]
+  - id: b03
+    prompt: "Design a small rectangular box with a snap-fit lid, about 80 mm by 50 mm by 30 mm outside."
+    expect_object_type: box
+    max_bbox_mm: [90, 60, 40]
+  - id: b04
+    prompt: "Design a pegboard hook for standard 1 inch peg spacing, with a short upward lip at the end."
+    expect_object_type: hook
+    max_bbox_mm: [80, 50, 45]
+  - id: b05
+    prompt: "Design a desk cable clip for a 6 mm cable, with a screw mounting tab and a rounded cable channel."
+    expect_object_type: clip
+    max_bbox_mm: [55, 35, 25]
+  - id: b06
+    prompt: "Design a cylindrical spacer with 8 mm inner diameter, 16 mm outer diameter, and 12 mm height."
+    expect_object_type: spacer
+    max_bbox_mm: [20, 20, 16]
+  - id: b07
+    prompt: "Design a simple electronics enclosure with about 70 mm by 45 mm by 20 mm internal volume and four lid screw posts."
+    expect_object_type: enclosure
+    max_bbox_mm: [90, 65, 35]
+  - id: b08
+    prompt: "Design a wall-mounted holder for a 1 kg filament spool, with a broad mounting plate and a cylindrical support arm."
+    expect_object_type: holder
+    max_bbox_mm: [170, 120, 90]
+  - id: b09
+    prompt: "Design a 50 mm by 50 mm by 10 mm plate with a centered 5 mm through hole."
+    expect_object_type: plate
+    max_bbox_mm: [55, 55, 12]
+  - id: b10
+    prompt: "Design an adjustable drawer divider segment, 180 mm long and under 40 mm tall, with rounded ends."
+    expect_object_type: divider
+    max_bbox_mm: [190, 35, 40]

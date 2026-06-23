@@ -1,79 +1,86 @@
-import { onRequestPost } from '../share';
-import { decompressSource } from '../../_lib/share';
-import { createMockEnv, createPagesContext } from '../../__tests__/test-utils';
+import { onRequestPost } from "../share";
+import { onRequestGet } from "../share/[id]";
+import { compressSource, decompressSource } from "../../_lib/share";
+import { createMockEnv, createPagesContext } from "../../__tests__/test-utils";
 
-describe('POST /api/share', () => {
+describe("POST /api/share", () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-03-29T18:00:00.000Z'));
+    jest.useFakeTimers().setSystemTime(new Date("2026-03-29T18:00:00.000Z"));
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('rejects non-JSON requests and invalid payloads', async () => {
+  it("rejects non-JSON requests and invalid payloads", async () => {
     const { env } = createMockEnv();
 
     const invalidType = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: 'oops',
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: "oops",
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
     expect(invalidType.status).toBe(400);
-    await expect(invalidType.json()).resolves.toEqual({ error: 'Expected application/json.' });
+    await expect(invalidType.json()).resolves.toEqual({
+      error: "Expected application/json.",
+    });
 
     const invalidCode = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: '' }),
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: "" }),
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
     expect(invalidCode.status).toBe(400);
-    await expect(invalidCode.json()).resolves.toEqual({ error: 'Missing or invalid code.' });
+    await expect(invalidCode.json()).resolves.toEqual({
+      error: "Missing or invalid code.",
+    });
   });
 
-  it('rejects oversized payloads and returns a 500 when unique ids cannot be created', async () => {
-    const largeCode = 'x'.repeat(51_201);
+  it("rejects oversized payloads and returns a 500 when unique ids cannot be created", async () => {
+    const largeCode = "x".repeat(51_201);
     const { env, kvStore } = createMockEnv();
 
     const oversized = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: largeCode }),
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
     expect(oversized.status).toBe(413);
-    await expect(oversized.json()).resolves.toEqual({ error: 'Design is too large (50KB max).' });
+    await expect(oversized.json()).resolves.toEqual({
+      error: "Design is too large (50KB max).",
+    });
 
     kvStore.set(
-      'share:aaaaaaaa',
+      "share:aaaaaaaa",
       JSON.stringify({
-        id: 'aaaaaaaa',
-        code: 'existing',
-        title: 'Existing',
-        createdAt: '2026-03-29T18:00:00.000Z',
+        id: "aaaaaaaa",
+        code: "existing",
+        title: "Existing",
+        createdAt: "2026-03-29T18:00:00.000Z",
         forkedFrom: null,
         thumbnailKey: null,
         thumbnailUploadTokenHash: null,
         codeSize: 8,
-      })
+      }),
     );
 
     const randomSpy = jest
-      .spyOn(globalThis.crypto, 'getRandomValues')
+      .spyOn(globalThis.crypto, "getRandomValues")
       .mockImplementation((buffer: Uint8Array) => {
         buffer.fill(0);
         return buffer;
@@ -81,38 +88,41 @@ describe('POST /api/share', () => {
 
     const exhausted = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: 'cube(10);' }),
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: "cube(10);" }),
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
     randomSpy.mockRestore();
 
     expect(exhausted.status).toBe(500);
     await expect(exhausted.json()).resolves.toEqual({
-      error: 'Unable to create a unique share link right now.',
+      error: "Unable to create a unique share link right now.",
     });
   });
 
-  it('persists a sanitized share record and returns the share URL plus thumbnail token', async () => {
+  it("persists a sanitized share record and returns the share URL plus thumbnail token", async () => {
     const { env, kvStore } = createMockEnv();
 
     const response = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': '198.51.100.7' },
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "cf-connecting-ip": "198.51.100.7",
+          },
           body: JSON.stringify({
-            code: 'cube([10, 10, 10]);',
-            title: '  Useful Part  ',
-            forkedFrom: 'abc12345',
+            code: "cube([10, 10, 10]);",
+            title: "  Useful Part  ",
+            forkedFrom: "abc12345",
           }),
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
 
     expect(response.status).toBe(200);
@@ -125,72 +135,120 @@ describe('POST /api/share', () => {
     expect(payload.url).toBe(`https://studio.test/s/${payload.id}`);
     expect(payload.thumbnailUploadToken).toBeTruthy();
 
-    const stored = JSON.parse(kvStore.get(`share:${payload.id}`) ?? '{}') as {
+    const stored = JSON.parse(kvStore.get(`share:${payload.id}`) ?? "{}") as {
       code: string;
       title: string;
       forkedFrom: string | null;
       thumbnailUploadTokenHash: string | null;
       codeSize: number;
     };
-    expect(stored.title).toBe('Useful Part');
-    expect(stored.forkedFrom).toBe('abc12345');
+    expect(stored.title).toBe("Useful Part");
+    expect(stored.forkedFrom).toBe("abc12345");
     expect(stored.thumbnailUploadTokenHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(stored.codeSize).toBe(new TextEncoder().encode('cube([10, 10, 10]);').length);
-    await expect(decompressSource(stored.code)).resolves.toBe('cube([10, 10, 10]);');
-    expect(kvStore.get('ratelimit:198.51.100.7:2026-3-29-18')).toBe('1');
+    expect(stored.codeSize).toBe(
+      new TextEncoder().encode("cube([10, 10, 10]);").length,
+    );
+    await expect(decompressSource(stored.code)).resolves.toBe(
+      "cube([10, 10, 10]);",
+    );
+    expect(kvStore.get("ratelimit:198.51.100.7:2026-3-29-18")).toBe("1");
   });
 
-  it('accepts .h files in multi-file project shares but requires a .scad render target', async () => {
+  it("accepts .h files in multi-file project shares but requires a .scad render target", async () => {
     const { env, kvStore } = createMockEnv();
 
     const response = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             files: {
-              'main.scad': 'include <lib/constants.h>\ncube([part_w, part_d, part_h]);',
-              'lib/constants.h': 'part_w = 12; part_d = 8; part_h = 4;',
+              "main.scad":
+                "include <lib/constants.h>\ncube([part_w, part_d, part_h]);",
+              "lib/constants.h": "part_w = 12; part_d = 8; part_h = 4;",
             },
-            renderTarget: 'main.scad',
+            renderTarget: "main.scad",
           }),
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
 
     expect(response.status).toBe(200);
     const payload = (await response.json()) as { id: string };
-    const stored = JSON.parse(kvStore.get(`share:${payload.id}`) ?? '{}') as { code: string };
+    const stored = JSON.parse(kvStore.get(`share:${payload.id}`) ?? "{}") as {
+      code: string;
+    };
     const decoded = JSON.parse(await decompressSource(stored.code)) as {
       files: Record<string, string>;
       renderTarget: string;
     };
 
-    expect(decoded.renderTarget).toBe('main.scad');
-    expect(decoded.files['lib/constants.h']).toContain('part_w');
+    expect(decoded.renderTarget).toBe("main.scad");
+    expect(decoded.files["lib/constants.h"]).toContain("part_w");
 
     const invalidRenderTarget = await onRequestPost(
       createPagesContext({
-        request: new Request('https://studio.test/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        request: new Request("https://studio.test/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             files: {
-              'main.scad': 'cube(10);',
-              'lib/constants.h': 'size = 10;',
+              "main.scad": "cube(10);",
+              "lib/constants.h": "size = 10;",
             },
-            renderTarget: 'lib/constants.h',
+            renderTarget: "lib/constants.h",
           }),
         }),
         env: env as never,
-      }) as never
+      }) as never,
     );
 
     expect(invalidRenderTarget.status).toBe(400);
     await expect(invalidRenderTarget.json()).resolves.toEqual({
-      error: 'renderTarget must be a renderable .scad file in the project.',
+      error: "renderTarget must be a renderable .scad file in the project.",
     });
+  });
+
+  it("rejects invalid stored project payloads on public read", async () => {
+    const badProject = await compressSource(
+      JSON.stringify({
+        files: { "main.scad": "cube(10);" },
+        renderTarget: "missing.scad",
+      }),
+    );
+    const { env, kvStore } = createMockEnv({
+      "share:badproj1": JSON.stringify({
+        id: "badproj1",
+        code: badProject,
+        title: "Bad Project",
+        createdAt: "2026-03-29T18:00:00.000Z",
+        forkedFrom: null,
+        thumbnailKey: null,
+        thumbnailUploadTokenHash: null,
+        codeSize: new TextEncoder().encode(
+          JSON.stringify({
+            files: { "main.scad": "cube(10);" },
+            renderTarget: "missing.scad",
+          }),
+        ).length,
+        format: "project",
+      }),
+    });
+
+    const response = await onRequestGet(
+      createPagesContext({
+        request: new Request("https://studio.test/api/share/badproj1"),
+        env: env as never,
+        params: { id: "badproj1" },
+      }) as never,
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "Design payload is invalid.",
+    });
+    expect(kvStore.get("share:badproj1")).toBeTruthy();
   });
 });

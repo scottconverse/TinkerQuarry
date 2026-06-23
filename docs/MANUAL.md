@@ -9,6 +9,12 @@
 > **not yet implemented.** For what actually works today, see the canonical [STATUS matrix](STATUS.md)
 > and the [recovery plan](TinkerQuarry-Recovery-Plan-v2.md).
 
+> **2026-06-23 correction:** the beta core is now real: describe -> preview ->
+> customize/orient -> slice -> download/mock-send is implemented and covered by automated proof. The
+> advisory local Visual Correction Loop v1 exists, but the full autonomous PRD loop,
+> external-library admission, richer Explain/iteration history, and full visual diff remain
+> incomplete. For current proof, see the canonical [STATUS matrix](STATUS.md).
+
 This manual has three parts. Read the one that fits you:
 
 - **[Part I — Using TinkerQuarry](#part-i--using-tinkerquarry)** — for everyone. No technical
@@ -162,7 +168,7 @@ SPA front-end served by the engine's local web server.
 | OpenSCAD | geometry kernel (SCAD → mesh, 3MF/STL) | path set in `config/local.yaml` → `binaries.openscad` |
 | OrcaSlicer | slicer (mesh → G-code, with printer profiles) | `binaries.orcaslicer` |
 | Ollama + `qwen2.5:7b` | on-device design-plan LLM | OpenAI-compatible endpoint at `:11434` |
-| Ollama + `qwen2.5vl:3b` | on-device vision (photo/sketch → design) | optional |
+| Ollama + `qwen2.5vl:7b` | on-device vision (photo/sketch + visual critique) | optional |
 | trimesh / manifold3d / numpy / scipy | mesh validation & hardening | pip deps |
 | CadQuery | *optional* editable `.STEP` export | absent → that feature is simply off |
 
@@ -245,7 +251,7 @@ optional `bambulabs-api` package), `moonraker`, `prusalink`. A send always requi
 ## AI backends
 
 The planner is an **on-device** OpenAI-compatible model (`qwen2.5:7b` via Ollama by default; chosen
-in an on-machine bake-off for reliable structured plans on CPU). Vision uses `qwen2.5vl:3b`. A
+in an on-machine bake-off for reliable structured plans on CPU). Vision uses `qwen2.5vl:7b`. A
 **cloud** backend can be enabled opt-in (Settings; off by default) and is allow-listed from the
 shipped config so a local override can't silently widen it. Vision always runs locally.
 
@@ -290,7 +296,7 @@ flowchart TB
     subgraph EXT["External tools & AI"]
         OS[OpenSCAD]
         OR[OrcaSlicer]
-        OL[Ollama: qwen2.5:7b · qwen2.5vl:3b]
+        OL[Ollama: qwen2.5:7b · qwen2.5vl:7b]
     end
     UI <-->|loopback HTTP + X-KimCad-Session| WEB
     WEB --> CORE

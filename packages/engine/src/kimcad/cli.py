@@ -576,7 +576,9 @@ def _cmd_models(config: Config, args: argparse.Namespace) -> int:
     try:
         vision = config.llm_backend("local").vision_model
     except Exception:  # noqa: BLE001 - advisory only
-        vision = "qwen2.5vl:3b"
+        from kimcad.config import DEFAULT_VISION_MODEL
+
+        vision = DEFAULT_VISION_MODEL
     have_vision = any(m.name == vision for m in installed)
     vstate = "installed" if have_vision else f"NOT installed -- ollama pull {vision}"
     print(f"  Vision model (photo/sketch on-ramps): {vision}  ({vstate})")

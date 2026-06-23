@@ -131,6 +131,7 @@ def test_cadquery_worker_source_never_imports_settings_or_keyring():
     future import of keyring/settings into the worker fails a test, not an audit."""
     from pathlib import Path
 
-    src = (Path("src/kimcad/cadquery_worker.py")).read_text(encoding="utf-8")
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "src" / "kimcad" / "cadquery_worker.py").read_text(encoding="utf-8")
     assert "import keyring" not in src
     assert "settings_store" not in src

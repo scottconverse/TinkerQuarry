@@ -50,7 +50,9 @@ exact formula (e.g. external g: `es=-(15+11·P)` µm). Published ISO tables pres
 these rounded to whole µm; tq-threads uses the unrounded formula. The tolerance
 **grade** (band width, e.g. the “6” in “6g”) is **not** modelled — there is one
 nominal surface, not a min/max envelope. Small-pitch footnote exceptions in the
-standard (e for P≤0.45, f for P≤0.3) are not special-cased.
+standard (e for P≤0.45, f for P≤0.3) are not special-cased. For M8 `6g`, the
+diametral allowance is about 0.029 mm, so this is nominal standards intent rather
+than a practical FDM fit lever; tune `clearance` for printed fit.
 
 ---
 
@@ -74,8 +76,8 @@ H = (sqrt(3)/2) · P = 0.8660254 · P
 | Root flat width (axial) | `P/4` | 0.250·P |
 | Pitch-Ø offset from major | `2·(3H/8) = 0.75·H` | 0.649519·P |
 | Minor-Ø offset from major (basic) | `2·(5H/8) = 1.25·H` | 1.082532·P |
-| Rounded root radius (UNR/ISO) | `≈ 0.144·P` | 0.144·P |
-| Rounded crest radius (this lib) | `≈ 0.072·P` | 0.072·P |
+| Rounded root radius (UNR/ISO) | `rr = H/6 ≈ 0.1443·P` | 0.1443·P |
+| Rounded crest radius (this lib) | `rc = H/12 ≈ 0.0722·P` | 0.0722·P |
 
 **Derivation of the rounded fillet radii** (used by `profile="rounded"`,
 `_tq_table_round`). The root fillet uses the standard UNR/ISO-class rounded-root
@@ -100,16 +102,22 @@ Standards:
 
 ### Preset pitch values (tabulated facts)
 
-Metric coarse, `[major mm, pitch mm]`:
+> The lists below are **representative excerpts**. The full set is **101 presets**
+> in `TQ_PRESETS` (see `tq_preset_count()` / the README "Presets (101)" list);
+> every row is verified by `tq_presets_selfcheck()`.
+
+Metric coarse (incl. M1.6), `[major mm, pitch mm]`:
 ```
-M2 0.40  M2.5 0.45  M3 0.50  M3.5 0.60  M4 0.70  M5 0.80  M6 1.00  M7 1.00
+M1.6 0.35  M2 0.40  M2.5 0.45  M3 0.50  M3.5 0.60  M4 0.70  M5 0.80  M6 1.00  M7 1.00
 M8 1.25  M10 1.50  M12 1.75  M14 2.00  M16 2.00  M18 2.50  M20 2.50  M22 2.50
 M24 3.00  M27 3.00  M30 3.50  M33 3.50  M36 4.00  M39 4.00  M42 4.50  M45 4.50
 M48 5.00  M52 5.00  M56 5.50  M60 5.50  M64 6.00
 ```
-Metric fine: `M8x1 M10x1.25 M10x1 M12x1.5 M12x1.25 M16x1.5 M20x1.5 M24x2`.
-Unified (`major = inch·25.4`, `pitch = 25.4/TPI`):
-`1/4-20 1/4-28 3/8-16 3/8-24 1/2-13 1/2-20`.
+Metric fine — **ISO 261 defines the fine-pitch series; ISO 262 selects preferred
+sizes** — e.g. `M8x1 M10x1.25 M12x1.5 M16x1.5 M20x1.5 M24x2 M30x2 M36x3` (full
+series in `TQ_PRESETS`).
+Unified (`major = inch·25.4`, `pitch = 25.4/TPI`), e.g.
+`#6-32 #10-32 1/4-20 1/4-28 3/8-16 1/2-13 3/4-10 1-8` (full UNC/UNF set in `TQ_PRESETS`).
 
 ---
 

@@ -29,9 +29,13 @@ echo("FAST TEST: all required presets resolve OK");
 
 // ---- 2. tiny render grid ---------------------------------------------------
 $fn = 24;
+TQ_FAST_PART = undef;
 SP = 16;
 L  = 5;
-module cell(i) { translate([(i%5)*SP, -floor(i/5)*SP, 0]) children(); }
+module cell(i) {
+    if (is_undef(TQ_FAST_PART) || TQ_FAST_PART == i)
+        translate([(i%5)*SP, -floor(i/5)*SP, 0]) children();
+}
 
 cell(0) tq_thread_preset("M3", L);
 cell(1) tq_thread_preset("M8", L);

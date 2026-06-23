@@ -1,6 +1,6 @@
 # TinkerQuarry
 
-**Status: real-product recovery in progress. Not done.**
+**Status: recovery gate passed for the verified beta lanes. Not final v1.**
 
 TinkerQuarry is a local-first CAD-to-print application: describe a part in plain English, tune it,
 inspect the generated OpenSCAD, and produce a checked printable file. The intended differentiator is a
@@ -18,18 +18,22 @@ What is real and worth trusting:
   describe-to-viewer and make-it-real download flow.
 - Manual build-plate orientation is wired in the UI and engine; changing pose invalidates stale
   slices/G-code before the next Make it real action.
-- Send-to-printer UI is wired after a successful slice, with connector selection and a post-print
-  outcome prompt for real hardware sends.
-- Engine coverage is substantial and real; front-end product flows are still mostly manually verified.
+- Send-to-printer UI is wired after a successful slice, with connector selection and simulated/real
+  outcome provenance.
+- Engine coverage is substantial and real; the core browser flow now has durable Playwright coverage.
+- Native Windows packaging builds and has been smoke-tested from both the release executable and the
+  installed NSIS copy.
 - Source/license disclosure exists in-app for the current core components.
 
 What is still not done:
 
-- The Visual Correction Loop is not implemented.
+- The Visual Correction Loop has an advisory local probe-mode v1, but not the full autonomous PRD
+  correction loop.
 - Bundled third-party SCAD libraries are vendored, with caveats noted below.
 - External-library admission is not wired to the engine sandbox.
 - Persistent per-iteration history, visual diff, and a full Explain view remain incomplete.
-- Browser-level front-end integration coverage is still missing.
+- Browser-level coverage is still narrow: happy-path desktop web flow through mock send/outcome and
+  native startup smoke are covered, but not a broad mobile/accessibility/error-path matrix.
 
 For the current detailed truth, read:
 
@@ -60,21 +64,38 @@ Then open `http://localhost:1420`.
 ## Tests
 
 ```powershell
-# Front-end unit suite
+# Root UI/web checks
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+pnpm -r lint
+pnpm -r type-check
+pnpm test:unit
+pnpm test:web:unit
+
+# Durable browser flow: app boot -> prompt/build -> Make it real -> slice -> Send -> outcome
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+pnpm test:e2e:web
+
+# Native Tauri runtime smoke against the built release exe
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+pnpm test:e2e:tauri
+
+# Native Windows package build
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+pnpm --dir apps\ui tauri build
+
+# Front-end unit suite, direct app command
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
 node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js
-
-# Front-end typecheck
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
-.\node_modules\.bin\tsc --noEmit
 
 # Live API integration test; requires the engine running on port 8765
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
 node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js engineLive.integration
 
-# Engine suite, excluding e2e collection that needs Playwright installed in the venv
+# Engine suites
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
-.\.venv\Scripts\python.exe -m pytest tests\ --ignore=tests\e2e -q
+.\.venv\Scripts\python.exe -m pytest tests -m "not live" -q
+.\.venv\Scripts\python.exe -m pytest tests -m live -q
+.\.venv\Scripts\python.exe -m pytest tests -m real_tool -q
 ```
 
 See [docs/HANDOFF-TO-CODEX.md](docs/HANDOFF-TO-CODEX.md) for proof logs, known caveats, and environment

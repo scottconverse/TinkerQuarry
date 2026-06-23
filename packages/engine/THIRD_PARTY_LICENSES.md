@@ -43,7 +43,8 @@ Per [STRATEGY-RECON](../STRATEGY-RECON.md), the permissive SCAD stack vendored i
 |---|---|
 | BOSL2 | BSD-2-Clause |
 | Round-Anything | MIT |
-| threads.scad | CC0-1.0 |
+| tq-threads | MIT |
+| Dan Kirshner threads.scad | Not bundled; available source is GPL-3.0-or-later, which is incompatible with this GPL-2.0-only combined work |
 | YAPP_Box | MIT |
 | Catch'n'Hole | MIT |
 | gridfinity-rebuilt | MIT |

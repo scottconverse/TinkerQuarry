@@ -43,3 +43,7 @@ Validation path: print the calibration set in [README → FDM fit guide](README.
 measure major/minor/pitch diameters with calipers/thread gauges, and adjust
 `clearance` (and optionally `fit`) per material/printer. For certified parts, use
 machined hardware or a metrology-grade CAM toolchain — not an FDM print.
+
+Practical note: ISO 965 position allowance is tiny at FDM scale. M8 `6g` is about
+0.029 mm diametral shift, below typical tuned clearance and layer-line effects,
+so `fit=` records nominal intent; `clearance` is the real print-fit control.

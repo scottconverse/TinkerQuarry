@@ -17,6 +17,12 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.browser_serial, pytest.mark.needs_browser, pytest.mark.real_tool]
 
 
+def _choose_sliceable_profile(page: Page) -> None:
+    page.get_by_label("Printer").select_option("bambu_p2s")
+    page.get_by_label("Material").select_option("pla")
+    expect(page.get_by_role("button", name="Slice & prepare file")).to_be_enabled(timeout=30_000)
+
+
 def test_the_version_rail_navigates_between_refine_versions(design) -> None:  # noqa: ANN001
     page: Page = design("a 40 mm desk cable clip")
 
@@ -34,6 +40,7 @@ def test_the_version_rail_navigates_between_refine_versions(design) -> None:  # 
 def test_the_send_to_printer_surface_appears_after_slicing(design, console_errors: list[str]) -> None:  # noqa: ANN001
     page: Page = design("a 40 mm desk cable clip")
     page.get_by_role("tab", name="Export").click()
+    _choose_sliceable_profile(page)
     page.get_by_role("button", name="Slice & prepare file").click()
 
     # Once a real print file exists, the direct-print surface is offered with a safe simulated send.

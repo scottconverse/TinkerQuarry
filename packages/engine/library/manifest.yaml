@@ -224,8 +224,8 @@ modules:
 
   - file: vendor/tq-threads/tq_threads.scad
     summary: >-
-      Vendored tq-threads v0.4.0 (MIT), pinned to commit
-      cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00. A clean-room printable
+      Vendored tq-threads v0.5.0 (MIT), pinned to commit
+      bf4ac59028997fb111a2ae598fa71137b5e1e58a. A clean-room printable
       screw-thread library for ISO metric and Unified threads, ISO 965-1 fit
       offsets, printable hardware helpers, threaded rods, tapped holes, bolts,
       nuts, washers, countersunk screws, clearance/counterbore/countersink

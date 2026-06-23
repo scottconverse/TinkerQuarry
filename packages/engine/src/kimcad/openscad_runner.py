@@ -143,7 +143,7 @@ def _library_module_map(library_dir: Path = LIBRARY_DIR) -> dict[str, str]:
             continue
         for sig in mod.get("signatures", []):
             m = re.match(r"\s*(\w+)\s*\(", sig)
-            if m:
+            if m and m.group(1) not in mapping:
                 mapping[m.group(1)] = file
     return mapping
 

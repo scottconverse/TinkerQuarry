@@ -43,7 +43,7 @@
 
 // Library version (filenames are fixed by the `include` API; version lives
 // here and in the git tag / CHANGELOG / GitHub release).
-TQ_THREADS_VERSION = "0.4.0";
+TQ_THREADS_VERSION = "0.5.0";
 
 // sqrt(3)/2 : height of a sharp 60-degree V per unit pitch (H = 0.86603 * P)
 _TQ_H = 0.86602540378;
@@ -98,7 +98,7 @@ function _tq_table_round(P, Rmin, Rmaj, rnd, nseg) =
     let(
         rc  = rnd * 0.0722 * P,      // crest fillet radius
         rr  = rnd * 0.1443 * P,      // root  fillet radius
-        ccr = Rmaj - 0.5 * rc,       // crest arc centre height
+        ccr = Rmaj - rc,             // crest arc centre height; arc apex is at Rmaj
         rc0 = Rmin + 0.5 * rr        // root  arc centre height
     )
     concat(
@@ -677,11 +677,13 @@ module tq_wood_screw(d, length, pitch=undef, head="countersunk", head_d=undef,
            str("tq_wood_screw: point must be gimlet|cone|flat (or bool), got ", point));
     p    = is_undef(pitch)  ? d * 0.6 : pitch;
     hd   = is_undef(head_d) ? d * 2.0 : head_d;
-    tipL = pt=="flat" ? 0 : (pt=="cone" ? d*0.6 : d*0.9);
+    tipL0 = pt=="flat" ? 0 : (pt=="cone" ? d*0.6 : d*0.9);
+    tl   = length - shank;                                  // threaded/body length
+    tipL = min(tipL0, tl);
     tipD = pt=="cone" ? d*0.4 : 0.2;
     md   = is_undef(thread_depth) ? core_d : undef;        // don't pass both
     shd  = is_undef(core_d) ? d*0.72 : core_d;             // reduced smooth shank
-    tl   = length - shank;                                  // threaded length
+    bodyL = tl - tipL;
     union() {
         if (head == "countersunk") {
             hk = (hd/2) / tan(45);
@@ -691,20 +693,17 @@ module tq_wood_screw(d, length, pitch=undef, head="countersunk", head_d=undef,
         }
         if (shank > 0)
             translate([0,0,-TQ_EPS]) cylinder(h=shank + TQ_EPS, d=shd, $fn=_tq_aseg(d, fn));
-        translate([0,0,shank])
-            intersection() {
+        translate([0,0,shank]) {
+            if (bodyL > 0)
                 translate([0,0,-TQ_EPS])
-                    tq_thread(d=d, pitch=p, length=tl + TQ_EPS, hand=hand,
+                    tq_thread(d=d, pitch=p, length=bodyL + TQ_EPS, hand=hand,
                               clearance=clearance, profile="sharp",
                               tooth_height=thread_depth, minor_d=md, taper=taper,
                               lead_in=false, lead_out=false, fn=fn);
-                union() {
-                    translate([0,0,-TQ_EPS]) cylinder(h=tl - tipL + TQ_EPS, d=d + 1, $fn=_tq_aseg(d, fn));
-                    if (tipL > 0)
-                        translate([0,0,tl - tipL])
-                            cylinder(h=tipL, d1=d + 1, d2=tipD, $fn=_tq_aseg(d, fn));
-                }
-            }
+            if (tipL > 0)
+                translate([0,0,bodyL - TQ_EPS])
+                    cylinder(h=tipL + TQ_EPS, d1=d, d2=tipD, $fn=_tq_aseg(d, fn));
+        }
     }
 }
 

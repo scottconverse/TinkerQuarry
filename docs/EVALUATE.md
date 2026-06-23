@@ -2,10 +2,12 @@
 
 A no-spin walkthrough so you can judge the real product yourself, not a description of it.
 
-> **Verification honesty:** the engine has real automated tests. The front-end steps below were
-> manually click-checked during the sprint; they are not covered by automated browser tests. There is
-> one live API integration test, `engineLive.integration.test.ts`, but no Playwright or `App.tsx` user
-> flow test yet.
+> **Verification honesty:** the engine has real automated tests, and the main desktop web flow now has
+> a durable Playwright happy-path test. The checked-in browser test covers app boot against the demo
+> engine, prompt/build, rendered design-ready state, Make it real, first-real caution, slice,
+> Ready-to-print state, mock Send, and post-send outcome recording. This is not a full UI matrix:
+> mobile/narrow layouts, every error path, and hardware connector outcomes still need broader
+> coverage.
 
 ## Run It
 
@@ -74,8 +76,31 @@ Then open `http://localhost:1420`.
   is not wired to the engine.
 - **Explain/diff/iteration history**: current Explain is a readiness toast; Undo is whole-design
   session revert; persistent per-iteration history and visual/structural diff remain incomplete.
-- **Automated browser-level coverage**: no Playwright or `App.tsx` test for describe -> render ->
-  make-it-real.
+- **Browser-level coverage breadth**: the committed Playwright test covers the core happy path through
+  mock send/outcome. It does not yet cover mobile/narrow layouts, hardware connectors, every export
+  format, every profile, or accessibility keyboard traversal.
+
+## Automated Proof Commands
+
+From `C:\Users\Scott\Desktop\CODE\tinkerquarry`:
+
+```powershell
+pnpm -r lint
+pnpm -r type-check
+pnpm test:unit
+pnpm test:web:unit
+pnpm test:e2e:web
+pnpm --dir apps\ui tauri build
+pnpm test:e2e:tauri
+```
+
+From `C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -m "not live" -q
+.\.venv\Scripts\python.exe -m pytest tests -m live -q
+.\.venv\Scripts\python.exe -m pytest tests -m real_tool -q
+```
 
 ## Where The Truth Lives
 

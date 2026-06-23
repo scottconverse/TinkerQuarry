@@ -1,20 +1,30 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
-import { DockviewReact } from 'dockview';
-import type { DockviewReadyEvent } from 'dockview';
-import 'dockview/dist/styles/dockview.css';
-import { ExportDialog } from './components/ExportDialog';
-import { ShareDialog } from './components/ShareDialog';
-import { ShareBanner } from './components/ShareBanner';
-import type { AiPromptPanelRef } from './components/AiPromptPanel';
-import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
-import { WelcomeScreen } from './components/WelcomeScreen';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  type ReactNode,
+} from "react";
+import { DockviewReact } from "dockview";
+import type { DockviewReadyEvent } from "dockview";
+import "dockview/dist/styles/dockview.css";
+import { ExportDialog } from "./components/ExportDialog";
+import { ShareDialog } from "./components/ShareDialog";
+import { ShareBanner } from "./components/ShareBanner";
+import type { AiPromptPanelRef } from "./components/AiPromptPanel";
+import {
+  SettingsDialog,
+  type SettingsSection,
+} from "./components/SettingsDialog";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import {
   HeaderWorkspaceControls,
   type HeaderLayoutPreset,
-} from './components/HeaderWorkspaceControls';
-import { WebMenuBar } from './components/WebMenuBar';
-import { FileTreePanel } from './components/FileTree';
-import { isValidDrop } from './utils/isValidDrop';
+} from "./components/HeaderWorkspaceControls";
+import { WebMenuBar } from "./components/WebMenuBar";
+import { FileTreePanel } from "./components/FileTree";
+import { isValidDrop } from "./utils/isValidDrop";
 import {
   Button,
   IconButton,
@@ -22,12 +32,16 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from './components/ui';
-import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
-import { useTheme } from './contexts/ThemeContext';
-import { WorkspaceProvider } from './contexts/WorkspaceContext';
-import type { WorkspaceState } from './contexts/WorkspaceContext';
-import { useAnalytics, type LayoutSelectionSource } from './analytics/runtime';
+} from "./components/ui";
+import {
+  panelComponents,
+  tabComponents,
+  WorkspaceTab,
+} from "./components/panels/PanelComponents";
+import { useTheme } from "./contexts/ThemeContext";
+import { WorkspaceProvider } from "./contexts/WorkspaceContext";
+import type { WorkspaceState } from "./contexts/WorkspaceContext";
+import { useAnalytics, type LayoutSelectionSource } from "./analytics/runtime";
 import {
   setDockviewApi,
   getDockviewApi,
@@ -37,97 +51,124 @@ import {
   clearSavedLayout,
   MOBILE_LAYOUT_MEDIA_QUERY,
   openPanel,
-} from './stores/layoutStore';
-import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
-import { useAiAgent } from './hooks/useAiAgent';
+} from "./stores/layoutStore";
+import { useRenderOrchestrator } from "./hooks/useRenderOrchestrator";
+import { useAiAgent } from "./hooks/useAiAgent";
 import {
   describeIntoStudio,
   reopenIntoStudio,
   setEngineDocument,
   pureTuneValues,
   type EngineTurn,
-} from './services/engineDocument';
-import { engine, type ConnectorInfo } from './services/engineClient';
-import { engineGateSummary } from './services/engineDesign';
-import { FirstRealPrintDialog } from './components/FirstRealPrintDialog';
-import { useHistory } from './hooks/useHistory';
-import { useMobileLayout } from './hooks/useMobileLayout';
-import { getPlatform, eventBus, type ExportFormat } from './platform';
-import { isExportValidationError } from './services/exportErrors';
+} from "./services/engineDocument";
+import { engine, type ConnectorInfo } from "./services/engineClient";
+import { engineGateSummary } from "./services/engineDesign";
+import { FirstRealPrintDialog } from "./components/FirstRealPrintDialog";
+import { useHistory } from "./hooks/useHistory";
+import { useMobileLayout } from "./hooks/useMobileLayout";
+import { getPlatform, eventBus, type ExportFormat } from "./platform";
+import { isExportValidationError } from "./services/exportErrors";
 import {
   notifyDesktopMcpRenderStarted,
   notifyDesktopMcpRenderSettled,
   syncDesktopMcpConfig,
   syncDesktopMcpWindowContext,
-} from './services/desktopMcp';
-import { exportModelWithContext } from './services/exportService';
-import { getPreviewSceneStyle } from './services/previewSceneConfig';
-import { isShareEnabled } from './services/shareService';
-import { openFileInWindow, openWorkspaceFolderInWindow } from './services/windowOpenService';
-import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
-import { getApiKey, getOpenAiCompatibleConfig } from './stores/apiKeyStore';
+} from "./services/desktopMcp";
+import { exportModelWithContext } from "./services/exportService";
+import { getPreviewSceneStyle } from "./services/previewSceneConfig";
+import { isShareEnabled } from "./services/shareService";
+import {
+  openFileInWindow,
+  openWorkspaceFolderInWindow,
+} from "./services/windowOpenService";
+import {
+  useSettings,
+  loadSettings,
+  updateSetting,
+} from "./stores/settingsStore";
+import { getApiKey, getOpenAiCompatibleConfig } from "./stores/apiKeyStore";
 import {
   selectActiveRender,
   selectActiveTab,
   selectActiveTabId,
   selectShowWelcome,
   selectTabs,
-} from './stores/workspaceSelectors';
-import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
-import { getProjectStore, useProjectStore, getRenderTargetContent } from './stores/projectStore';
-import { requestRender } from './stores/renderRequestStore';
+} from "./stores/workspaceSelectors";
+import { useWorkspaceStore, getWorkspaceState } from "./stores/workspaceStore";
+import {
+  getProjectStore,
+  useProjectStore,
+  getRenderTargetContent,
+} from "./stores/projectStore";
+import { requestRender } from "./stores/renderRequestStore";
 import {
   createSourceHash,
   getRenderArtifactState,
   useRenderArtifactStore,
-} from './stores/renderArtifactStore';
-import { DEFAULT_TAB_NAME } from './stores/workspaceFactories';
-import { formatOpenScadCode } from './utils/formatter';
-import { addRecentFile, removeRecentFile } from './utils/recentFiles';
+} from "./stores/renderArtifactStore";
+import { DEFAULT_TAB_NAME } from "./stores/workspaceFactories";
+import { formatOpenScadCode } from "./utils/formatter";
+import { addRecentFile, removeRecentFile } from "./utils/recentFiles";
 import {
   captureCurrentPreview,
   captureVisualReviewImages,
   MAIN_PREVIEW_VIEWER_ID,
-} from './utils/capturePreview';
+} from "./utils/capturePreview";
 import {
   MAX_VISUAL_CORRECTION_ROUNDS,
   canApplyVisualCorrection,
   visualCorrectionApplyingSummary,
-} from './utils/visualCorrection';
-import { estimatePreviewDifferencePercent, formatVisualDifference } from './utils/visualDiff';
-import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
-import { exportProjectZip } from './utils/projectZip';
+} from "./utils/visualCorrection";
+import {
+  estimatePreviewDifferencePercent,
+  formatVisualDifference,
+} from "./utils/visualDiff";
+import { getManufacturingWorkflowState } from "./utils/manufacturingWorkflow";
+import {
+  normalizeAppError,
+  notifyError,
+  notifySuccess,
+} from "./utils/notifications";
+import { exportProjectZip } from "./utils/projectZip";
 import {
   getInitialMacDownloadArch,
   getMacDownloadUrl,
   resolveMacDownloadArch,
   type MacArch,
-} from './utils/macDownload';
-import { getRelativeProjectPath } from './utils/projectFilePaths';
-import { generateRandomProjectName } from './utils/projectNaming';
-import { resolveFolderImport } from './utils/folderImport';
-import { useShareEntry } from './hooks/useShareEntry';
-import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
-import { Toaster } from 'sonner';
-import type { AiDraft } from './types/aiChat';
-import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
+} from "./utils/macDownload";
+import { getRelativeProjectPath } from "./utils/projectFilePaths";
+import { generateRandomProjectName } from "./utils/projectNaming";
+import { resolveFolderImport } from "./utils/folderImport";
+import { useShareEntry } from "./hooks/useShareEntry";
+import {
+  TbBrandGithub,
+  TbSettings,
+  TbDownload,
+  TbShare3,
+} from "react-icons/tb";
+import { Toaster } from "sonner";
+import type { AiDraft } from "./types/aiChat";
+import type { WorkspaceTab as WorkspaceDocumentTab } from "./stores/workspaceTypes";
 import {
   OPENSCAD_PROJECT_FILE_EXTENSIONS,
   isOpenScadProjectFilePath,
-} from '../../../packages/shared/src/openscadProjectFiles';
+} from "../../../packages/shared/src/openscadProjectFiles";
 
-const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
-const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 900px)';
+const REPOSITORY_URL = "https://github.com/zacharyfmarion/openscad-studio";
+const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = "(max-width: 900px)";
 
 const OPENSCAD_FILE_FILTERS = [
-  { name: 'OpenSCAD Files', extensions: [...OPENSCAD_PROJECT_FILE_EXTENSIONS] },
+  { name: "OpenSCAD Files", extensions: [...OPENSCAD_PROJECT_FILE_EXTENSIONS] },
 ];
 /** Prompt the user to pick a folder and return its project files, or null if cancelled. */
-function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath: string } | null> {
+function pickFolder(): Promise<{
+  files: Record<string, string>;
+  renderTargetPath: string;
+} | null> {
   return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.setAttribute('webkitdirectory', '');
+    const input = document.createElement("input");
+    input.type = "file";
+    input.setAttribute("webkitdirectory", "");
     input.onchange = async () => {
       const fileList = input.files;
       if (!fileList || fileList.length === 0) {
@@ -142,9 +183,9 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
         const relativePath = file.webkitRelativePath;
         if (!isOpenScadProjectFilePath(relativePath)) continue;
         // Strip the top-level folder name
-        const parts = relativePath.split('/');
+        const parts = relativePath.split("/");
         workspaceName ??= parts[0] || null;
-        const pathWithoutRoot = parts.slice(1).join('/');
+        const pathWithoutRoot = parts.slice(1).join("/");
         if (pathWithoutRoot) {
           files[pathWithoutRoot] = await file.text();
         }
@@ -154,7 +195,7 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
         resolveFolderImport(files, {
           workspaceName,
           createIfEmpty: true,
-        })
+        }),
       );
     };
     input.oncancel = () => resolve(null);
@@ -165,38 +206,38 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
 function isIgnorableError(reason: unknown): boolean {
   // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error
   // message and should not be forwarded to Sentry.
-  if (typeof Event !== 'undefined' && reason instanceof Event) {
+  if (typeof Event !== "undefined" && reason instanceof Event) {
     return true;
   }
 
   const message =
     reason instanceof Error
       ? reason.message
-      : typeof reason === 'string'
+      : typeof reason === "string"
         ? reason
-        : typeof reason === 'object' &&
+        : typeof reason === "object" &&
             reason !== null &&
-            'message' in reason &&
-            typeof (reason as { message?: unknown }).message === 'string'
+            "message" in reason &&
+            typeof (reason as { message?: unknown }).message === "string"
           ? (reason as { message: string }).message
-          : '';
+          : "";
 
   const normalized = message.trim().toLowerCase();
   return (
-    normalized === 'canceled' ||
-    normalized === 'cancelled' ||
-    normalized === 'render cancelled' ||
-    normalized === 'render canceled' ||
-    normalized.includes('aborterror') ||
-    normalized.includes('aborted') ||
+    normalized === "canceled" ||
+    normalized === "cancelled" ||
+    normalized === "render cancelled" ||
+    normalized === "render canceled" ||
+    normalized.includes("aborterror") ||
+    normalized.includes("aborted") ||
     // drei/three.js asset loader errors (e.g. HDR environment map fetch failures)
     // are handled locally by EnvironmentWithFallback and should not surface as toasts.
-    normalized.startsWith('could not load ')
+    normalized.startsWith("could not load ")
   );
 }
 
 function revokeBlobUrl(url: string | null | undefined) {
-  if (!url || !url.startsWith('blob:')) {
+  if (!url || !url.startsWith("blob:")) {
     return;
   }
 
@@ -204,8 +245,8 @@ function revokeBlobUrl(url: string | null | undefined) {
 }
 
 function formatLayerHeight(mm: unknown): string {
-  if (typeof mm !== 'number' || !Number.isFinite(mm) || mm <= 0) return '';
-  return `${mm.toFixed(2).replace(/\.?0+$/, '')} mm layers`;
+  if (typeof mm !== "number" || !Number.isFinite(mm) || mm <= 0) return "";
+  return `${mm.toFixed(2).replace(/\.?0+$/, "")} mm layers`;
 }
 
 function useMacDownloadUrl() {
@@ -250,8 +291,8 @@ function HeaderIconLink({
           href={href}
           aria-label={ariaLabel}
           title={title}
-          target={openInNewTab ? '_blank' : undefined}
-          rel={openInNewTab ? 'noreferrer' : undefined}
+          target={openInNewTab ? "_blank" : undefined}
+          rel={openInNewTab ? "noreferrer" : undefined}
           className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
         >
           {children}
@@ -266,13 +307,16 @@ function HeaderIconLink({
  * Returns a path that does not conflict with any path in `existing`.
  * Appends _1, _2, … to the filename stem until a free slot is found.
  */
-function resolvePathConflict(candidatePath: string, existing: Set<string>): string {
+function resolvePathConflict(
+  candidatePath: string,
+  existing: Set<string>,
+): string {
   if (!existing.has(candidatePath)) return candidatePath;
-  const lastSlash = candidatePath.lastIndexOf('/');
-  const lastDot = candidatePath.lastIndexOf('.');
+  const lastSlash = candidatePath.lastIndexOf("/");
+  const lastDot = candidatePath.lastIndexOf(".");
   const hasExt = lastDot > lastSlash + 1;
   const stem = hasExt ? candidatePath.slice(0, lastDot) : candidatePath;
-  const ext = hasExt ? candidatePath.slice(lastDot) : '';
+  const ext = hasExt ? candidatePath.slice(lastDot) : "";
   let i = 1;
   while (existing.has(`${stem}_${i}${ext}`)) i++;
   return `${stem}_${i}${ext}`;
@@ -280,16 +324,18 @@ function resolvePathConflict(candidatePath: string, existing: Set<string>): stri
 
 function App() {
   const { isMobile } = useMobileLayout();
-  const [isHeaderWorkspaceSwitcherHidden, setIsHeaderWorkspaceSwitcherHidden] = useState(
-    () =>
-      typeof window !== 'undefined' &&
-      window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY).matches
-  );
+  const [isHeaderWorkspaceSwitcherHidden, setIsHeaderWorkspaceSwitcherHidden] =
+    useState(
+      () =>
+        typeof window !== "undefined" &&
+        window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY).matches,
+    );
   const tabs = useWorkspaceStore(selectTabs);
-  const activeTabId = useWorkspaceStore(selectActiveTabId) ?? '';
+  const activeTabId = useWorkspaceStore(selectActiveTabId) ?? "";
   const showWelcome = useWorkspaceStore(selectShowWelcome);
   const activeTab = useWorkspaceStore(selectActiveTab) ?? tabs[0];
-  const activeRender = useWorkspaceStore(selectActiveRender) ?? activeTab?.render;
+  const activeRender =
+    useWorkspaceStore(selectActiveRender) ?? activeTab?.render;
   // The render target tab holds the preview — use its render state regardless of
   // which tab is currently active in the editor.
   const renderTargetPath = useProjectStore((s) => s.renderTargetPath);
@@ -297,23 +343,35 @@ function App() {
   const renderTargetTab = tabs.find((t) => t.projectPath === renderTargetPath);
   const renderTargetRender = renderTargetTab?.render ?? activeRender;
   const activeRenderArtifact = useRenderArtifactStore((state) =>
-    renderTargetPath ? (state.artifactsByTarget[renderTargetPath] ?? null) : null
+    renderTargetPath
+      ? (state.artifactsByTarget[renderTargetPath] ?? null)
+      : null,
   );
   const createTab = useWorkspaceStore((state) => state.createTab);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const renameTab = useWorkspaceStore((state) => state.renameTab);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
-  const openSharedDocument = useWorkspaceStore((state) => state.openSharedDocument);
+  const openSharedDocument = useWorkspaceStore(
+    (state) => state.openSharedDocument,
+  );
   const reorderWorkspaceTabs = useWorkspaceStore((state) => state.reorderTabs);
   const beginTabRender = useWorkspaceStore((state) => state.beginTabRender);
-  const commitTabRenderResult = useWorkspaceStore((state) => state.commitTabRenderResult);
-  const commitTabRenderError = useWorkspaceStore((state) => state.commitTabRenderError);
-  const showWelcomeScreen = useWorkspaceStore((state) => state.showWelcomeScreen);
-  const hideWelcomeScreen = useWorkspaceStore((state) => state.hideWelcomeScreen);
+  const commitTabRenderResult = useWorkspaceStore(
+    (state) => state.commitTabRenderResult,
+  );
+  const commitTabRenderError = useWorkspaceStore(
+    (state) => state.commitTabRenderError,
+  );
+  const showWelcomeScreen = useWorkspaceStore(
+    (state) => state.showWelcomeScreen,
+  );
+  const hideWelcomeScreen = useWorkspaceStore(
+    (state) => state.hideWelcomeScreen,
+  );
 
   if (!activeTab) {
-    throw new Error('Workspace store must always provide an active tab');
+    throw new Error("Workspace store must always provide an active tab");
   }
 
   const activeTabRef = useRef<WorkspaceDocumentTab>(activeTab);
@@ -323,23 +381,26 @@ function App() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSection | undefined>(
-    undefined
-  );
+  const [settingsInitialTab, setSettingsInitialTab] = useState<
+    SettingsSection | undefined
+  >(undefined);
   const [settings] = useSettings();
   const { theme } = useTheme();
   const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
   const macDownloadUrl = useMacDownloadUrl();
   const { undo, redo } = useHistory();
-  const [resolvedProjectDir, setResolvedProjectDir] = useState<string | null>(null);
+  const [resolvedProjectDir, setResolvedProjectDir] = useState<string | null>(
+    null,
+  );
   /** Pre-generated project name shown on welcome screen (not yet created on disk) */
   const [pendingProjectName, setPendingProjectName] = useState<string>(() =>
-    generateRandomProjectName()
+    generateRandomProjectName(),
   );
   const initialShareContext = useMemo(
-    () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
-    []
+    () =>
+      typeof window === "undefined" ? null : (window.__SHARE_CONTEXT ?? null),
+    [],
   );
 
   // Resolve the effective default project directory from settings or platform default
@@ -366,7 +427,7 @@ function App() {
       port: settings.mcp.port,
     }).catch((error) => {
       if (!disposed) {
-        console.error('[App] Failed to sync MCP config:', error);
+        console.error("[App] Failed to sync MCP config:", error);
       }
     });
 
@@ -382,15 +443,17 @@ function App() {
     };
 
     setIsHeaderWorkspaceSwitcherHidden(mq.matches);
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
+    mq.addEventListener("change", handleChange);
+    return () => mq.removeEventListener("change", handleChange);
   }, []);
 
   const renderTargetContent = useProjectStore((s) =>
-    s.renderTargetPath ? (s.files[s.renderTargetPath]?.content ?? '') : ''
+    s.renderTargetPath ? (s.files[s.renderTargetPath]?.content ?? "") : "",
   );
   const contentVersion = useProjectStore((s) => s.contentVersion);
-  const hasMultipleFiles = useProjectStore((s) => Object.keys(s.files).length > 1);
+  const hasMultipleFiles = useProjectStore(
+    (s) => Object.keys(s.files).length > 1,
+  );
 
   const {
     previewKind,
@@ -411,7 +474,9 @@ function App() {
     createRenderOwner: () => {
       // Always render into the render target tab, not the active editor tab
       const rtPath = getProjectStore().getState().renderTargetPath;
-      const rtTab = rtPath ? getWorkspaceState().tabs.find((t) => t.projectPath === rtPath) : null;
+      const rtTab = rtPath
+        ? getWorkspaceState().tabs.find((t) => t.projectPath === rtPath)
+        : null;
       const tabId = rtTab?.id ?? activeTabRef.current?.id;
       if (!tabId) {
         return null;
@@ -421,10 +486,14 @@ function App() {
       const requestId = beginTabRender(tabId, {
         preferredDimension: tab?.render.dimensionMode,
       });
-      const targetPath = rtPath ?? tab?.projectPath ?? activeTabRef.current.projectPath;
+      const targetPath =
+        rtPath ?? tab?.projectPath ?? activeTabRef.current.projectPath;
       const currentProjectRoot = getProjectStore().getState().projectRoot;
 
-      getRenderArtifactState().setActiveRenderTarget(targetPath, currentProjectRoot);
+      getRenderArtifactState().setActiveRenderTarget(
+        targetPath,
+        currentProjectRoot,
+      );
       notifyDesktopMcpRenderStarted({
         renderTargetPath: targetPath,
         requestId,
@@ -439,7 +508,8 @@ function App() {
       const settledRenderTargetPath =
         getProjectStore().getState().renderTargetPath ??
         (owner
-          ? (getWorkspaceState().tabs.find((tab) => tab.id === owner.tabId)?.projectPath ?? null)
+          ? (getWorkspaceState().tabs.find((tab) => tab.id === owner.tabId)
+              ?.projectPath ?? null)
           : null);
       if (owner && settledRenderTargetPath) {
         getRenderArtifactState().publishSettledArtifact({
@@ -463,8 +533,10 @@ function App() {
         return;
       }
 
-      const currentTab = getWorkspaceState().tabs.find((tab) => tab.id === owner.tabId);
-      const previousPreviewSrc = currentTab?.render.previewSrc ?? '';
+      const currentTab = getWorkspaceState().tabs.find(
+        (tab) => tab.id === owner.tabId,
+      );
+      const previousPreviewSrc = currentTab?.render.previewSrc ?? "";
 
       if (snapshot.error) {
         commitTabRenderError(owner.tabId, {
@@ -490,24 +562,33 @@ function App() {
       });
     },
   });
-  const activePreviewSrc = activeRenderArtifact?.previewSrc ?? renderTargetRender?.previewSrc ?? '';
+  const activePreviewSrc =
+    activeRenderArtifact?.previewSrc ?? renderTargetRender?.previewSrc ?? "";
   const activePreviewKind =
-    activeRenderArtifact?.previewKind ?? renderTargetRender?.previewKind ?? previewKind;
+    activeRenderArtifact?.previewKind ??
+    renderTargetRender?.previewKind ??
+    previewKind;
   const activeDiagnostics =
-    activeRenderArtifact?.diagnostics ?? renderTargetRender?.diagnostics ?? diagnostics;
-  const activeError = activeRenderArtifact?.error ?? renderTargetRender?.error ?? error;
+    activeRenderArtifact?.diagnostics ??
+    renderTargetRender?.diagnostics ??
+    diagnostics;
+  const activeError =
+    activeRenderArtifact?.error ?? renderTargetRender?.error ?? error;
 
   const handleOpenFallbackEditor = useCallback(() => {
     hideWelcomeScreen();
-    window.history.replaceState({}, document.title, '/');
+    window.history.replaceState({}, document.title, "/");
 
     if (!renderTargetRender?.lastRenderedContent && ready) {
-      requestRender('initial', { immediate: true });
+      requestRender("initial", { immediate: true });
     }
   }, [renderTargetRender?.lastRenderedContent, hideWelcomeScreen, ready]);
 
   useEffect(() => {
-    getRenderArtifactState().setActiveRenderTarget(renderTargetPath ?? null, projectRoot);
+    getRenderArtifactState().setActiveRenderTarget(
+      renderTargetPath ?? null,
+      projectRoot,
+    );
   }, [projectRoot, renderTargetPath]);
 
   const initializeProject = useCallback(
@@ -528,10 +609,10 @@ function App() {
         },
         {
           trackRecent: true,
-        }
+        },
       );
     },
-    []
+    [],
   );
 
   const handleOpenSharedDocument = useCallback(
@@ -555,16 +636,16 @@ function App() {
         projectPath: share.title,
       });
     },
-    [initializeProject, openSharedDocument]
+    [initializeProject, openSharedDocument],
   );
 
   const handleRenderSharedDocument = useCallback(
     ({ code }: { tabId: string; code: string }) => {
       // projectStore is already populated by handleOpenSharedDocument — just render.
       // Returns RenderSnapshot for the share entry loading flow.
-      return renderCodeDirect(code, 'file_open');
+      return renderCodeDirect(code, "file_open");
     },
-    [renderCodeDirect]
+    [renderCodeDirect],
   );
 
   const {
@@ -594,7 +675,10 @@ function App() {
       const projectPath = activeTab.projectPath;
       store.updateFileContent(projectPath, checkpoint.code);
       store.setCustomizerBase(projectPath, checkpoint.code);
-      requestRender('history_restore', { immediate: true, code: checkpoint.code });
+      requestRender("history_restore", {
+        immediate: true,
+        code: checkpoint.code,
+      });
     }
   }, [activeTab.projectPath, undo]);
 
@@ -605,7 +689,10 @@ function App() {
       const projectPath = activeTab.projectPath;
       store.updateFileContent(projectPath, checkpoint.code);
       store.setCustomizerBase(projectPath, checkpoint.code);
-      requestRender('history_restore', { immediate: true, code: checkpoint.code });
+      requestRender("history_restore", {
+        immediate: true,
+        code: checkpoint.code,
+      });
     }
   }, [activeTab.projectPath, redo]);
 
@@ -673,15 +760,29 @@ function App() {
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
-  const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(null);
-  const [visualDiffSummary, setVisualDiffSummary] = useState<string | null>(null);
-  const [visualCorrectionPrompt, setVisualCorrectionPrompt] = useState<string | null>(null);
+  const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(
+    null,
+  );
+  const [visualDiffSummary, setVisualDiffSummary] = useState<string | null>(
+    null,
+  );
+  const [visualCorrectionPrompt, setVisualCorrectionPrompt] = useState<
+    string | null
+  >(null);
+  const [visualReviewLog, setVisualReviewLog] = useState<string[]>([]);
   const [visualCorrectionRounds, setVisualCorrectionRounds] = useState(0);
-  const [isApplyingVisualCorrection, setIsApplyingVisualCorrection] = useState(false);
+  const [isApplyingVisualCorrection, setIsApplyingVisualCorrection] =
+    useState(false);
   const visualDiffBeforeRef = useRef<string | null>(null);
+  const addVisualReviewLog = useCallback((entry: string) => {
+    setVisualReviewLog((items) => [entry, ...items].slice(0, 5));
+  }, []);
   const readinessWithVisual = useMemo(
-    () => [liveReadiness, visualReviewSummary, visualDiffSummary].filter(Boolean).join('\n'),
-    [liveReadiness, visualReviewSummary, visualDiffSummary]
+    () =>
+      [liveReadiness, visualReviewSummary, visualDiffSummary]
+        .filter(Boolean)
+        .join("\n"),
+    [liveReadiness, visualReviewSummary, visualDiffSummary],
   );
   // Slice profile (§6.9): the printer + material "Make it real" will slice for, shown AND choosable
   // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
@@ -696,13 +797,22 @@ function App() {
       slice_note?: string | null;
     }[]
   >([]);
-  const [printerKey, setPrinterKey] = useState<string>('');
-  const [material, setMaterial] = useState<string>('');
+  const [printerKey, setPrinterKey] = useState<string>("");
+  const [material, setMaterial] = useState<string>("");
+  const [sliceProfileStatus, setSliceProfileStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [sliceProfileError, setSliceProfileError] = useState<string | null>(
+    null,
+  );
   const [isOrienting, setIsOrienting] = useState(false);
   const [engineConnectors, setEngineConnectors] = useState<ConnectorInfo[]>([]);
-  const [connectorName, setConnectorName] = useState('');
+  const [connectorName, setConnectorName] = useState("");
   const [lastSlicedRid, setLastSlicedRid] = useState<number | null>(null);
-  const [printOutcomeRid, setPrintOutcomeRid] = useState<number | null>(null);
+  const [printOutcome, setPrintOutcome] = useState<{
+    rid: number;
+    simulated: boolean;
+  } | null>(null);
   // First-real-print caution (§6.10): the manufacturing-commit moment is heightened the first time.
   const [showFirstRealDialog, setShowFirstRealDialog] = useState(false);
   // Accumulated turns so a follow-up describe REFINES in context ("make it taller"). The engine's
@@ -710,18 +820,22 @@ function App() {
   const engineHistoryRef = useRef<EngineTurn[]>([]);
   const runVisualReview = useCallback(
     async (rid: number) => {
-      setVisualReviewSummary('Visual review: running');
+      setVisualReviewSummary("Visual review: running");
+      addVisualReviewLog("Visual review started");
       await new Promise((resolve) => window.setTimeout(resolve, 400));
       if (lastEngineRidRef.current !== rid) return;
       const images = await captureVisualReviewImages({
         viewerId: MAIN_PREVIEW_VIEWER_ID,
-        svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+        svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
         targetWidth: 640,
         targetHeight: 480,
       });
       if (lastEngineRidRef.current !== rid) return;
       if (images.length === 0) {
-        setVisualReviewSummary('Visual review: unavailable - no rendered view captured');
+        const summary =
+          "Visual review: unavailable - no rendered view captured";
+        setVisualReviewSummary(summary);
+        addVisualReviewLog(summary);
         setVisualDiffSummary(null);
         visualDiffBeforeRef.current = null;
         setVisualCorrectionPrompt(null);
@@ -730,60 +844,81 @@ function App() {
       const beforeDiffImage = visualDiffBeforeRef.current;
       if (beforeDiffImage) {
         visualDiffBeforeRef.current = null;
-        const diff = await estimatePreviewDifferencePercent(beforeDiffImage, images[0].image);
+        const diff = await estimatePreviewDifferencePercent(
+          beforeDiffImage,
+          images[0].image,
+        );
         if (lastEngineRidRef.current !== rid) return;
-        setVisualDiffSummary(formatVisualDifference(diff));
+        const diffSummary = formatVisualDifference(diff);
+        setVisualDiffSummary(diffSummary);
+        if (diffSummary) {
+          addVisualReviewLog(diffSummary);
+        }
       }
       const { data } = await engine.visualReview(rid, images);
       if (lastEngineRidRef.current !== rid) return;
-      const round = data.round_id ? ` round ${data.round_id}` : '';
-      if (data.status === 'issues') {
-        const first = data.findings?.[0] ?? data.summary ?? 'likely visual issue found';
-        setVisualReviewSummary(`Visual review${round}: likely issue - ${first}`);
+      const round = data.round_id ? ` round ${data.round_id}` : "";
+      if (data.status === "issues") {
+        const first =
+          data.findings?.[0] ?? data.summary ?? "likely visual issue found";
+        const summary = `Visual review${round}: likely issue - ${first}`;
+        setVisualReviewSummary(summary);
+        addVisualReviewLog(summary);
         setVisualCorrectionPrompt(data.correction_prompt ?? null);
         notifyError({
-          operation: 'visual review',
+          operation: "visual review",
           capture: false,
           displayMessage: first,
-          toastId: 'engine-visual-review',
+          toastId: "engine-visual-review",
         });
         return;
       }
-      if (data.status === 'ok') {
-        setVisualReviewSummary(`Visual review${round}: no obvious issues found`);
+      if (data.status === "ok") {
+        const summary = `Visual review${round}: no obvious issues found`;
+        setVisualReviewSummary(summary);
+        addVisualReviewLog(summary);
         setVisualCorrectionPrompt(null);
-        notifySuccess('Visual review complete', {
-          toastId: 'engine-visual-review',
-          description: data.summary ?? 'No obvious visual issues found.',
+        notifySuccess("Visual review complete", {
+          toastId: "engine-visual-review",
+          description: data.summary ?? "No obvious visual issues found.",
         });
         return;
       }
-      if (data.status === 'needs_review') {
-        const first = data.findings?.[0] ?? data.summary ?? 'local visual critics disagreed';
-        setVisualReviewSummary(`Visual review${round}: needs review - ${first}`);
+      if (data.status === "needs_review") {
+        const first =
+          data.findings?.[0] ??
+          data.summary ??
+          "local visual critics disagreed";
+        const summary = `Visual review${round}: needs review - ${first}`;
+        setVisualReviewSummary(summary);
+        addVisualReviewLog(summary);
         setVisualCorrectionPrompt(null);
-        notifySuccess('Visual review needs review', {
-          toastId: 'engine-visual-review',
+        notifySuccess("Visual review needs review", {
+          toastId: "engine-visual-review",
           description: first,
         });
         return;
       }
-      setVisualReviewSummary(`Visual review: unavailable - ${data.summary || data.error || 'not run'}`);
+      const summary = `Visual review: unavailable - ${data.summary || data.error || "not run"}`;
+      setVisualReviewSummary(summary);
+      addVisualReviewLog(summary);
       setVisualCorrectionPrompt(null);
     },
-    [activePreviewKind, activePreviewSrc]
+    [activePreviewKind, activePreviewSrc, addVisualReviewLog],
   );
   const handleEngineDescribe = useCallback(
     async (prompt: string, opts?: { refine?: boolean }) => {
       if (!opts?.refine) {
         engineHistoryRef.current = [];
         setVisualCorrectionRounds(0);
+        setVisualReviewLog([]);
       }
       // The local engine plans + renders + gates — seconds, not instant. Show progress so the
       // describe surface doesn't look frozen; the result toast replaces this (same toastId).
-      notifySuccess(opts?.refine ? 'Refining…' : 'Designing…', {
-        toastId: 'engine-design',
-        description: 'The engine is working on it — plan, geometry, readiness check.',
+      notifySuccess(opts?.refine ? "Refining…" : "Designing…", {
+        toastId: "engine-design",
+        description:
+          "The engine is working on it — plan, geometry, readiness check.",
       });
       const result = await describeIntoStudio(prompt, engineHistoryRef.current);
       if (result.ok && result.scad) {
@@ -805,22 +940,26 @@ function App() {
         setVisualReviewSummary(null);
         setVisualDiffSummary(null);
         setVisualCorrectionPrompt(null);
+        setVisualReviewLog([]);
         setLastSlicedRid(null);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
-          { role: 'user', content: prompt },
-          { role: 'assistant', content: result.gate },
+          { role: "user", content: prompt },
+          { role: "assistant", content: result.gate },
         ];
         // Surface the engine's pre-slice checks. Per PRD §6.7/§6.9, final "Ready to print" is EARNED
         // by a successful slice ("Make it real"), not claimed at design time — so soften the engine's
         // gate verdict here and point at the slice; the slice toast is where "Ready to print" appears.
-        const preSlice = result.gate.replace(/ready to print/gi, 'Looks printable');
+        const preSlice = result.gate.replace(
+          /ready to print/gi,
+          "Looks printable",
+        );
         // Lightweight Explain (§6.3): lead with the engine's plain-English "what I made" line — the
         // dimensional outcome (e.g. "Dimensions match: 70.0 × 50.0 × 30.0 mm.") — so the user can
         // confirm the engine understood the request and built it to size, then the readiness + CTA.
-        const explain = result.headline ? `${result.headline} ` : '';
-        notifySuccess('Design ready', {
-          toastId: 'engine-design',
+        const explain = result.headline ? `${result.headline} ` : "";
+        notifySuccess("Design ready", {
+          toastId: "engine-design",
           description: `${explain}${preSlice} · Make it real to slice`,
         });
         if (result.rid != null) {
@@ -828,31 +967,46 @@ function App() {
         }
       } else {
         setVisualReviewSummary(null);
+        setVisualDiffSummary(null);
+        setVisualCorrectionPrompt(null);
+        setVisualReviewLog([]);
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
         // reason; this is a designed outcome, not a crash, so don't capture it as an error.
         notifyError({
-          operation: 'engine design',
+          operation: "engine design",
           capture: false,
-          displayMessage: result.gate || result.error || "Couldn't produce a printable design.",
-          toastId: 'engine-design',
+          displayMessage:
+            result.gate ||
+            result.error ||
+            "Couldn't produce a printable design.",
+          toastId: "engine-design",
         });
       }
       return result;
     },
-    [renderCodeDirect, runVisualReview]
+    [renderCodeDirect, runVisualReview],
   );
   const handleApplyVisualCorrection = useCallback(async () => {
-    const prompt = visualCorrectionPrompt?.trim() ?? '';
-    if (!canApplyVisualCorrection(prompt, visualCorrectionRounds, isApplyingVisualCorrection)) return;
+    const prompt = visualCorrectionPrompt?.trim() ?? "";
+    if (
+      !canApplyVisualCorrection(
+        prompt,
+        visualCorrectionRounds,
+        isApplyingVisualCorrection,
+      )
+    )
+      return;
     setVisualDiffSummary(null);
     visualDiffBeforeRef.current = await captureCurrentPreview({
       viewerId: MAIN_PREVIEW_VIEWER_ID,
-      svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+      svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
       targetWidth: 320,
       targetHeight: 240,
     });
     setIsApplyingVisualCorrection(true);
-    setVisualReviewSummary(visualCorrectionApplyingSummary(visualCorrectionRounds));
+    const summary = visualCorrectionApplyingSummary(visualCorrectionRounds);
+    setVisualReviewSummary(summary);
+    addVisualReviewLog(summary);
     try {
       const result = await handleEngineDescribe(prompt, { refine: true });
       if (result.ok) {
@@ -863,6 +1017,7 @@ function App() {
     }
   }, [
     handleEngineDescribe,
+    addVisualReviewLog,
     isApplyingVisualCorrection,
     activePreviewKind,
     activePreviewSrc,
@@ -873,100 +1028,142 @@ function App() {
   // "Make it real": slice the current engine design into printable G-code, surfacing the real print
   // estimate (time / layers / filament). This is the manufacturing payoff and where "Ready to print"
   // is genuinely earned — only a successful slice proves the part is printable (PRD §6.7/§6.9).
-  const handleMakeItReal = useCallback(async (ridOverride?: number) => {
-    const rid = ridOverride ?? lastEngineRidRef.current;
-    if (rid == null) {
-      notifyError({
-        operation: 'make it real',
-        capture: false,
-        displayMessage: 'Describe a part first, then make it real.',
-        toastId: 'engine-slice',
-      });
-      return null;
-    }
-    // If the user TUNED a template's Customizer sliders, push the tuned values to the engine first so
-    // the slice is of the TUNED part, not the original. A structural code edit is not a pure tune
-    // (pureTuneValues returns null) and falls through to the stale-edit warning below — never sliced
-    // as if it were a tune.
-    const tuned = lastEngineScadRef.current
-      ? pureTuneValues(renderTargetContent, lastEngineScadRef.current)
-      : null;
-    if (tuned) {
-      notifySuccess('Applying changes…', {
-        toastId: 'engine-slice',
-        description: 'Re-rendering at your tuned values',
-      });
-      const r = await engine.render(rid, tuned);
-      if (r.ok && r.data.status === 'completed') {
-        lastEngineScadRef.current = renderTargetContent; // the engine now matches the tuned document
+  const handleMakeItReal = useCallback(
+    async (ridOverride?: number) => {
+      const rid = ridOverride ?? lastEngineRidRef.current;
+      if (rid == null) {
+        notifyError({
+          operation: "make it real",
+          capture: false,
+          displayMessage: "Describe a part first, then make it real.",
+          toastId: "engine-slice",
+        });
+        return null;
       }
-    }
-    notifySuccess('Slicing…', { toastId: 'engine-slice', description: 'Preparing printable G-code' });
-    const { ok, data } = await engine.slice(rid, printerKey || undefined, material || undefined);
-    if (ok && data.sliced) {
-      // The slice acts on the engine's design (the rid), so manual code edits since aren't included.
-      // Be honest about that rather than silently slicing stale geometry.
+      if (sliceProfileStatus !== "ready" || !printerKey || !material) {
+        const detail =
+          sliceProfileStatus === "loading"
+            ? "Printer and material profiles are still loading."
+            : sliceProfileError ||
+              "No printable printer/material profile is selected.";
+        notifyError({
+          operation: "make it real",
+          capture: false,
+          displayMessage: `${detail} Choose a slice profile before making G-code.`,
+          toastId: "engine-slice",
+        });
+        setLastSlicedRid(null);
+        return null;
+      }
+      // If the user TUNED a template's Customizer sliders, push the tuned values to the engine first so
+      // the slice is of the TUNED part, not the original. A structural code edit is not a pure tune
+      // (pureTuneValues returns null) and falls through to the stale-edit warning below — never sliced
+      // as if it were a tune.
+      const tuned = lastEngineScadRef.current
+        ? pureTuneValues(renderTargetContent, lastEngineScadRef.current)
+        : null;
+      if (tuned) {
+        notifySuccess("Applying changes…", {
+          toastId: "engine-slice",
+          description: "Re-rendering at your tuned values",
+        });
+        const r = await engine.render(rid, tuned);
+        if (r.ok && r.data.status === "completed") {
+          lastEngineScadRef.current = renderTargetContent; // the engine now matches the tuned document
+        }
+      }
+      notifySuccess("Slicing…", {
+        toastId: "engine-slice",
+        description: "Preparing printable G-code",
+      });
       const edited =
         lastEngineScadRef.current != null &&
         renderTargetContent.trim() !== lastEngineScadRef.current.trim();
-      const note = edited ? " · note: your code edits aren't in this slice — re-describe to include them" : '';
-      const layerHeight = formatLayerHeight(data.estimate_detail?.layer_height_mm);
-      if (layerHeight) {
-        data.estimate = [data.estimate ?? '', layerHeight].filter(Boolean).join(' - ');
+      if (edited) {
+        notifyError({
+          operation: "make it real",
+          capture: false,
+          displayMessage:
+            "Your code edits are not in the engine geometry yet. Re-render or re-describe before slicing.",
+          toastId: "engine-slice",
+        });
+        setLastSlicedRid(null);
+        return null;
       }
-      notifySuccess('Ready to print', {
-        toastId: 'engine-slice',
-        description:
-          `${data.estimate ?? ''}${data.printer ? ` · ${data.printer}` : ''}${note}`.trim(),
-      });
-      // The payoff: hand the user the printable G-code (the engine serves it as a download). Triggered
-      // by their explicit "Make it real" click — the expected output, like Export gives an STL.
-      if (data.gcode_url) {
-        const a = document.createElement('a');
-        a.href = data.gcode_url;
-        a.download = data.gcode_filename ?? 'part.gcode.3mf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+      const { ok, data } = await engine.slice(rid, printerKey, material);
+      if (ok && data.sliced) {
+        const layerHeight = formatLayerHeight(
+          data.estimate_detail?.layer_height_mm,
+        );
+        if (layerHeight) {
+          data.estimate = [data.estimate ?? "", layerHeight]
+            .filter(Boolean)
+            .join(" - ");
+        }
+        notifySuccess("Ready to print", {
+          toastId: "engine-slice",
+          description:
+            `${data.estimate ?? ""}${data.printer ? ` · ${data.printer}` : ""}`.trim(),
+        });
+        // The payoff: hand the user the printable G-code (the engine serves it as a download). Triggered
+        // by their explicit "Make it real" click — the expected output, like Export gives an STL.
+        if (data.gcode_url) {
+          const a = document.createElement("a");
+          a.href = data.gcode_url;
+          a.download = data.gcode_filename ?? "part.gcode.3mf";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+        setLastSlicedRid(rid);
+        localStorage.setItem("tq-printed-real", "1");
+      } else {
+        setLastSlicedRid(null);
+        notifyError({
+          operation: "make it real",
+          capture: false,
+          displayMessage:
+            data.error ||
+            "Slicing failed — the part may not be print-ready yet.",
+          toastId: "engine-slice",
+        });
       }
-      setLastSlicedRid(rid);
-    } else {
-      setLastSlicedRid(null);
-      notifyError({
-        operation: 'make it real',
-        capture: false,
-        displayMessage: data.error || 'Slicing failed — the part may not be print-ready yet.',
-        toastId: 'engine-slice',
-      });
-    }
-    return data;
-  }, [material, printerKey, renderTargetContent]);
+      return data;
+    },
+    [
+      material,
+      printerKey,
+      renderTargetContent,
+      sliceProfileError,
+      sliceProfileStatus,
+    ],
+  );
 
   const handleManualOrient = useCallback(
-    async (axis: 'x' | 'y' | 'z', degrees: -90 | 90) => {
+    async (axis: "x" | "y" | "z", degrees: -90 | 90) => {
       const rid = lastEngineRidRef.current;
       if (rid == null) {
         notifyError({
-          operation: 'orient part',
+          operation: "orient part",
           capture: false,
-          displayMessage: 'Describe a part first, then orient it.',
-          toastId: 'engine-orient',
+          displayMessage: "Describe a part first, then orient it.",
+          toastId: "engine-orient",
         });
         return;
       }
       setIsOrienting(true);
-      notifySuccess('Orienting…', {
-        toastId: 'engine-orient',
-        description: `Rotating ${axis.toUpperCase()} ${degrees > 0 ? '+90' : '-90'}`,
+      notifySuccess("Orienting…", {
+        toastId: "engine-orient",
+        description: `Rotating ${axis.toUpperCase()} ${degrees > 0 ? "+90" : "-90"}`,
       });
       try {
         const { ok, data } = await engine.orient(rid, axis, degrees);
         if (!ok || !data.mesh_url) {
           notifyError({
-            operation: 'orient part',
+            operation: "orient part",
             capture: false,
-            displayMessage: data.error || 'Could not orient the part.',
-            toastId: 'engine-orient',
+            displayMessage: data.error || "Could not orient the part.",
+            toastId: "engine-orient",
           });
           return;
         }
@@ -976,9 +1173,9 @@ function App() {
         commitTabRenderResult(targetTab.id, {
           requestId,
           previewSrc: data.mesh_url,
-          previewKind: 'mesh',
+          previewKind: "mesh",
           diagnostics,
-          dimensionMode: '3d',
+          dimensionMode: "3d",
           lastRenderedContent: renderTargetContent,
         });
         if (renderTargetPath) {
@@ -987,22 +1184,26 @@ function App() {
             renderTargetPath,
             workspaceRoot: projectRoot,
             sourceHash: createSourceHash(renderTargetContent),
-            previewKind: 'mesh',
+            previewKind: "mesh",
             previewSrc: data.mesh_url,
             diagnostics,
-            error: '',
-            dimensionMode: '3d',
+            error: "",
+            dimensionMode: "3d",
             sceneStyle: previewSceneStyle,
             useModelColors: settings.viewer.showModelColors,
             createdAt: Date.now(),
           });
         }
-        notifySuccess('Orientation updated', {
-          toastId: 'engine-orient',
-          description: 'Cached slices were cleared; Make it real will use this pose.',
+        notifySuccess("Orientation updated", {
+          toastId: "engine-orient",
+          description:
+            "Cached slices were cleared; Make it real will use this pose.",
         });
         setLastSlicedRid(null);
         setVisualReviewSummary(null);
+        setVisualDiffSummary(null);
+        setVisualCorrectionPrompt(null);
+        setVisualReviewLog([]);
       } finally {
         setIsOrienting(false);
       }
@@ -1016,66 +1217,80 @@ function App() {
       renderTargetTab,
       previewSceneStyle,
       settings.viewer.showModelColors,
-    ]
+    ],
   );
 
   const handleSendToPrinter = useCallback(async () => {
     const rid = lastEngineRidRef.current;
     if (rid == null || lastSlicedRid !== rid) {
       notifyError({
-        operation: 'send to printer',
+        operation: "send to printer",
         capture: false,
-        displayMessage: 'Make it real first, then send the proven G-code.',
-        toastId: 'engine-send',
+        displayMessage: "Make it real first, then send the proven G-code.",
+        toastId: "engine-send",
       });
       return;
     }
     if (!connectorName) {
       notifyError({
-        operation: 'send to printer',
+        operation: "send to printer",
         capture: false,
-        displayMessage: 'Choose a printer connection first.',
-        toastId: 'engine-send',
+        displayMessage: "Choose a printer connection first.",
+        toastId: "engine-send",
       });
       return;
     }
-    notifySuccess('Sending…', { toastId: 'engine-send', description: connectorName });
-    const { ok, data } = await engine.send(rid, true, connectorName);
+    notifySuccess("Sending…", {
+      toastId: "engine-send",
+      description: connectorName,
+    });
+    const { ok, data } = await engine.send(rid, connectorName);
     if (ok && data.sent) {
-      notifySuccess(data.simulated ? 'Simulated send complete' : 'Sent to printer', {
-        toastId: 'engine-send',
-        description: data.job_id ? `Job ${data.job_id}` : data.printer_state,
-      });
-      if (!data.simulated) {
-        setPrintOutcomeRid(rid);
-      }
+      notifySuccess(
+        data.simulated ? "Simulated send complete" : "Sent to printer",
+        {
+          toastId: "engine-send",
+          description: data.job_id ? `Job ${data.job_id}` : data.printer_state,
+        },
+      );
+      setPrintOutcome({ rid, simulated: Boolean(data.simulated) });
       return;
     }
     notifyError({
-      operation: 'send to printer',
+      operation: "send to printer",
       capture: false,
-      displayMessage: data.note || data.error || 'Could not send this print.',
-      toastId: 'engine-send',
+      displayMessage: data.note || data.error || "Could not send this print.",
+      toastId: "engine-send",
     });
   }, [connectorName, lastSlicedRid]);
 
-  const handlePrintOutcome = useCallback(async (outcome: 'clean' | 'issues' | 'failed' | 'skip') => {
-    const rid = printOutcomeRid;
-    if (rid == null) return;
-    const { ok, data } = await engine.outcome(rid, outcome);
-    if (ok && (data as { recorded?: boolean }).recorded !== false) {
-      notifySuccess('Print outcome recorded', { toastId: 'engine-outcome' });
-    } else if (outcome !== 'skip') {
-      notifyError({
-        operation: 'record print outcome',
-        capture: false,
-        displayMessage:
-          (data as { error?: string }).error || 'Could not record the print outcome.',
-        toastId: 'engine-outcome',
-      });
-    }
-    setPrintOutcomeRid(null);
-  }, [printOutcomeRid]);
+  const handlePrintOutcome = useCallback(
+    async (outcome: "clean" | "issues" | "failed" | "skip") => {
+      const currentOutcome = printOutcome;
+      if (currentOutcome == null) return;
+      const { rid, simulated: simulatedOutcome } = currentOutcome;
+      const { ok, data } = await engine.outcome(rid, outcome);
+      if (ok && (data as { recorded?: boolean }).recorded !== false) {
+        notifySuccess(
+          simulatedOutcome
+            ? "Simulated outcome recorded"
+            : "Print outcome recorded",
+          { toastId: "engine-outcome" },
+        );
+      } else if (outcome !== "skip") {
+        notifyError({
+          operation: "record print outcome",
+          capture: false,
+          displayMessage:
+            (data as { error?: string }).error ||
+            "Could not record the print outcome.",
+          toastId: "engine-outcome",
+        });
+      }
+      setPrintOutcome(null);
+    },
+    [printOutcome],
+  );
 
   // Save the current engine design to "My Designs" (§6.12). Empty name → the engine auto-names it by
   // the original prompt (QA-004), so no dialog is needed.
@@ -1083,22 +1298,25 @@ function App() {
     const rid = lastEngineRidRef.current;
     if (rid == null) {
       notifyError({
-        operation: 'save design',
+        operation: "save design",
         capture: false,
-        displayMessage: 'Describe a part first, then save it.',
-        toastId: 'engine-save',
+        displayMessage: "Describe a part first, then save it.",
+        toastId: "engine-save",
       });
       return;
     }
-    const { ok, data } = await engine.saveDesign(rid, '');
+    const { ok, data } = await engine.saveDesign(rid, "");
     if (ok && data.saved) {
-      notifySuccess('Saved to My Designs', { toastId: 'engine-save', description: data.name });
+      notifySuccess("Saved to My Designs", {
+        toastId: "engine-save",
+        description: data.name,
+      });
     } else {
       notifyError({
-        operation: 'save design',
+        operation: "save design",
         capture: false,
-        displayMessage: 'Could not save right now — your work is still here.',
-        toastId: 'engine-save',
+        displayMessage: "Could not save right now — your work is still here.",
+        toastId: "engine-save",
       });
     }
   }, []);
@@ -1128,21 +1346,27 @@ function App() {
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
         setVisualReviewSummary(null);
+        setVisualDiffSummary(null);
+        setVisualCorrectionPrompt(null);
+        setVisualReviewLog([]);
         setLastSlicedRid(null);
-        notifySuccess('Reopened', { toastId: 'engine-design', description: result.gate });
+        notifySuccess("Reopened", {
+          toastId: "engine-design",
+          description: result.gate,
+        });
         if (result.rid != null) {
           void runVisualReview(result.rid);
         }
       } else {
         notifyError({
-          operation: 'reopen design',
+          operation: "reopen design",
           capture: false,
-          displayMessage: result.error || 'Could not reopen that design.',
-          toastId: 'engine-design',
+          displayMessage: result.error || "Could not reopen that design.",
+          toastId: "engine-design",
         });
       }
     },
-    [renderCodeDirect, hideWelcomeScreen, runVisualReview]
+    [renderCodeDirect, hideWelcomeScreen, runVisualReview],
   );
 
   // §6.3 undo: step back to the design that preceded the latest describe/refine/reopen. Restores the
@@ -1158,19 +1382,24 @@ function App() {
     lastGateRef.current = prev.gate;
     setLiveReadiness(prev.gate);
     setVisualReviewSummary(null);
+    setVisualDiffSummary(null);
+    setVisualCorrectionPrompt(null);
+    setVisualReviewLog([]);
     setHasEngineDesign(true);
     setLastSlicedRid(null);
     setEngineUndoStack((s) => s.slice(0, -1));
-    notifySuccess('Reverted to the previous design', { toastId: 'engine-design' });
+    notifySuccess("Reverted to the previous design", {
+      toastId: "engine-design",
+    });
   }, [engineUndoStack, renderCodeDirect]);
 
   // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
   // as a refine-in-context turn (the WelcomeScreen entry already routes the first describe to the
   // engine; this keeps follow-ups local-first too). Empty input is ignored.
   const handleAiPanelSubmit = useCallback(() => {
-    const text = (draft.text ?? '').trim();
+    const text = (draft.text ?? "").trim();
     if (!text) return;
-    setDraftText('');
+    setDraftText("");
     void handleEngineDescribe(text, { refine: true });
   }, [draft.text, setDraftText, handleEngineDescribe]);
 
@@ -1186,11 +1415,18 @@ function App() {
     };
     w.__TQ_DESCRIBE__ = handleEngineDescribe;
     w.__TQ_MAKE_REAL__ = handleMakeItReal;
-    w.__TQ_SWITCH_PANEL__ = (id: string) => getDockviewApi()?.getPanel(id)?.api.setActive();
+    w.__TQ_SWITCH_PANEL__ = (id: string) =>
+      getDockviewApi()?.getPanel(id)?.api.setActive();
     w.__TQ_SHOW_WELCOME__ = showWelcomeScreen;
     w.__TQ_REOPEN__ = handleReopenDesign;
     w.__TQ_UNDO__ = handleUndoEngine;
-  }, [handleEngineDescribe, handleMakeItReal, showWelcomeScreen, handleReopenDesign, handleUndoEngine]);
+  }, [
+    handleEngineDescribe,
+    handleMakeItReal,
+    showWelcomeScreen,
+    handleReopenDesign,
+    handleUndoEngine,
+  ]);
 
   // Live readiness while tuning: when the document is a pure Customizer tune of the engine's design,
   // re-gate it on the engine (debounced) so the readiness reflects the tuned values — and keep the
@@ -1203,10 +1439,13 @@ function App() {
     if (!tuned) return;
     const handle = setTimeout(() => {
       void engine.render(rid, tuned).then((r) => {
-        if (r.ok && r.data.status === 'completed') {
+        if (r.ok && r.data.status === "completed") {
           lastEngineScadRef.current = renderTargetContent;
           setLiveReadiness(engineGateSummary(r.data));
           setVisualReviewSummary(null);
+          setVisualDiffSummary(null);
+          setVisualCorrectionPrompt(null);
+          setVisualReviewLog([]);
           setLastSlicedRid(null);
         }
       });
@@ -1217,8 +1456,17 @@ function App() {
   // Load the engine's printers + restore (or default) the user's slice-profile choice (§6.9).
   useEffect(() => {
     let cancelled = false;
+    setSliceProfileStatus("loading");
+    setSliceProfileError(null);
     void engine.options().then((r) => {
-      if (cancelled || !r.ok) return;
+      if (cancelled) return;
+      if (!r.ok) {
+        setSliceProfileStatus("error");
+        setSliceProfileError(
+          "Could not load printer/material profiles from the local engine.",
+        );
+        return;
+      }
       const printers = (
         r.data as {
           printers?: Array<{
@@ -1231,27 +1479,39 @@ function App() {
           }>;
         }
       ).printers?.filter(
-        (p): p is {
+        (
+          p,
+        ): p is {
           key: string;
           name: string;
           materials?: string[];
           layer_height_mm?: number | null;
           sliceable?: boolean;
           slice_note?: string | null;
-        } => Boolean(p.key && p.name)
+        } => Boolean(p.key && p.name),
       );
-      if (!printers?.length) return;
+      if (!printers?.length) {
+        setSliceProfileStatus("error");
+        setSliceProfileError(
+          "The local engine did not return any printer profiles.",
+        );
+        return;
+      }
       setEnginePrinters(printers);
-      const savedKey = localStorage.getItem('tq-printer');
+      const savedKey = localStorage.getItem("tq-printer");
       const chosen =
         printers.find((p) => p.key === savedKey && p.sliceable !== false) ??
         printers.find((p) => p.sliceable !== false) ??
         printers[0];
       setPrinterKey(chosen.key);
-      const savedMat = localStorage.getItem('tq-material');
+      const savedMat = localStorage.getItem("tq-material");
       const mat =
-        savedMat && chosen.materials?.includes(savedMat) ? savedMat : (chosen.materials?.[0] ?? '');
+        savedMat && chosen.materials?.includes(savedMat)
+          ? savedMat
+          : (chosen.materials?.[0] ?? "");
       setMaterial(mat);
+      setSliceProfileStatus("ready");
+      setSliceProfileError(null);
     });
     return () => {
       cancelled = true;
@@ -1265,17 +1525,18 @@ function App() {
     void engine.connectors().then((r) => {
       if (cancelled || !r.ok) return;
       const connectors = (r.data.connectors ?? []).filter(
-        (c): c is ConnectorInfo => typeof c.name === 'string' && c.name.length > 0
+        (c): c is ConnectorInfo =>
+          typeof c.name === "string" && c.name.length > 0,
       );
       setEngineConnectors(connectors);
-      const saved = localStorage.getItem('tq-connector') || '';
+      const saved = localStorage.getItem("tq-connector") || "";
       const preferred =
         connectors.find((c) => c.name === saved)?.name ??
         connectors.find((c) => c.name === r.data.default)?.name ??
         connectors[0]?.name ??
-        '';
+        "";
       setConnectorName(preferred);
-      if (preferred) localStorage.setItem('tq-connector', preferred);
+      if (preferred) localStorage.setItem("tq-connector", preferred);
     });
     return () => {
       cancelled = true;
@@ -1286,7 +1547,8 @@ function App() {
   const createNewTab = useCallback(
     (filePath?: string | null, content?: string, name?: string): string => {
       const projectPath = name ?? DEFAULT_TAB_NAME;
-      const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
+      const defaultContent =
+        "// Type your OpenSCAD code here\ncube([10, 10, 10]);";
 
       // Ensure the file exists in projectStore
       const store = getProjectStore().getState();
@@ -1301,14 +1563,14 @@ function App() {
       });
       return newId;
     },
-    [createTab]
+    [createTab],
   );
 
   const switchingRef = useRef(false);
   const [editorFocusRequestKey, setEditorFocusRequestKey] = useState(0);
 
   const focusEditorPanel = useCallback(() => {
-    openPanel('editor', 'editor', 'Editor');
+    openPanel("editor", "editor", "Editor");
     setEditorFocusRequestKey((current) => current + 1);
   }, []);
 
@@ -1323,7 +1585,7 @@ function App() {
 
       switchingRef.current = false;
     },
-    [activeTabId, setActiveTab]
+    [activeTabId, setActiveTab],
   );
 
   const closeTab = useCallback(
@@ -1331,13 +1593,14 @@ function App() {
       const tab = tabs.find((t) => t.id === id);
       if (!tab) return;
 
-      const isDirty = getProjectStore().getState().files[tab.projectPath]?.isDirty ?? false;
+      const isDirty =
+        getProjectStore().getState().files[tab.projectPath]?.isDirty ?? false;
       if (isDirty && capabilities.hasFileSystem) {
         const platform = getPlatform();
         const wantsToSave = await platform.ask(`Save changes to ${tab.name}?`, {
-          title: 'Unsaved Changes',
-          kind: 'warning',
-          okLabel: 'Save',
+          title: "Unsaved Changes",
+          kind: "warning",
+          okLabel: "Save",
           cancelLabel: "Don't Save",
         });
 
@@ -1345,13 +1608,13 @@ function App() {
           return;
         } else {
           const confirmDiscard = await platform.confirm(
-            'Are you sure you want to discard your changes?',
+            "Are you sure you want to discard your changes?",
             {
-              title: 'Discard Changes',
-              kind: 'warning',
-              okLabel: 'Discard',
-              cancelLabel: 'Cancel',
-            }
+              title: "Discard Changes",
+              kind: "warning",
+              okLabel: "Discard",
+              cancelLabel: "Cancel",
+            },
           );
           if (!confirmDiscard) return;
         }
@@ -1362,22 +1625,26 @@ function App() {
 
       revokeBlobUrl(tab.render.previewSrc);
       closeTabLocal(id);
-      analytics.track('tab closed', { had_unsaved_changes: isDirty });
+      analytics.track("tab closed", { had_unsaved_changes: isDirty });
 
       // If closing this tab caused workspace to reset to welcome, also reset project
       const wsState = getWorkspaceState();
-      if (wsState.showWelcome && wsState.tabs.length === 1 && !wsState.tabs[0].filePath) {
+      if (
+        wsState.showWelcome &&
+        wsState.tabs.length === 1 &&
+        !wsState.tabs[0].filePath
+      ) {
         getProjectStore().getState().resetToUntitledProject();
       }
     },
-    [analytics, closeTabLocal, tabs, capabilities.hasFileSystem]
+    [analytics, closeTabLocal, tabs, capabilities.hasFileSystem],
   );
 
   const reorderTabs = useCallback(
     (newTabs: WorkspaceDocumentTab[]) => {
       reorderWorkspaceTabs(newTabs.map((tab) => tab.id));
     },
-    [reorderWorkspaceTabs]
+    [reorderWorkspaceTabs],
   );
 
   // File tree handlers
@@ -1397,11 +1664,13 @@ function App() {
       const projectFile = store.files[filePath];
       if (projectFile) {
         // Resolve absolute disk path so Cmd+S can save without a dialog
-        const absolutePath = store.projectRoot ? `${store.projectRoot}/${filePath}` : null;
+        const absolutePath = store.projectRoot
+          ? `${store.projectRoot}/${filePath}`
+          : null;
         createNewTab(absolutePath, undefined, filePath);
       }
     },
-    [tabs, switchTab, createNewTab, focusEditorPanel]
+    [tabs, switchTab, createNewTab, focusEditorPanel],
   );
 
   // Editor onChange: single write to projectStore. The render pipeline reacts
@@ -1412,14 +1681,14 @@ function App() {
   }, []);
 
   const handleToggleFileTree = useCallback(() => {
-    updateSetting('ui', { fileTreeVisible: !settings.ui.fileTreeVisible });
+    updateSetting("ui", { fileTreeVisible: !settings.ui.fileTreeVisible });
   }, [settings.ui.fileTreeVisible]);
 
   const handleCreateFile = useCallback(
     async (parentDir: string): Promise<string> => {
-      let baseName = 'new_file.scad';
+      let baseName = "new_file.scad";
       const store = getProjectStore().getState();
-      const prefix = parentDir ? `${parentDir}/` : '';
+      const prefix = parentDir ? `${parentDir}/` : "";
 
       // Find a unique name
       let counter = 1;
@@ -1430,7 +1699,7 @@ function App() {
         counter++;
       }
 
-      const content = '';
+      const content = "";
       store.addFile(path, content, { isVirtual: store.projectRoot === null });
 
       // Write to disk on desktop
@@ -1443,13 +1712,15 @@ function App() {
       }
 
       // Open in a new tab
-      const absolutePath = store.projectRoot ? `${store.projectRoot}/${path}` : null;
+      const absolutePath = store.projectRoot
+        ? `${store.projectRoot}/${path}`
+        : null;
       createNewTab(absolutePath, content, path);
-      analytics.track('file created', { in_subfolder: parentDir !== '' });
+      analytics.track("file created", { in_subfolder: parentDir !== "" });
 
       return path;
     },
-    [analytics, createNewTab]
+    [analytics, createNewTab],
   );
 
   const handleCreateFolder = useCallback(
@@ -1457,18 +1728,22 @@ function App() {
       const store = getProjectStore().getState();
       const folderPath = parentDir ? `${parentDir}/${folderName}` : folderName;
       if (store.projectRoot) {
-        await getPlatform().createDirectory(`${store.projectRoot}/${folderPath}`);
+        await getPlatform().createDirectory(
+          `${store.projectRoot}/${folderPath}`,
+        );
       }
       store.addFolder(folderPath);
-      analytics.track('folder created', { in_subfolder: parentDir !== '' });
+      analytics.track("folder created", { in_subfolder: parentDir !== "" });
     },
-    [analytics]
+    [analytics],
   );
 
   const handleRenameFile = useCallback(
     async (oldPath: string, newName: string) => {
       const store = getProjectStore().getState();
-      const parentDir = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+      const parentDir = oldPath.includes("/")
+        ? oldPath.substring(0, oldPath.lastIndexOf("/"))
+        : "";
       const newPath = parentDir ? `${parentDir}/${newName}` : newName;
 
       if (newPath === oldPath) return;
@@ -1481,33 +1756,38 @@ function App() {
         const platform = getPlatform();
         await platform.renameFile(
           `${store.projectRoot}/${oldPath}`,
-          `${store.projectRoot}/${newPath}`
+          `${store.projectRoot}/${newPath}`,
         );
       }
 
       // Update any open tab that references this file
       const tab = tabs.find((t) => t.projectPath === oldPath);
       if (tab) {
-        const absolutePath = store.projectRoot ? `${store.projectRoot}/${newPath}` : null;
+        const absolutePath = store.projectRoot
+          ? `${store.projectRoot}/${newPath}`
+          : null;
         markTabSaved(tab.id, { filePath: absolutePath, name: newName });
         renameTab(tab.id, newName, newPath);
       }
-      analytics.track('file renamed');
+      analytics.track("file renamed");
     },
-    [analytics, tabs, markTabSaved, renameTab]
+    [analytics, tabs, markTabSaved, renameTab],
   );
 
   const handleDeleteFile = useCallback(
     async (filePath: string) => {
       const platform = getPlatform();
-      const fileName = filePath.split('/').pop() || filePath;
+      const fileName = filePath.split("/").pop() || filePath;
 
-      const confirmed = await platform.confirm(`Are you sure you want to delete "${fileName}"?`, {
-        title: 'Delete File',
-        kind: 'warning',
-        okLabel: 'Delete',
-        cancelLabel: 'Cancel',
-      });
+      const confirmed = await platform.confirm(
+        `Are you sure you want to delete "${fileName}"?`,
+        {
+          title: "Delete File",
+          kind: "warning",
+          okLabel: "Delete",
+          cancelLabel: "Cancel",
+        },
+      );
       if (!confirmed) return;
 
       const store = getProjectStore().getState();
@@ -1525,7 +1805,7 @@ function App() {
       }
 
       store.removeFile(filePath);
-      analytics.track('file deleted', { had_open_tab: Boolean(tab) });
+      analytics.track("file deleted", { had_open_tab: Boolean(tab) });
 
       // If we deleted everything, reset to a fresh untitled project
       const remaining = Object.keys(store.files);
@@ -1534,27 +1814,29 @@ function App() {
         createNewTab(null, undefined, DEFAULT_TAB_NAME);
       }
     },
-    [analytics, tabs, closeTabLocal, createNewTab]
+    [analytics, tabs, closeTabLocal, createNewTab],
   );
 
   const handleDeleteFolder = useCallback(
     async (folderPath: string) => {
       const platform = getPlatform();
       const store = getProjectStore().getState();
-      const prefix = folderPath + '/';
-      const affected = Object.keys(store.files).filter((p) => p.startsWith(prefix));
-      const folderName = folderPath.split('/').pop() || folderPath;
+      const prefix = folderPath + "/";
+      const affected = Object.keys(store.files).filter((p) =>
+        p.startsWith(prefix),
+      );
+      const folderName = folderPath.split("/").pop() || folderPath;
 
       const message =
         affected.length > 0
-          ? `Delete "${folderName}" and its ${affected.length} file${affected.length === 1 ? '' : 's'}?`
+          ? `Delete "${folderName}" and its ${affected.length} file${affected.length === 1 ? "" : "s"}?`
           : `Delete empty folder "${folderName}"?`;
 
       const confirmed = await platform.confirm(message, {
-        title: 'Delete Folder',
-        kind: 'warning',
-        okLabel: 'Delete',
-        cancelLabel: 'Cancel',
+        title: "Delete Folder",
+        kind: "warning",
+        okLabel: "Delete",
+        cancelLabel: "Cancel",
       });
       if (!confirmed) return;
 
@@ -1563,7 +1845,7 @@ function App() {
         try {
           await platform.removeDirectory(`${store.projectRoot}/${folderPath}`);
         } catch (error) {
-          notifyError({ operation: 'delete-folder', error });
+          notifyError({ operation: "delete-folder", error });
           return;
         }
       }
@@ -1578,7 +1860,7 @@ function App() {
       }
 
       store.removeFolder(folderPath);
-      analytics.track('folder deleted', { file_count: affected.length });
+      analytics.track("folder deleted", { file_count: affected.length });
 
       // If we deleted everything, reset to a fresh untitled project
       if (Object.keys(store.files).length === 0) {
@@ -1586,15 +1868,15 @@ function App() {
         createNewTab(null, undefined, DEFAULT_TAB_NAME);
       }
     },
-    [analytics, tabs, closeTabLocal, createNewTab]
+    [analytics, tabs, closeTabLocal, createNewTab],
   );
 
   const handleSetRenderTarget = useCallback(
     (filePath: string) => {
       getProjectStore().getState().setRenderTarget(filePath);
-      analytics.track('render target changed');
+      analytics.track("render target changed");
     },
-    [analytics]
+    [analytics],
   );
 
   const handleMoveItem = useCallback(
@@ -1604,23 +1886,25 @@ function App() {
       try {
         const platform = getPlatform();
         if (isFolder) {
-          const folderName = sourcePath.split('/').pop()!;
-          const newFolderPath = destFolderPath ? `${destFolderPath}/${folderName}` : folderName;
+          const folderName = sourcePath.split("/").pop()!;
+          const newFolderPath = destFolderPath
+            ? `${destFolderPath}/${folderName}`
+            : folderName;
           if (store.projectRoot) {
             const affected = Object.keys(store.files).filter(
-              (p) => p.startsWith(sourcePath + '/') || p === sourcePath
+              (p) => p.startsWith(sourcePath + "/") || p === sourcePath,
             );
             // Ensure destination parent directories exist before moving
             const destDirs = new Set(
               affected
                 .map((p) => {
                   const newRel = newFolderPath + p.slice(sourcePath.length);
-                  const parent = newRel.includes('/')
-                    ? newRel.substring(0, newRel.lastIndexOf('/'))
-                    : '';
+                  const parent = newRel.includes("/")
+                    ? newRel.substring(0, newRel.lastIndexOf("/"))
+                    : "";
                   return parent ? `${store.projectRoot}/${parent}` : null;
                 })
-                .filter((d): d is string => d !== null)
+                .filter((d): d is string => d !== null),
             );
             for (const dir of destDirs) {
               await platform.createDirectory(dir);
@@ -1629,7 +1913,7 @@ function App() {
               const newRel = newFolderPath + oldRel.slice(sourcePath.length);
               await platform.renameFile(
                 `${store.projectRoot}/${oldRel}`,
-                `${store.projectRoot}/${newRel}`
+                `${store.projectRoot}/${newRel}`,
               );
             }
           }
@@ -1637,43 +1921,62 @@ function App() {
           // Update any open tabs whose paths were under the moved folder
           for (const tab of tabs) {
             if (!tab.projectPath) continue;
-            if (tab.projectPath.startsWith(sourcePath + '/') || tab.projectPath === sourcePath) {
-              const newRel = newFolderPath + tab.projectPath.slice(sourcePath.length);
-              const absPath = store.projectRoot ? `${store.projectRoot}/${newRel}` : null;
-              markTabSaved(tab.id, { filePath: absPath, name: newRel.split('/').pop()! });
-              renameTab(tab.id, newRel.split('/').pop()!, newRel);
+            if (
+              tab.projectPath.startsWith(sourcePath + "/") ||
+              tab.projectPath === sourcePath
+            ) {
+              const newRel =
+                newFolderPath + tab.projectPath.slice(sourcePath.length);
+              const absPath = store.projectRoot
+                ? `${store.projectRoot}/${newRel}`
+                : null;
+              markTabSaved(tab.id, {
+                filePath: absPath,
+                name: newRel.split("/").pop()!,
+              });
+              renameTab(tab.id, newRel.split("/").pop()!, newRel);
             }
           }
         } else {
-          const fileName = sourcePath.split('/').pop()!;
-          const rawDest = destFolderPath ? `${destFolderPath}/${fileName}` : fileName;
+          const fileName = sourcePath.split("/").pop()!;
+          const rawDest = destFolderPath
+            ? `${destFolderPath}/${fileName}`
+            : fileName;
           const existingPaths = new Set(Object.keys(store.files));
           existingPaths.delete(sourcePath);
           const newPath = resolvePathConflict(rawDest, existingPaths);
           if (store.projectRoot) {
-            const parentDir = newPath.includes('/')
-              ? newPath.substring(0, newPath.lastIndexOf('/'))
-              : '';
-            if (parentDir) await platform.createDirectory(`${store.projectRoot}/${parentDir}`);
+            const parentDir = newPath.includes("/")
+              ? newPath.substring(0, newPath.lastIndexOf("/"))
+              : "";
+            if (parentDir)
+              await platform.createDirectory(
+                `${store.projectRoot}/${parentDir}`,
+              );
             await platform.renameFile(
               `${store.projectRoot}/${sourcePath}`,
-              `${store.projectRoot}/${newPath}`
+              `${store.projectRoot}/${newPath}`,
             );
           }
           store.renameFile(sourcePath, newPath);
           const tab = tabs.find((t) => t.projectPath === sourcePath);
           if (tab) {
-            const absPath = store.projectRoot ? `${store.projectRoot}/${newPath}` : null;
-            markTabSaved(tab.id, { filePath: absPath, name: newPath.split('/').pop()! });
-            renameTab(tab.id, newPath.split('/').pop()!, newPath);
+            const absPath = store.projectRoot
+              ? `${store.projectRoot}/${newPath}`
+              : null;
+            markTabSaved(tab.id, {
+              filePath: absPath,
+              name: newPath.split("/").pop()!,
+            });
+            renameTab(tab.id, newPath.split("/").pop()!, newPath);
           }
         }
-        analytics.track('item moved', { kind: isFolder ? 'folder' : 'file' });
+        analytics.track("item moved", { kind: isFolder ? "folder" : "file" });
       } catch (err) {
-        notifyError({ operation: 'Move failed', error: err });
+        notifyError({ operation: "Move failed", error: err });
       }
     },
-    [analytics, tabs, markTabSaved, renameTab]
+    [analytics, tabs, markTabSaved, renameTab],
   );
 
   const handleAddExternalFiles = useCallback(
@@ -1683,24 +1986,34 @@ function App() {
       try {
         const platform = getPlatform();
         for (const [relName, content] of Object.entries(files)) {
-          const rawPath = targetFolderPath ? `${targetFolderPath}/${relName}` : relName;
+          const rawPath = targetFolderPath
+            ? `${targetFolderPath}/${relName}`
+            : relName;
           const finalPath = resolvePathConflict(rawPath, existing);
           existing.add(finalPath);
-          store.addFile(finalPath, content, { isVirtual: store.projectRoot === null });
+          store.addFile(finalPath, content, {
+            isVirtual: store.projectRoot === null,
+          });
           if (store.projectRoot) {
-            const parentDir = finalPath.includes('/')
-              ? finalPath.substring(0, finalPath.lastIndexOf('/'))
-              : '';
-            if (parentDir) await platform.createDirectory(`${store.projectRoot}/${parentDir}`);
-            await platform.writeTextFile(`${store.projectRoot}/${finalPath}`, content);
+            const parentDir = finalPath.includes("/")
+              ? finalPath.substring(0, finalPath.lastIndexOf("/"))
+              : "";
+            if (parentDir)
+              await platform.createDirectory(
+                `${store.projectRoot}/${parentDir}`,
+              );
+            await platform.writeTextFile(
+              `${store.projectRoot}/${finalPath}`,
+              content,
+            );
             store.markFileSaved(finalPath, content);
           }
         }
       } catch (err) {
-        notifyError({ operation: 'Add external files', error: err });
+        notifyError({ operation: "Add external files", error: err });
       }
     },
-    []
+    [],
   );
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
@@ -1711,7 +2024,8 @@ function App() {
     // Only initialize if the project store is empty (no files loaded yet)
     if (Object.keys(state.files).length === 0) {
       const tab = activeTabRef.current;
-      const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
+      const defaultContent =
+        "// Type your OpenSCAD code here\ncube([10, 10, 10]);";
       // Seed the untitled web project without hydrating workspace state.
       // Explicit file/folder opens should transition out of welcome, but the
       // initial empty project should stay behind the welcome screen.
@@ -1729,16 +2043,20 @@ function App() {
   }, [tabs]);
 
   useEffect(() => {
-    update3dPreviewUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
+    update3dPreviewUrl(
+      activePreviewKind === "mesh" && activePreviewSrc
+        ? activePreviewSrc
+        : null,
+    );
   }, [activePreviewKind, activePreviewSrc, update3dPreviewUrl]);
   useEffect(() => {
     updateCapturePreview(() =>
       captureCurrentPreview({
         viewerId: MAIN_PREVIEW_VIEWER_ID,
-        svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+        svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
         targetWidth: 1200,
         targetHeight: 630,
-      })
+      }),
     );
     return () => updateCapturePreview(null);
   }, [activePreviewKind, activePreviewSrc, updateCapturePreview]);
@@ -1779,8 +2097,12 @@ function App() {
               useTabs: currentSettings.editor.useTabs,
             });
             if (content !== file.content) {
-              getProjectStore().getState().updateFileContent(relativePath, content);
-              getProjectStore().getState().setCustomizerBase(relativePath, content);
+              getProjectStore()
+                .getState()
+                .updateFileContent(relativePath, content);
+              getProjectStore()
+                .getState()
+                .setCustomizerBase(relativePath, content);
             }
           } catch {
             // Continue with unformatted content
@@ -1796,9 +2118,12 @@ function App() {
       updatedStore.openProject(
         dirPath,
         Object.fromEntries(
-          Object.entries(updatedStore.files).map(([path, file]) => [path, file.content])
+          Object.entries(updatedStore.files).map(([path, file]) => [
+            path,
+            file.content,
+          ]),
         ),
-        updatedStore.renderTargetPath ?? DEFAULT_TAB_NAME
+        updatedStore.renderTargetPath ?? DEFAULT_TAB_NAME,
       );
 
       // Update workspace tabs with their new disk paths
@@ -1807,17 +2132,19 @@ function App() {
         markTabSaved(tab.id, { filePath: absolutePath, name: tab.name });
       }
 
-      requestRender('save', { immediate: true });
+      requestRender("save", { immediate: true });
 
-      notifySuccess('Project saved to folder', { toastId: 'save-project-dir-success' });
+      notifySuccess("Project saved to folder", {
+        toastId: "save-project-dir-success",
+      });
       return true;
     } catch (err) {
       notifyError({
-        operation: 'save-project-to-directory',
+        operation: "save-project-to-directory",
         error: err,
-        fallbackMessage: 'Failed to save project to folder',
-        toastId: 'save-project-dir-error',
-        logLabel: 'Save project to directory failed',
+        fallbackMessage: "Failed to save project to folder",
+        toastId: "save-project-dir-error",
+        logLabel: "Save project to directory failed",
       });
       return false;
     }
@@ -1842,7 +2169,7 @@ function App() {
           return saveProjectToDirectory();
         }
 
-        let currentSource = store.files[currentTab.projectPath]?.content ?? '';
+        let currentSource = store.files[currentTab.projectPath]?.content ?? "";
 
         const currentSettings = loadSettings();
         if (currentSettings.editor.formatOnSave) {
@@ -1857,20 +2184,24 @@ function App() {
               store.setCustomizerBase(currentTab.projectPath, formatted);
             }
           } catch (err) {
-            console.error('[saveFile] Failed to format code:', err);
+            console.error("[saveFile] Failed to format code:", err);
           }
         }
 
         let savePath: string | null;
-        const suggestedName = currentTab.name || 'untitled';
+        const suggestedName = currentTab.name || "untitled";
         if (promptForPath) {
-          savePath = await platform.fileSaveAs(currentSource, filters, suggestedName);
+          savePath = await platform.fileSaveAs(
+            currentSource,
+            filters,
+            suggestedName,
+          );
         } else {
           savePath = await platform.fileSave(
             currentSource,
             currentTab.filePath,
             filters,
-            suggestedName
+            suggestedName,
           );
         }
 
@@ -1879,11 +2210,13 @@ function App() {
         const shouldNotifySaveSuccess = promptForPath || !currentTab.filePath;
         const projectRoot = getProjectStore().getState().projectRoot;
         const relativePath = getRelativeProjectPath(projectRoot, savePath);
-        const fileName = relativePath || savePath.split('/').pop() || savePath;
+        const fileName = relativePath || savePath.split("/").pop() || savePath;
 
         // If the file was renamed (e.g., "Untitled" → "lamp.scad"), update projectStore
         if (fileName !== currentTab.projectPath) {
-          getProjectStore().getState().renameFile(currentTab.projectPath, fileName);
+          getProjectStore()
+            .getState()
+            .renameFile(currentTab.projectPath, fileName);
           renameTab(currentTab.id, fileName, fileName);
         }
 
@@ -1895,39 +2228,39 @@ function App() {
 
         const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
         if (dockPanel) {
-          dockPanel.api.setTitle(savePath.split('/').pop() || fileName);
+          dockPanel.api.setTitle(savePath.split("/").pop() || fileName);
         }
 
         addRecentFile(savePath);
 
-        requestRender('save', { immediate: true });
+        requestRender("save", { immediate: true });
 
-        analytics.track('file saved', {
-          source: promptForPath ? 'save_as' : 'save',
+        analytics.track("file saved", {
+          source: promptForPath ? "save_as" : "save",
           had_existing_path: Boolean(currentTab.filePath),
           format_on_save: currentSettings.editor.formatOnSave,
           render_after_save: true,
         });
 
         if (shouldNotifySaveSuccess) {
-          notifySuccess('File saved successfully', {
-            toastId: 'save-success',
+          notifySuccess("File saved successfully", {
+            toastId: "save-success",
           });
         }
 
         return true;
       } catch (err) {
         notifyError({
-          operation: 'save-file',
+          operation: "save-file",
           error: err,
-          fallbackMessage: 'Failed to save file',
-          toastId: 'save-file-error',
-          logLabel: '[saveFile] Save failed',
+          fallbackMessage: "Failed to save file",
+          toastId: "save-file-error",
+          logLabel: "[saveFile] Save failed",
         });
         return false;
       }
     },
-    [analytics, markTabSaved, renameTab, saveProjectToDirectory]
+    [analytics, markTabSaved, renameTab, saveProjectToDirectory],
   );
 
   const saveAllFiles = useCallback(async () => {
@@ -1951,8 +2284,12 @@ function App() {
           });
           if (formatted !== content) {
             content = formatted;
-            getProjectStore().getState().updateFileContent(relativePath, formatted);
-            getProjectStore().getState().setCustomizerBase(relativePath, formatted);
+            getProjectStore()
+              .getState()
+              .updateFileContent(relativePath, formatted);
+            getProjectStore()
+              .getState()
+              .setCustomizerBase(relativePath, formatted);
           }
         } catch {
           // Continue with unformatted content
@@ -1960,9 +2297,16 @@ function App() {
       }
 
       // Build absolute path for desktop projects
-      const absolutePath = store.projectRoot ? `${store.projectRoot}/${relativePath}` : null;
+      const absolutePath = store.projectRoot
+        ? `${store.projectRoot}/${relativePath}`
+        : null;
 
-      const savePath = await platform.fileSave(content, absolutePath, filters, relativePath);
+      const savePath = await platform.fileSave(
+        content,
+        absolutePath,
+        filters,
+        relativePath,
+      );
       if (savePath) {
         getProjectStore().getState().markFileSaved(relativePath, content);
 
@@ -1976,9 +2320,9 @@ function App() {
     }
 
     if (savedCount > 0) {
-      requestRender('save', { immediate: true });
-      notifySuccess(`Saved ${savedCount} file${savedCount > 1 ? 's' : ''}`, {
-        toastId: 'save-all-success',
+      requestRender("save", { immediate: true });
+      notifySuccess(`Saved ${savedCount} file${savedCount > 1 ? "s" : ""}`, {
+        toastId: "save-all-success",
       });
     }
   }, [markTabSaved]);
@@ -1987,7 +2331,8 @@ function App() {
   // or ephemeral welcome-screen pick). When true, we use the directory
   // directly instead of creating a random-named subdirectory.
   const [hasEphemeralProjectDir, setHasEphemeralProjectDir] = useState(false);
-  const hasCustomProjectDir = !!settings.project.defaultProjectDirectory || hasEphemeralProjectDir;
+  const hasCustomProjectDir =
+    !!settings.project.defaultProjectDirectory || hasEphemeralProjectDir;
   const displayProjectDir = resolvedProjectDir
     ? hasCustomProjectDir
       ? resolvedProjectDir
@@ -2009,7 +2354,10 @@ function App() {
       dirPath = resolvedProjectDir;
     } else {
       // Default base dir — create a random-named subdirectory
-      dirPath = await platform.createProjectDirectory(resolvedProjectDir, pendingProjectName);
+      dirPath = await platform.createProjectDirectory(
+        resolvedProjectDir,
+        pendingProjectName,
+      );
       // Generate a fresh name for the next project
       setPendingProjectName(generateRandomProjectName());
 
@@ -2022,28 +2370,42 @@ function App() {
     });
 
     return dirPath;
-  }, [capabilities.hasFileSystem, resolvedProjectDir, pendingProjectName, hasCustomProjectDir]);
+  }, [
+    capabilities.hasFileSystem,
+    resolvedProjectDir,
+    pendingProjectName,
+    hasCustomProjectDir,
+  ]);
 
   const handleStartWithDraft = useCallback(
     (draftOverride?: AiDraft) => {
       if (draftOverride) {
         setDraft(draftOverride);
       }
-      hideWelcomeScreen();
 
       // TinkerQuarry (PRD §6.1 local-first; decision C): the initial describe goes to the LOCAL
       // ENGINE (describe → geometry + readiness), not a cloud chat agent. The conversational agent is
       // the optional refine/explain layer. Fall back to the agent only when there's no prompt text.
-      const prompt = (draftOverride?.text ?? draft.text ?? '').trim();
+      const prompt = (draftOverride?.text ?? draft.text ?? "").trim();
       void initProjectDirectory().then(() => {
         if (prompt) {
-          void handleEngineDescribe(prompt);
+          void handleEngineDescribe(prompt).then((result) => {
+            if (result.ok) hideWelcomeScreen();
+          });
         } else {
+          hideWelcomeScreen();
           void submitDraft(draftOverride);
         }
       });
     },
-    [hideWelcomeScreen, setDraft, submitDraft, initProjectDirectory, handleEngineDescribe, draft.text]
+    [
+      hideWelcomeScreen,
+      setDraft,
+      submitDraft,
+      initProjectDirectory,
+      handleEngineDescribe,
+      draft.text,
+    ],
   );
 
   const handleStartManually = useCallback(() => {
@@ -2065,8 +2427,8 @@ function App() {
       dirPath: string,
       options: {
         createIfEmpty?: boolean;
-        source?: 'recent' | 'menu_open';
-      } = {}
+        source?: "recent" | "menu_open";
+      } = {},
     ) => {
       setIsProjectLoading(true);
       try {
@@ -2075,7 +2437,7 @@ function App() {
         });
 
         if (options.source) {
-          analytics.track('folder opened', {
+          analytics.track("folder opened", {
             source: options.source,
             file_count: result.fileCount,
             created_default_file: result.createdDefaultFile,
@@ -2087,22 +2449,22 @@ function App() {
         setIsProjectLoading(false);
       }
     },
-    [analytics]
+    [analytics],
   );
 
   const openFileInCurrentWindow = useCallback(
     async (
       result: { path: string | null; name: string; content: string },
       options: {
-        source?: 'open' | 'menu_open' | 'recent';
-      } = {}
+        source?: "open" | "menu_open" | "recent";
+      } = {},
     ) => {
       setIsProjectLoading(true);
       try {
         const openResult = await openFileInWindow(result);
 
         if (options.source) {
-          analytics.track('file opened', {
+          analytics.track("file opened", {
             source: options.source,
             has_disk_path: Boolean(result.path),
             reused_existing_tab: openResult.reusedExistingTab,
@@ -2115,63 +2477,65 @@ function App() {
         setIsProjectLoading(false);
       }
     },
-    [analytics]
+    [analytics],
   );
 
   const handleHeaderLayoutSelect = useCallback(
     (preset: HeaderLayoutPreset) => {
       const changed = settings.ui.defaultLayoutPreset !== preset;
 
-      updateSetting('ui', {
+      updateSetting("ui", {
         hasCompletedNux: true,
         defaultLayoutPreset: preset,
       });
 
       if (changed) {
-        analytics.track('workspace layout selected', {
+        analytics.track("workspace layout selected", {
           layout: preset,
-          source: 'header' satisfies LayoutSelectionSource,
+          source: "header" satisfies LayoutSelectionSource,
           is_first_run: false,
         });
       }
 
       applyWorkspacePreset(preset);
     },
-    [analytics, settings.ui.defaultLayoutPreset]
+    [analytics, settings.ui.defaultLayoutPreset],
   );
 
   const handleOpenCustomizerAiRefine = useCallback(() => {
-    openPanel('ai-chat', 'ai-chat', 'AI');
+    openPanel("ai-chat", "ai-chat", "AI");
     window.setTimeout(() => {
       aiPromptPanelRef.current?.focusPrompt();
     }, 0);
   }, []);
 
   const hasCurrentModelApiKey =
-    currentProvider === 'openai-compatible'
+    currentProvider === "openai-compatible"
       ? Boolean(getOpenAiCompatibleConfig().baseUrl && currentModel.trim())
       : Boolean(getApiKey(currentProvider));
   const canAttachViewerAnnotation = !isStreaming && !isProcessingAttachments;
 
-  const attachViewerAnnotationFile = useCallback<WorkspaceState['attachViewerAnnotationFile']>(
+  const attachViewerAnnotationFile = useCallback<
+    WorkspaceState["attachViewerAnnotationFile"]
+  >(
     async (file) => {
-      openPanel('ai-chat', 'ai-chat', 'AI');
+      openPanel("ai-chat", "ai-chat", "AI");
 
       if (!hasCurrentModelApiKey) {
-        setSettingsInitialTab('ai');
+        setSettingsInitialTab("ai");
         setShowSettingsDialog(true);
-        return { status: 'missing-api-key' };
+        return { status: "missing-api-key" };
       }
 
       if (!canAttachViewerAnnotation) {
-        return { status: 'busy' };
+        return { status: "busy" };
       }
 
-      const result = await addDraftFiles([file], 'viewer_annotation');
+      const result = await addDraftFiles([file], "viewer_annotation");
       if (!result || result.readyCount < 1) {
         return {
-          status: 'failed',
-          errors: result?.errors ?? ['Failed to add the annotation image.'],
+          status: "failed",
+          errors: result?.errors ?? ["Failed to add the annotation image."],
         };
       }
 
@@ -2179,9 +2543,9 @@ function App() {
         aiPromptPanelRef.current?.focusPrompt();
       }, 0);
 
-      return { status: 'attached' };
+      return { status: "attached" };
     },
-    [addDraftFiles, canAttachViewerAnnotation, hasCurrentModelApiKey]
+    [addDraftFiles, canAttachViewerAnnotation, hasCurrentModelApiKey],
   );
 
   const handleOpenEditorPanel = useCallback(() => {
@@ -2200,28 +2564,28 @@ function App() {
   }, []);
 
   const handleOpenRecent = useCallback(
-    async (path: string, type?: 'file' | 'folder') => {
+    async (path: string, type?: "file" | "folder") => {
       try {
         // Handle recent folders by opening the directory
         // Also detect legacy entries without type field by checking extension
-        if (type === 'folder' || !isOpenScadProjectFilePath(path)) {
+        if (type === "folder" || !isOpenScadProjectFilePath(path)) {
           const platform = getPlatform();
-          if (!platform.capabilities.hasFileSystem) return 'cancelled' as const;
-          await openWorkspaceFolderInCurrentWindow(path, { source: 'recent' });
-          return 'opened' as const;
+          if (!platform.capabilities.hasFileSystem) return "cancelled" as const;
+          await openWorkspaceFolderInCurrentWindow(path, { source: "recent" });
+          return "opened" as const;
         }
 
         const existingTab = tabs.find((t) => t.filePath === path);
         if (existingTab) {
           await switchTab(existingTab.id);
           hideWelcomeScreen();
-          analytics.track('file opened', {
-            source: 'recent',
+          analytics.track("file opened", {
+            source: "recent",
             has_disk_path: true,
             reused_existing_tab: true,
             replaced_welcome_tab: false,
           });
-          return 'opened' as const;
+          return "opened" as const;
         }
 
         // On web, recent files won't have real paths — this is a Tauri-only feature
@@ -2229,35 +2593,35 @@ function App() {
         const platform = getPlatform();
         if (!platform.capabilities.hasFileSystem) {
           notifyError({
-            operation: 'open-recent-file',
-            fallbackMessage: 'Cannot open recent files in web mode',
-            toastId: 'open-recent-file-error',
+            operation: "open-recent-file",
+            fallbackMessage: "Cannot open recent files in web mode",
+            toastId: "open-recent-file-error",
           });
-          return 'cancelled' as const;
+          return "cancelled" as const;
         }
 
         const result = await platform.fileRead(path);
-        if (!result) return 'cancelled' as const;
+        if (!result) return "cancelled" as const;
 
-        await openFileInCurrentWindow(result, { source: 'recent' });
-        return 'opened' as const;
+        await openFileInCurrentWindow(result, { source: "recent" });
+        return "opened" as const;
       } catch (err) {
         removeRecentFile(path);
-        const normalized = normalizeAppError(err, 'Failed to open file');
+        const normalized = normalizeAppError(err, "Failed to open file");
         const isMissingFile =
-          normalized.message.toLowerCase().includes('no such file') ||
-          normalized.message.toLowerCase().includes('not found');
+          normalized.message.toLowerCase().includes("no such file") ||
+          normalized.message.toLowerCase().includes("not found");
 
         notifyError({
-          operation: 'open-recent-file',
+          operation: "open-recent-file",
           error: err,
           fallbackMessage: isMissingFile
-            ? 'File no longer exists. Removed from Recent Files.'
-            : 'Failed to open file',
-          toastId: 'open-recent-file-error',
-          logLabel: 'Failed to open recent file',
+            ? "File no longer exists. Removed from Recent Files."
+            : "Failed to open file",
+          toastId: "open-recent-file-error",
+          logLabel: "Failed to open recent file",
         });
-        return 'removed' as const;
+        return "removed" as const;
       }
     },
     [
@@ -2267,21 +2631,21 @@ function App() {
       openFileInCurrentWindow,
       switchTab,
       tabs,
-    ]
+    ],
   );
 
   const handleOpenFile = useCallback(async () => {
     try {
       const result = await getPlatform().fileOpen(OPENSCAD_FILE_FILTERS);
       if (!result) return;
-      await openFileInCurrentWindow(result, { source: 'open' });
+      await openFileInCurrentWindow(result, { source: "open" });
     } catch (err) {
       notifyError({
-        operation: 'open-file',
+        operation: "open-file",
         error: err,
-        fallbackMessage: 'Failed to open file',
-        toastId: 'open-file-error',
-        logLabel: 'Failed to open file',
+        fallbackMessage: "Failed to open file",
+        toastId: "open-file-error",
+        logLabel: "Failed to open file",
       });
     }
   }, [openFileInCurrentWindow]);
@@ -2291,7 +2655,8 @@ function App() {
   const checkUnsavedChangesRef = useRef<() => Promise<boolean>>();
 
   checkUnsavedChangesRef.current = async (): Promise<boolean> => {
-    const file = getProjectStore().getState().files[activeTabRef.current.projectPath];
+    const file =
+      getProjectStore().getState().files[activeTabRef.current.projectPath];
     // Compare content directly rather than relying on isDirty — virtual files
     // (web) keep isDirty false to suppress UI indicators, but we still want to
     // warn before discarding in-memory edits.
@@ -2300,24 +2665,27 @@ function App() {
 
     const platform = getPlatform();
 
-    const wantsToSave = await platform.ask('Do you want to save the changes you made?', {
-      title: 'Unsaved Changes',
-      kind: 'warning',
-      okLabel: 'Save',
-      cancelLabel: "Don't Save",
-    });
+    const wantsToSave = await platform.ask(
+      "Do you want to save the changes you made?",
+      {
+        title: "Unsaved Changes",
+        kind: "warning",
+        okLabel: "Save",
+        cancelLabel: "Don't Save",
+      },
+    );
 
     if (wantsToSave) {
       return await saveFile(false);
     } else {
       const confirmDiscard = await platform.confirm(
-        'Are you sure you want to discard your changes?',
+        "Are you sure you want to discard your changes?",
         {
-          title: 'Discard Changes',
-          kind: 'warning',
-          okLabel: 'Discard',
-          cancelLabel: 'Cancel',
-        }
+          title: "Discard Changes",
+          kind: "warning",
+          okLabel: "Discard",
+          cancelLabel: "Cancel",
+        },
       );
       return confirmDiscard;
     }
@@ -2327,7 +2695,7 @@ function App() {
     const unlistenFns: Array<() => void> = [];
 
     unlistenFns.push(
-      eventBus.on('menu:file:new', async () => {
+      eventBus.on("menu:file:new", async () => {
         const canProceed = checkUnsavedChangesRef.current
           ? await checkUnsavedChangesRef.current()
           : true;
@@ -2336,29 +2704,29 @@ function App() {
         getProjectStore().getState().resetToUntitledProject();
         createNewTab();
         showWelcomeScreen();
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:open', async () => {
+      eventBus.on("menu:file:open", async () => {
         try {
           const result = await getPlatform().fileOpen(OPENSCAD_FILE_FILTERS);
           if (!result) return;
-          await openFileInCurrentWindow(result, { source: 'menu_open' });
+          await openFileInCurrentWindow(result, { source: "menu_open" });
         } catch (err) {
           notifyError({
-            operation: 'open-file',
+            operation: "open-file",
             error: err,
-            fallbackMessage: 'Failed to open file',
-            toastId: 'open-file-error',
-            logLabel: 'Open failed',
+            fallbackMessage: "Failed to open file",
+            toastId: "open-file-error",
+            logLabel: "Open failed",
           });
         }
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:open_folder', async () => {
+      eventBus.on("menu:file:open_folder", async () => {
         try {
           const canProceed = checkUnsavedChangesRef.current
             ? await checkUnsavedChangesRef.current()
@@ -2368,78 +2736,86 @@ function App() {
           const platform = getPlatform();
           const dirPath = await platform.pickDirectory();
           if (!dirPath) return;
-          await openWorkspaceFolderInCurrentWindow(dirPath, { source: 'menu_open' });
+          await openWorkspaceFolderInCurrentWindow(dirPath, {
+            source: "menu_open",
+          });
         } catch (err) {
           notifyError({
-            operation: 'open-folder',
+            operation: "open-folder",
             error: err,
-            fallbackMessage: 'Failed to open folder',
-            toastId: 'open-folder-error',
-            logLabel: 'Open folder failed',
+            fallbackMessage: "Failed to open folder",
+            toastId: "open-folder-error",
+            logLabel: "Open folder failed",
           });
         }
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:save', async () => {
+      eventBus.on("menu:file:save", async () => {
         await saveFile(false);
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:save_as', async () => {
+      eventBus.on("menu:file:save_as", async () => {
         await saveFile(true);
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:save_all', async () => {
+      eventBus.on("menu:file:save_all", async () => {
         await saveAllFiles();
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:export', async (format: ExportFormat) => {
+      eventBus.on("menu:file:export", async (format: ExportFormat) => {
         try {
-          const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
-            stl: { label: 'STL (3D Model)', ext: 'stl' },
-            obj: { label: 'OBJ (3D Model)', ext: 'obj' },
-            amf: { label: 'AMF (3D Model)', ext: 'amf' },
-            '3mf': { label: '3MF (3D Model)', ext: '3mf' },
-            png: { label: 'PNG (Image)', ext: 'png' },
-            svg: { label: 'SVG (2D Vector)', ext: 'svg' },
-            dxf: { label: 'DXF (2D CAD)', ext: 'dxf' },
+          const formatLabels: Record<
+            ExportFormat,
+            { label: string; ext: string }
+          > = {
+            stl: { label: "STL (3D Model)", ext: "stl" },
+            obj: { label: "OBJ (3D Model)", ext: "obj" },
+            amf: { label: "AMF (3D Model)", ext: "amf" },
+            "3mf": { label: "3MF (3D Model)", ext: "3mf" },
+            png: { label: "PNG (Image)", ext: "png" },
+            svg: { label: "SVG (2D Vector)", ext: "svg" },
+            dxf: { label: "DXF (2D CAD)", ext: "dxf" },
           };
           const formatInfo = formatLabels[format];
-          const rtContent = getRenderTargetContent(getProjectStore().getState()) ?? '';
+          const rtContent =
+            getRenderTargetContent(getProjectStore().getState()) ?? "";
           const exportBytes = await exportModelWithContext({
             format,
             source: rtContent,
             library: loadSettings().library,
           });
-          await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
-            { name: formatInfo.label, extensions: [formatInfo.ext] },
-          ]);
-          analytics.track('file exported', {
+          await getPlatform().fileExport(
+            exportBytes,
+            `export.${formatInfo.ext}`,
+            [{ name: formatInfo.label, extensions: [formatInfo.ext] }],
+          );
+          analytics.track("file exported", {
             format,
           });
-          notifySuccess('Exported successfully', { toastId: 'export-success' });
+          notifySuccess("Exported successfully", { toastId: "export-success" });
         } catch (err) {
           notifyError({
-            operation: 'export-file',
+            operation: "export-file",
             error: err,
             capture: !isExportValidationError(err),
-            fallbackMessage: 'Export failed',
-            toastId: 'export-error',
-            logLabel: 'Export failed',
+            fallbackMessage: "Export failed",
+            toastId: "export-error",
+            logLabel: "Export failed",
           });
         }
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:save_project', async () => {
+      eventBus.on("menu:file:save_project", async () => {
         try {
           const state = getProjectStore().getState();
           if (!state.renderTargetPath) return;
@@ -2452,25 +2828,27 @@ function App() {
             renderTargetPath: state.renderTargetPath,
           });
           const data = new Uint8Array(await blob.arrayBuffer());
-          await getPlatform().fileExport(data, 'project.zip', [
-            { name: 'ZIP Archive', extensions: ['zip'] },
+          await getPlatform().fileExport(data, "project.zip", [
+            { name: "ZIP Archive", extensions: ["zip"] },
           ]);
-          analytics.track('project exported', { file_count: Object.keys(files).length });
-          notifySuccess('Project saved', { toastId: 'save-project-success' });
+          analytics.track("project exported", {
+            file_count: Object.keys(files).length,
+          });
+          notifySuccess("Project saved", { toastId: "save-project-success" });
         } catch (err) {
           notifyError({
-            operation: 'save-project',
+            operation: "save-project",
             error: err,
-            fallbackMessage: 'Failed to save project',
-            toastId: 'save-project-error',
-            logLabel: 'Save project failed',
+            fallbackMessage: "Failed to save project",
+            toastId: "save-project-error",
+            logLabel: "Save project failed",
           });
         }
-      })
+      }),
     );
 
     unlistenFns.push(
-      eventBus.on('menu:file:open_project', async () => {
+      eventBus.on("menu:file:open_project", async () => {
         try {
           const canProceed = checkUnsavedChangesRef.current
             ? await checkUnsavedChangesRef.current()
@@ -2480,25 +2858,36 @@ function App() {
           const result = await pickFolder();
           if (!result) return;
 
-          getProjectStore().getState().openProject(null, result.files, result.renderTargetPath);
-          createNewTab(null, result.files[result.renderTargetPath], result.renderTargetPath);
+          getProjectStore()
+            .getState()
+            .openProject(null, result.files, result.renderTargetPath);
+          createNewTab(
+            null,
+            result.files[result.renderTargetPath],
+            result.renderTargetPath,
+          );
           hideWelcomeScreen();
-          analytics.track('project imported', { file_count: Object.keys(result.files).length });
-          notifySuccess(`Opened project with ${Object.keys(result.files).length} files`, {
-            toastId: 'open-project-success',
+          analytics.track("project imported", {
+            file_count: Object.keys(result.files).length,
           });
+          notifySuccess(
+            `Opened project with ${Object.keys(result.files).length} files`,
+            {
+              toastId: "open-project-success",
+            },
+          );
 
-          requestRender('file_open', { immediate: true });
+          requestRender("file_open", { immediate: true });
         } catch (err) {
           notifyError({
-            operation: 'open-project',
+            operation: "open-project",
             error: err,
-            fallbackMessage: 'Failed to open project',
-            toastId: 'open-project-error',
-            logLabel: 'Open project failed',
+            fallbackMessage: "Failed to open project",
+            toastId: "open-project-error",
+            logLabel: "Open project failed",
           });
         }
-      })
+      }),
     );
 
     return () => {
@@ -2521,7 +2910,9 @@ function App() {
       const projectFiles = getProjectStore().getState().files;
       const anyDirty = Object.values(projectFiles).some((f) => f.isDirty);
       if (!anyDirty) return true;
-      return checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
+      return checkUnsavedChangesRef.current
+        ? await checkUnsavedChangesRef.current()
+        : true;
     });
 
     return () => {
@@ -2529,16 +2920,20 @@ function App() {
     };
   }, []);
 
-  const activeFileDirty = useProjectStore((s) => s.files[activeTab.projectPath]?.isDirty ?? false);
-  const anyFileDirty = useProjectStore((s) => Object.values(s.files).some((f) => f.isDirty));
+  const activeFileDirty = useProjectStore(
+    (s) => s.files[activeTab.projectPath]?.isDirty ?? false,
+  );
+  const anyFileDirty = useProjectStore((s) =>
+    Object.values(s.files).some((f) => f.isDirty),
+  );
 
   useEffect(() => {
     const workspaceName = projectRoot
-      ? (projectRoot.split('/').filter(Boolean).pop() ?? activeTab.name)
+      ? (projectRoot.split("/").filter(Boolean).pop() ?? activeTab.name)
       : activeTab.filePath
         ? activeTab.name
-        : 'Untitled Project';
-    const dirtyIndicator = activeFileDirty ? '\u2022 ' : '';
+        : "Untitled Project";
+    const dirtyIndicator = activeFileDirty ? "\u2022 " : "";
     const title = `${dirtyIndicator}${workspaceName} - TinkerQuarry`;
     getPlatform().setWindowTitle(title);
 
@@ -2548,9 +2943,9 @@ function App() {
         workspaceRoot: projectRoot,
         renderTargetPath,
         showWelcome,
-        mode: showWelcome ? 'welcome' : 'ready',
+        mode: showWelcome ? "welcome" : "ready",
       }).catch((error) => {
-        console.error('[App] Failed to sync MCP window context:', error);
+        console.error("[App] Failed to sync MCP window context:", error);
       });
     }
   }, [
@@ -2565,8 +2960,10 @@ function App() {
 
   useEffect(() => {
     const platform = getPlatform();
-    if ('setDirtyState' in platform) {
-      (platform as { setDirtyState: (d: boolean) => void }).setDirtyState(anyFileDirty);
+    if ("setDirtyState" in platform) {
+      (platform as { setDirtyState: (d: boolean) => void }).setDirtyState(
+        anyFileDirty,
+      );
     }
   }, [anyFileDirty]);
 
@@ -2583,7 +2980,10 @@ function App() {
         const store = getProjectStore().getState();
         if (content === null) {
           // File was deleted externally — only remove if it exists and isn't dirty
-          if (relativePath in store.files && !store.files[relativePath].isDirty) {
+          if (
+            relativePath in store.files &&
+            !store.files[relativePath].isDirty
+          ) {
             store.removeFile(relativePath);
           }
           return;
@@ -2591,7 +2991,10 @@ function App() {
         // File was created or modified externally
         if (relativePath in store.files) {
           // Only update if the file isn't dirty (don't overwrite unsaved user edits)
-          if (!store.files[relativePath].isDirty && store.files[relativePath].content !== content) {
+          if (
+            !store.files[relativePath].isDirty &&
+            store.files[relativePath].content !== content
+          ) {
             store.updateFileContent(relativePath, content);
             store.markFileSaved(relativePath, content);
           }
@@ -2610,43 +3013,48 @@ function App() {
   }, [projectRoot]);
 
   useEffect(() => {
-    const unlisten = eventBus.on('render-requested', ({ source }) => {
-      requestRender(source === 'ai' ? 'ai_edit' : 'manual', { immediate: true });
+    const unlisten = eventBus.on("render-requested", ({ source }) => {
+      requestRender(source === "ai" ? "ai_edit" : "manual", {
+        immediate: true,
+      });
     });
     return unlisten;
   }, []);
 
   useEffect(() => {
-    const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
-      const store = getProjectStore().getState();
-      // Customizer changes target the render target file, not the active editor
-      // tab — the user may be viewing a different file while the customizer
-      // operates on the render target.
-      const projectPath =
-        eventSource === 'customizer'
-          ? (store.renderTargetPath ?? activeTabRef.current.projectPath)
-          : activeTabRef.current.projectPath;
-      store.updateFileContent(projectPath, code);
-      if (eventSource !== 'customizer') {
-        store.setCustomizerBase(projectPath, code);
-      }
-      requestRender(
-        eventSource === 'history'
-          ? 'history_restore'
-          : eventSource === 'ai'
-            ? 'ai_edit'
-            : 'code_update',
-        { immediate: true }
-      );
-    });
+    const unlisten = eventBus.on(
+      "code-updated",
+      ({ code, source: eventSource }) => {
+        const store = getProjectStore().getState();
+        // Customizer changes target the render target file, not the active editor
+        // tab — the user may be viewing a different file while the customizer
+        // operates on the render target.
+        const projectPath =
+          eventSource === "customizer"
+            ? (store.renderTargetPath ?? activeTabRef.current.projectPath)
+            : activeTabRef.current.projectPath;
+        store.updateFileContent(projectPath, code);
+        if (eventSource !== "customizer") {
+          store.setCustomizerBase(projectPath, code);
+        }
+        requestRender(
+          eventSource === "history"
+            ? "history_restore"
+            : eventSource === "ai"
+              ? "ai_edit"
+              : "code_update",
+          { immediate: true },
+        );
+      },
+    );
     return unlisten;
   }, []);
 
   const previousSettingsDialogRef = useRef(false);
   useEffect(() => {
     if (showSettingsDialog && !previousSettingsDialogRef.current) {
-      analytics.track('settings opened', {
-        section: settingsInitialTab ?? 'appearance',
+      analytics.track("settings opened", {
+        section: settingsInitialTab ?? "appearance",
       });
     }
     previousSettingsDialogRef.current = showSettingsDialog;
@@ -2656,47 +3064,47 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // ⌘K or Ctrl+K to focus AI prompt
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        openPanel('ai-chat', 'ai-chat', 'AI');
+        openPanel("ai-chat", "ai-chat", "AI");
         setTimeout(() => {
           aiPromptPanelRef.current?.focusPrompt();
         }, 0);
       }
       // ⌘, or Ctrl+, to open settings
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
         setShowSettingsDialog(true);
       }
       // ⌘T or Ctrl+T for new tab
-      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
         e.preventDefault();
         createNewTab();
       }
       // ⌘W or Ctrl+W to close tab
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "w") {
         e.preventDefault();
         closeTab(activeTabId);
       }
       // ⌘⌥S or Ctrl+Alt+S to save all
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 's') {
+      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === "s") {
         e.preventDefault();
-        eventBus.emit('menu:file:save_all');
+        eventBus.emit("menu:file:save_all");
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [createNewTab, closeTab, activeTabId]);
 
   useEffect(() => {
     if (aiError) {
       notifyError({
-        operation: 'ai-stream',
+        operation: "ai-stream",
         error: aiErrorObject ?? aiError,
         displayMessage: aiError,
-        fallbackMessage: 'AI request failed',
-        toastId: 'ai-stream-error',
+        fallbackMessage: "AI request failed",
+        toastId: "ai-stream-error",
       });
       clearAiError();
     }
@@ -2708,11 +3116,11 @@ function App() {
         return;
       }
       notifyError({
-        operation: 'unexpected-runtime-error',
+        operation: "unexpected-runtime-error",
         error: event.error ?? event.message,
-        fallbackMessage: 'Something went wrong in the app',
-        toastId: 'unexpected-runtime-error',
-        logLabel: '[App] Unhandled window error',
+        fallbackMessage: "Something went wrong in the app",
+        toastId: "unexpected-runtime-error",
+        logLabel: "[App] Unhandled window error",
       });
     };
 
@@ -2722,20 +3130,23 @@ function App() {
       }
 
       notifyError({
-        operation: 'unexpected-runtime-error',
+        operation: "unexpected-runtime-error",
         error: event.reason,
-        fallbackMessage: 'An unexpected error interrupted the current action',
-        toastId: 'unexpected-runtime-error',
-        logLabel: '[App] Unhandled promise rejection',
+        fallbackMessage: "An unexpected error interrupted the current action",
+        toastId: "unexpected-runtime-error",
+        logLabel: "[App] Unhandled promise rejection",
       });
     };
 
-    window.addEventListener('error', handleWindowError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener("error", handleWindowError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
 
     return () => {
-      window.removeEventListener('error', handleWindowError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener("error", handleWindowError);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
     };
   }, []);
 
@@ -2746,10 +3157,12 @@ function App() {
 
       const savedPreset = loadSettings().ui.defaultLayoutPreset;
       const layoutMode =
-        typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
-          ? 'mobile'
-          : 'desktop';
-      const sharePreset = isShareEntry && shareContext ? shareContext.mode : null;
+        typeof window !== "undefined" &&
+        window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
+          ? "mobile"
+          : "desktop";
+      const sharePreset =
+        isShareEntry && shareContext ? shareContext.mode : null;
 
       if (!sharePreset) {
         clearSavedLayout();
@@ -2767,7 +3180,7 @@ function App() {
         });
       }
     },
-    [isShareEntry, shareContext]
+    [isShareEntry, shareContext],
   );
 
   const workspaceState: WorkspaceState = useMemo(
@@ -2826,7 +3239,7 @@ function App() {
       onAcceptDiff: acceptDiff,
       onRejectDiff: rejectDiff,
       onOpenAiSettings: () => {
-        setSettingsInitialTab('ai');
+        setSettingsInitialTab("ai");
         setShowSettingsDialog(true);
       },
       onOpenCustomizerAiRefine: handleOpenCustomizerAiRefine,
@@ -2891,75 +3304,104 @@ function App() {
       handleOpenEditorPanel,
       handleOpenExportDialog,
       handleAiPanelSubmit,
-    ]
+    ],
   );
 
   const shouldShowWelcome = showWelcome && !isShareEntry;
   const canUseShare = !capabilities.hasNativeMenu && isShareEnabled();
   const shouldShowShareBanner = Boolean(
-    shareOrigin && sharePhase === 'ready' && !isShareBannerDismissed
+    shareOrigin && sharePhase === "ready" && !isShareBannerDismissed,
   );
 
   const shareBlockingOverlay = shouldBlockShareUi ? (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center"
       data-testid="share-loading-screen"
-      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+      style={{
+        backgroundColor: "var(--bg-primary)",
+        color: "var(--text-primary)",
+      }}
     >
       <div
         className="flex w-full max-w-md flex-col items-center text-center rounded-2xl"
         style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-primary)',
-          gap: 'var(--space-helper-gap)',
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-primary)",
+          gap: "var(--space-helper-gap)",
           padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
         }}
       >
         <div
           className="h-8 w-8 animate-spin rounded-full border-2"
           style={{
-            borderColor: 'var(--border-primary)',
-            borderTopColor: 'var(--accent-primary)',
+            borderColor: "var(--border-primary)",
+            borderTopColor: "var(--accent-primary)",
           }}
         />
         <div className="text-lg font-semibold">Opening shared design...</div>
-        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
           Loading the shared model, preview, and layout.
         </div>
       </div>
     </div>
   ) : null;
 
-  const selectedEnginePrinter = enginePrinters.find((p) => p.key === printerKey);
-  const selectedLayerHeight = formatLayerHeight(selectedEnginePrinter?.layer_height_mm);
+  const selectedEnginePrinter = enginePrinters.find(
+    (p) => p.key === printerKey,
+  );
+  const selectedLayerHeight = formatLayerHeight(
+    selectedEnginePrinter?.layer_height_mm,
+  );
   const selectedPrinterBlocked = selectedEnginePrinter?.sliceable === false;
   const selectedPrinterNote = selectedEnginePrinter?.slice_note ?? null;
-  const selectedConnector = engineConnectors.find((c) => c.name === connectorName);
-  const canSendCurrentSlice =
-    hasEngineDesign && lastSlicedRid != null && lastSlicedRid === lastEngineRidRef.current;
+  const manufacturingWorkflowState = getManufacturingWorkflowState({
+    hasEngineDesign,
+    currentRid: lastEngineRidRef.current,
+    lastSlicedRid,
+    sliceProfileStatus,
+    printerKey,
+    material,
+    connectorName,
+  });
+  const { sliceProfileReady, canSendCurrentSlice } = manufacturingWorkflowState;
+  const makeItRealDisabled =
+    isRendering ||
+    !hasEngineDesign ||
+    selectedPrinterBlocked ||
+    !sliceProfileReady;
+  const selectedConnector = engineConnectors.find(
+    (c) => c.name === connectorName,
+  );
+  const manufacturingSliceState = manufacturingWorkflowState.sliceState;
+  const manufacturingSendState = manufacturingWorkflowState.sendState;
 
   const content = shouldShowShareError ? (
     <div
       className="flex h-screen items-center justify-center"
       data-testid="share-error-screen"
-      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+      style={{
+        backgroundColor: "var(--bg-primary)",
+        color: "var(--text-primary)",
+      }}
     >
       <div
         className="flex w-full max-w-md flex-col rounded-2xl"
         style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-primary)',
-          gap: 'var(--space-section-gap)',
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-primary)",
+          gap: "var(--space-section-gap)",
           padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
         }}
       >
-        <div className="text-lg font-semibold">Couldn&apos;t open this shared design</div>
-        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-lg font-semibold">
+          Couldn&apos;t open this shared design
+        </div>
+        <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {shareLoadError}
         </div>
         <div
           className="flex items-center justify-end"
-          style={{ gap: 'var(--space-dialog-footer-gap)' }}
+          style={{ gap: "var(--space-dialog-footer-gap)" }}
         >
           <Button variant="secondary" onClick={skipShareEntry}>
             Go to Editor
@@ -2974,7 +3416,7 @@ function App() {
     <div
       className="h-screen"
       data-testid="welcome-container"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
+      style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <WelcomeScreen
         draft={draft}
@@ -2996,7 +3438,9 @@ function App() {
         onOpenFile={handleOpenFile}
         onOpenFolder={() => {
           eventBus.emit(
-            capabilities.hasFileSystem ? 'menu:file:open_folder' : 'menu:file:open_project'
+            capabilities.hasFileSystem
+              ? "menu:file:open_folder"
+              : "menu:file:open_project",
           );
         }}
         showRecentFiles={capabilities.hasFileSystem}
@@ -3005,7 +3449,7 @@ function App() {
         availableProviders={availableProviders}
         onModelChange={setCurrentModel}
         onOpenSettings={() => {
-          setSettingsInitialTab('ai');
+          setSettingsInitialTab("ai");
           setShowSettingsDialog(true);
         }}
         projectDirectory={displayProjectDir}
@@ -3026,13 +3470,16 @@ function App() {
     <div
       className="h-screen flex flex-col"
       data-testid="app-container"
-      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+      style={{
+        backgroundColor: "var(--bg-primary)",
+        color: "var(--text-primary)",
+      }}
     >
       <header
         className="relative flex items-center gap-1.5 shrink-0 py-1"
         style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border-subtle)',
+          backgroundColor: "var(--bg-secondary)",
+          borderBottom: "1px solid var(--border-subtle)",
         }}
       >
         {!capabilities.hasNativeMenu && (
@@ -3062,13 +3509,16 @@ function App() {
             <div
               data-testid="render-spinner"
               className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              style={{
+                backgroundColor: "var(--bg-tertiary)",
+                color: "var(--text-secondary)",
+              }}
             >
               <div
                 className="animate-spin h-2.5 w-2.5 border-2 rounded-full"
                 style={{
-                  borderColor: 'var(--border-primary)',
-                  borderTopColor: 'var(--accent-primary)',
+                  borderColor: "var(--border-primary)",
+                  borderTopColor: "var(--accent-primary)",
                 }}
               />
               <span>Rendering</span>
@@ -3112,7 +3562,11 @@ function App() {
             size="sm"
             disabled={!hasEngineDesign}
             className="text-xs px-2 py-1"
-            title={hasEngineDesign ? 'Save this design to My Designs' : 'Describe a part first'}
+            title={
+              hasEngineDesign
+                ? "Save this design to My Designs"
+                : "Describe a part first"
+            }
           >
             Save
           </Button>
@@ -3130,45 +3584,52 @@ function App() {
                 onChange={(e) => {
                   const k = e.target.value;
                   setPrinterKey(k);
-                  localStorage.setItem('tq-printer', k);
+                  localStorage.setItem("tq-printer", k);
                   const p = enginePrinters.find((x) => x.key === k);
                   if (p && !p.materials?.includes(material)) {
-                    const m = p.materials?.[0] ?? '';
+                    const m = p.materials?.[0] ?? "";
                     setMaterial(m);
-                    localStorage.setItem('tq-material', m);
+                    localStorage.setItem("tq-material", m);
                   }
                 }}
                 className="border rounded px-1 py-0.5 cursor-pointer"
                 style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-secondary)',
-                  borderColor: 'var(--border-primary)',
+                  backgroundColor: "var(--bg-secondary)",
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--border-primary)",
                 }}
               >
                 {enginePrinters.map((p) => (
-                  <option key={p.key} value={p.key} disabled={p.sliceable === false}>
+                  <option
+                    key={p.key}
+                    value={p.key}
+                    disabled={p.sliceable === false}
+                  >
                     {p.name}
-                    {p.sliceable === false ? ' (profile blocked)' : ''}
+                    {p.sliceable === false ? " (profile blocked)" : ""}
                   </option>
                 ))}
               </select>
-              <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+              <span style={{ color: "var(--text-tertiary)" }}>·</span>
               <select
                 data-testid="material-select"
                 aria-label="Material"
                 value={material}
                 onChange={(e) => {
                   setMaterial(e.target.value);
-                  localStorage.setItem('tq-material', e.target.value);
+                  localStorage.setItem("tq-material", e.target.value);
                 }}
                 className="border rounded px-1 py-0.5 cursor-pointer"
                 style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-secondary)',
-                  borderColor: 'var(--border-primary)',
+                  backgroundColor: "var(--bg-secondary)",
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--border-primary)",
                 }}
               >
-                {(enginePrinters.find((p) => p.key === printerKey)?.materials ?? []).map((m) => (
+                {(
+                  enginePrinters.find((p) => p.key === printerKey)?.materials ??
+                  []
+                ).map((m) => (
                   <option key={m} value={m}>
                     {m.toUpperCase()}
                   </option>
@@ -3176,16 +3637,22 @@ function App() {
               </select>
               {selectedLayerHeight && (
                 <>
-                  <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-                  <span data-testid="slice-layer-height" style={{ color: 'var(--text-secondary)' }}>
+                  <span style={{ color: "var(--text-tertiary)" }}>·</span>
+                  <span
+                    data-testid="slice-layer-height"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {selectedLayerHeight}
                   </span>
                 </>
               )}
               {selectedPrinterBlocked && selectedPrinterNote && (
                 <>
-                  <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-                  <span data-testid="slice-profile-note" style={{ color: 'var(--status-warning)' }}>
+                  <span style={{ color: "var(--text-tertiary)" }}>·</span>
+                  <span
+                    data-testid="slice-profile-note"
+                    style={{ color: "var(--status-warning)" }}
+                  >
                     Profile blocked
                   </span>
                 </>
@@ -3199,7 +3666,7 @@ function App() {
               className="hidden lg:inline-flex items-center gap-1 px-1 text-xs"
               title="Manual build-plate orientation"
             >
-              {(['x', 'y', 'z'] as const).flatMap((axis) =>
+              {(["x", "y", "z"] as const).flatMap((axis) =>
                 ([-90, 90] as const).map((degrees) => (
                   <Button
                     key={`${axis}${degrees}`}
@@ -3211,13 +3678,13 @@ function App() {
                     size="sm"
                     disabled={isRendering || isOrienting}
                     className="text-xs px-1.5 py-1"
-                    aria-label={`Rotate ${axis.toUpperCase()} ${degrees > 0 ? 'plus' : 'minus'} 90 degrees`}
-                    title={`Rotate ${axis.toUpperCase()} ${degrees > 0 ? '+90' : '-90'} degrees`}
+                    aria-label={`Rotate ${axis.toUpperCase()} ${degrees > 0 ? "plus" : "minus"} 90 degrees`}
+                    title={`Rotate ${axis.toUpperCase()} ${degrees > 0 ? "+90" : "-90"} degrees`}
                   >
                     {axis.toUpperCase()}
-                    {degrees > 0 ? '+90' : '-90'}
+                    {degrees > 0 ? "+90" : "-90"}
                   </Button>
-                ))
+                )),
               )}
             </div>
           )}
@@ -3235,7 +3702,7 @@ function App() {
                 !canApplyVisualCorrection(
                   visualCorrectionPrompt,
                   visualCorrectionRounds,
-                  isApplyingVisualCorrection
+                  isApplyingVisualCorrection,
                 )
               }
               className="text-xs px-2 py-1"
@@ -3245,7 +3712,7 @@ function App() {
                   : visualCorrectionPrompt
               }
             >
-              {isApplyingVisualCorrection ? 'Fixing' : 'Fix visual issue'}
+              {isApplyingVisualCorrection ? "Fixing" : "Fix visual issue"}
             </Button>
           )}
 
@@ -3255,21 +3722,21 @@ function App() {
             onClick={() => {
               // §6.10: the first time the user commits to a real printable file, pause for a
               // quick caution; every time after, slice straight through.
-              if (!localStorage.getItem('tq-printed-real')) {
+              if (!localStorage.getItem("tq-printed-real")) {
                 setShowFirstRealDialog(true);
                 return;
               }
               void handleMakeItReal();
             }}
             size="sm"
-            disabled={isRendering || !hasEngineDesign || selectedPrinterBlocked}
+            disabled={makeItRealDisabled}
             className="text-xs px-2 py-1"
             title={
               hasEngineDesign
                 ? readinessWithVisual
                   ? `${readinessWithVisual}\n— slice to make it real`
-                  : 'Slice the current design into printable G-code'
-                : 'Describe a part first'
+                  : "Slice the current design into printable G-code"
+                : "Describe a part first"
             }
           >
             Make it real
@@ -3288,19 +3755,23 @@ function App() {
                 onChange={(e) => {
                   const name = e.target.value;
                   setConnectorName(name);
-                  localStorage.setItem('tq-connector', name);
+                  localStorage.setItem("tq-connector", name);
                 }}
                 className="border rounded px-1 py-0.5 cursor-pointer"
                 style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-secondary)',
-                  borderColor: 'var(--border-primary)',
+                  backgroundColor: "var(--bg-secondary)",
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--border-primary)",
                 }}
               >
                 {engineConnectors.map((c) => (
                   <option key={c.name} value={c.name}>
                     {c.name}
-                    {c.simulated ? ' (simulated)' : c.configured === false ? ' (setup)' : ''}
+                    {c.simulated
+                      ? " (simulated)"
+                      : c.configured === false
+                        ? " (setup)"
+                        : ""}
                   </option>
                 ))}
               </select>
@@ -3316,9 +3787,9 @@ function App() {
                 title={
                   canSendCurrentSlice
                     ? selectedConnector?.simulated
-                      ? 'Send to the simulated printer connection'
-                      : 'Send this sliced G-code to the selected printer'
-                    : 'Make it real first'
+                      ? "Send to the simulated printer connection"
+                      : "Send this sliced G-code to the selected printer"
+                    : "Make it real first"
                 }
               >
                 Send
@@ -3356,7 +3827,11 @@ function App() {
           )}
 
           <div
-            style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
+            style={{
+              width: "1px",
+              height: "16px",
+              backgroundColor: "var(--border-secondary)",
+            }}
           />
 
           {!capabilities.hasNativeMenu && !isMobile && (
@@ -3397,6 +3872,96 @@ function App() {
           onShareRemix={handleOpenShareDialog}
           onDismiss={dismissShareBanner}
         />
+      )}
+
+      {(visualReviewSummary ||
+        visualDiffSummary ||
+        visualReviewLog.length > 0 ||
+        visualCorrectionRounds > 0) && (
+        <div
+          data-testid="visual-evidence-rail"
+          className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderBottom: "1px solid var(--border-primary)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          {visualReviewSummary && (
+            <span data-testid="visual-review-state">{visualReviewSummary}</span>
+          )}
+          {visualDiffSummary && (
+            <span
+              data-testid="visual-diff-state"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              {visualDiffSummary}
+            </span>
+          )}
+          {visualCorrectionRounds > 0 && (
+            <span
+              data-testid="visual-correction-rounds"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Correction rounds: {visualCorrectionRounds}/
+              {MAX_VISUAL_CORRECTION_ROUNDS}
+            </span>
+          )}
+          {visualReviewLog.length > 0 && (
+            <span
+              data-testid="visual-review-log"
+              title={visualReviewLog.join("\n")}
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Latest: {visualReviewLog[0]}
+            </span>
+          )}
+        </div>
+      )}
+
+      {hasEngineDesign && (
+        <div
+          data-testid="manufacturing-workflow-rail"
+          className="hidden md:flex items-stretch gap-2 px-3 py-2 text-xs"
+          style={{
+            backgroundColor: "var(--bg-primary)",
+            borderBottom: "1px solid var(--border-secondary)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <div
+            data-testid="workflow-customize"
+            className="flex min-w-0 flex-1 flex-col gap-0.5"
+          >
+            <span style={{ color: "var(--text-tertiary)" }}>Customize</span>
+            <span className="truncate">
+              {liveReadiness ? "Readiness visible" : "Awaiting readiness"}
+            </span>
+          </div>
+          <div
+            data-testid="workflow-orient"
+            className="flex min-w-0 flex-1 flex-col gap-0.5"
+          >
+            <span style={{ color: "var(--text-tertiary)" }}>Orient</span>
+            <span className="truncate">
+              {isOrienting ? "Updating pose" : "Manual controls ready"}
+            </span>
+          </div>
+          <div
+            data-testid="workflow-slice"
+            className="flex min-w-0 flex-1 flex-col gap-0.5"
+          >
+            <span style={{ color: "var(--text-tertiary)" }}>Slice</span>
+            <span className="truncate">{manufacturingSliceState}</span>
+          </div>
+          <div
+            data-testid="workflow-send"
+            className="flex min-w-0 flex-1 flex-col gap-0.5"
+          >
+            <span style={{ color: "var(--text-tertiary)" }}>Send</span>
+            <span className="truncate">{manufacturingSendState}</span>
+          </div>
+        </div>
       )}
 
       <div className="flex-1 overflow-hidden flex">
@@ -3441,19 +4006,21 @@ function App() {
       {showFirstRealDialog && (
         <FirstRealPrintDialog
           onConfirm={() => {
-            localStorage.setItem('tq-printed-real', '1');
             setShowFirstRealDialog(false);
             void handleMakeItReal();
           }}
           onClose={() => setShowFirstRealDialog(false)}
         />
       )}
-      {printOutcomeRid != null && (
+      {printOutcome != null && (
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+          }}
           onClick={() => {
-            void handlePrintOutcome('skip');
+            void handlePrintOutcome("skip");
           }}
         >
           <div
@@ -3463,34 +4030,53 @@ function App() {
             aria-label="How did the print turn out?"
             className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
             style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-primary)',
+              backgroundColor: "var(--bg-secondary)",
+              border: "1px solid var(--border-primary)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
               className="px-6 py-4 text-sm font-medium"
-              style={{ borderBottom: '1px solid var(--border-primary)' }}
+              style={{ borderBottom: "1px solid var(--border-primary)" }}
             >
-              How did the print turn out?
+              {printOutcome.simulated
+                ? "How did the simulated send turn out?"
+                : "How did the print turn out?"}
             </div>
-            <div className="px-6 py-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Recording the real result helps TinkerQuarry learn which checks predicted reality.
+            <div
+              className="px-6 py-5 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {printOutcome.simulated
+                ? "Recording this simulated outcome keeps the safe beta send flow tested without treating it as hardware feedback."
+                : "Recording the print result helps TinkerQuarry learn which checks predicted reality."}
             </div>
             <div
               className="flex flex-wrap justify-end gap-2 px-6 py-4"
-              style={{ borderTop: '1px solid var(--border-primary)' }}
+              style={{ borderTop: "1px solid var(--border-primary)" }}
             >
-              <Button variant="ghost" onClick={() => void handlePrintOutcome('skip')}>
+              <Button
+                variant="ghost"
+                onClick={() => void handlePrintOutcome("skip")}
+              >
                 Skip
               </Button>
-              <Button variant="secondary" onClick={() => void handlePrintOutcome('failed')}>
+              <Button
+                variant="secondary"
+                onClick={() => void handlePrintOutcome("failed")}
+              >
                 Failed
               </Button>
-              <Button variant="secondary" onClick={() => void handlePrintOutcome('issues')}>
+              <Button
+                variant="secondary"
+                onClick={() => void handlePrintOutcome("issues")}
+              >
                 Issues
               </Button>
-              <Button variant="primary" onClick={() => void handlePrintOutcome('clean')}>
+              <Button
+                variant="primary"
+                onClick={() => void handlePrintOutcome("clean")}
+              >
                 Clean
               </Button>
             </div>
@@ -3506,12 +4092,12 @@ function App() {
         capturePreview={() =>
           captureCurrentPreview({
             viewerId: MAIN_PREVIEW_VIEWER_ID,
-            svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+            svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
             targetWidth: 1200,
             targetHeight: 630,
           })
         }
-        preview3dUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
+        preview3dUrl={activePreviewKind === "mesh" ? activePreviewSrc : null}
         previewKind={activePreviewKind}
         useModelColors={settings.viewer.showModelColors}
       />
@@ -3537,9 +4123,9 @@ function App() {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: 'var(--bg-elevated)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-primary)',
+            background: "var(--bg-elevated)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-primary)",
           },
         }}
       />

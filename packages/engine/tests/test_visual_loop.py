@@ -35,6 +35,17 @@ def test_normalize_models_deduplicates_and_defaults_to_local_agreement_pair():
     assert normalize_models([" qwen3-vl:8b ", "qwen3-vl:8b", "", 42]) == ["qwen3-vl:8b"]
 
 
+def test_normalize_models_rejects_unconfigured_models_and_caps_count():
+    assert normalize_models(["unknown:70b", "qwen2.5vl:7b"]) == ["qwen2.5vl:7b"]
+    assert normalize_models([
+        "qwen3-vl:8b",
+        "qwen2.5vl:7b",
+        "minicpm-v:8b",
+        "qwen3-vl:8b",
+        "unknown:70b",
+    ]) == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
+
+
 def test_review_design_images_runs_atomic_probes_and_keeps_geometry_facts():
     calls = []
 

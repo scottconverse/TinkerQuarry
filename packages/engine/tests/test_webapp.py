@@ -177,8 +177,8 @@ def test_http_layer_serves_index_design_and_mesh(tmp_path):
         httpd.server_close()
 
 
-def test_print_outcome_endpoint_records_real_world_result_after_hardware_send(tmp_path, monkeypatch):
-    """UI-v2 slice 6: only a real hardware send unlocks Smart Mesh outcome recording."""
+def test_print_outcome_endpoint_records_result_after_hardware_send(tmp_path, monkeypatch):
+    """A successful send unlocks Smart Mesh outcome recording."""
     import json
     import urllib.error
     import urllib.request
@@ -201,7 +201,7 @@ def test_print_outcome_endpoint_records_real_world_result_after_hardware_send(tm
                 data=json.dumps({"outcome": "issues"}).encode(),
                 headers={"Content-Type": "application/json"},
             ), timeout=10)
-            raise AssertionError("expected 409 before a real send")
+            raise AssertionError("expected 409 before a send")
         except urllib.error.HTTPError as e:
             assert e.code == 409
 
@@ -244,10 +244,76 @@ def test_print_outcome_endpoint_records_real_world_result_after_hardware_send(tm
             headers={"Content-Type": "application/json"},
         ), timeout=10))
 
-    assert outcome == {"recorded": True, "outcome": "issues"}
+    assert outcome == {"recorded": True, "outcome": "issues", "simulated": False}
     records = HistoryStore(Config.load().history_path()).load()
     assert records[-1].object_type == "block"
     assert records[-1].print_outcome == "issues"
+    assert records[-1].print_outcome_simulated is False
+
+
+def test_print_outcome_endpoint_records_result_after_mock_send(tmp_path, monkeypatch):
+    """The safe beta send flow uses the simulated mock connector, then records feedback."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    from kimcad.history import HistoryStore
+    from kimcad.printer_connector import JobState, PrinterState, PrinterStatus, PrintJob
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        base = f"http://{host}:{port}"
+        design = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + "/api/design",
+            data=json.dumps({"prompt": "a 20mm block"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=30))
+        rid = int(design["mesh_url"].rsplit("/", 1)[-1])
+
+        gcode = tmp_path / "mock-send.gcode.3mf"
+        gcode.write_bytes(b"PK\x03\x04")
+        monkeypatch.setattr(
+            "kimcad.webapp.slice_registered_mesh",
+            lambda cfg, mesh, printer, material: ({"sliced": True}, gcode),
+        )
+
+        import kimcad.connectors as conn_mod
+
+        class _SimulatedConnector:
+            name = "mock"
+            drives_hardware = False
+
+            def send(self, gcode_path, *, confirm, job_name=None):
+                assert confirm is True
+                return PrintJob("mock-job-1", JobState.queued)
+
+            def status(self):
+                return PrinterStatus(online=True, state=PrinterState.operational)
+
+        monkeypatch.setattr(conn_mod, "build_connector", lambda c, n: _SimulatedConnector())
+        sliced = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + f"/api/slice/{rid}",
+            data=json.dumps({"printer": "bambu_p2s", "material": "pla"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=10))
+        assert sliced["sliced"] is True
+        sent = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + f"/api/send/{rid}",
+            data=json.dumps({"connector": "mock"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=10))
+        assert sent["sent"] is True and sent["simulated"] is True
+        outcome = json.load(urllib.request.urlopen(urllib.request.Request(
+            base + f"/api/print-outcome/{rid}",
+            data=json.dumps({"outcome": "clean"}).encode(),
+            headers={"Content-Type": "application/json"},
+        ), timeout=10))
+
+    assert outcome == {"recorded": True, "outcome": "clean", "simulated": True}
+    records = HistoryStore(Config.load().history_path()).load()
+    assert records[-1].object_type == "block"
+    assert records[-1].print_outcome == "clean"
+    assert records[-1].print_outcome_simulated is True
 
 
 # --- webapp hardening (ENG-004 / QA-003 / ENG-010) ----------------------------
@@ -609,6 +675,12 @@ def test_web_options_lists_printers_with_sliceable_flag():
     assert any(m["key"] == "pla" for m in opts["materials"])
     assert opts["default_printer"] == "bambu_p2s"
     assert opts["default_material"] == "pla"
+    blocked_saved = web_options(
+        Config.load(),
+        {"default_printer": "elegoo_neptune_4_max", "default_material": "pla"},
+    )
+    assert blocked_saved["default_printer"] == "bambu_p2s"
+    assert blocked_saved["default_material"] == "pla"
 
 
 def test_web_options_lists_per_printer_available_materials():

@@ -4,6 +4,28 @@
 All notable changes to tq-threads. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions are git tags.
 
+## [0.5.0] - 2026-06-23
+
+Printability proof release for TinkerQuarry, plus two targeted geometry fixes.
+
+### Fixed
+- `profile="rounded"` no longer overshoots the requested major diameter at the
+  crest; the crest arc apex now lands at `Rmaj`.
+- `tq_wood_screw` no longer clips the helical thread with a cone boolean. The
+  threaded body now stops before the point and unions to a solid lead-point cone,
+  which avoids the previous non-manifold edge cases.
+- Negative/assert tests now write BOM-free temporary `.scad` files and require an
+  actual OpenSCAD `assert` in stderr before counting a rejection as a pass.
+
+### Added
+- `scripts/check_stl_mesh.py`, an independent STL edge-pairing and bounds checker
+  used for the v0.5 targeted proof.
+
+### Documentation
+- Clarified that `fit=` models nominal ISO 965 position allowance only. For M8
+  `6g`, the diametral shift is about 0.029 mm, which is below typical FDM
+  clearance and layer-height effects; use `clearance` as the real print-fit lever.
+
 ## [0.4.0] — 2026-06-22
 
 Stronger standards fidelity + honesty, robust Windows workflow, expanded proof.

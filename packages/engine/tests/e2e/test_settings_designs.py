@@ -17,6 +17,12 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.browser_serial, pytest.mark.needs_browser]
 
 
+def _choose_sliceable_profile(page: Page) -> None:
+    page.get_by_label("Printer").select_option("bambu_p2s")
+    page.get_by_label("Material").select_option("pla")
+    expect(page.get_by_role("button", name="Slice & prepare file")).to_be_enabled(timeout=30_000)
+
+
 def test_settings_toggles_the_experimental_generator_both_ways(
     landing: Page, console_errors: list[str]
 ) -> None:
@@ -61,6 +67,7 @@ def test_a_client_mocked_slice_500_surfaces_an_error_and_stays_recoverable(desig
     # above, not the mocked slice (TEST-5, audit-team 2026-06-14).
     page: Page = design("a 40 mm desk cable clip")
     page.get_by_role("tab", name="Export").click()
+    _choose_sliceable_profile(page)
 
     page.route(
         "**/api/slice/**",

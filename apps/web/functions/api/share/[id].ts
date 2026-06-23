@@ -3,32 +3,42 @@ import {
   extractPrimaryCode,
   getThumbnailUrl,
   json,
+  parseProjectSharePayload,
   readShare,
   type Env,
-  type ProjectSharePayload,
-} from '../../_lib/share';
+} from "../../_lib/share";
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const shareId = context.params.id;
-  if (!shareId || typeof shareId !== 'string') {
-    return json({ error: 'Missing share id.' }, { status: 400 });
+  if (!shareId || typeof shareId !== "string") {
+    return json({ error: "Missing share id." }, { status: 400 });
   }
 
   const share = await readShare(context.env, shareId);
   if (!share) {
-    return json({ error: 'Design not found' }, { status: 404 });
+    return json({ error: "Design not found" }, { status: 404 });
   }
 
-  const decompressed = await decompressSource(share.code);
+  let decompressed: string;
+  try {
+    decompressed = await decompressSource(share.code, share.codeSize);
+  } catch {
+    return json({ error: "Design payload is invalid." }, { status: 422 });
+  }
   const thumbnailUrl = share.thumbnailKey
     ? getThumbnailUrl(new URL(context.request.url).origin, share.id)
     : null;
 
-  if (share.format === 'project') {
-    const payload = JSON.parse(decompressed) as ProjectSharePayload;
+  if (share.format === "project") {
+    let payload;
+    try {
+      payload = parseProjectSharePayload(decompressed);
+    } catch {
+      return json({ error: "Design payload is invalid." }, { status: 422 });
+    }
     return json({
       id: share.id,
-      code: payload.files[payload.renderTarget] ?? '',
+      code: payload.files[payload.renderTarget] ?? "",
       files: payload.files,
       renderTarget: payload.renderTarget,
       title: share.title,

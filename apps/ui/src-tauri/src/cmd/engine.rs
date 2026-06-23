@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::{
     env,
+    fs::OpenOptions,
     io::{Read, Write},
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
@@ -68,6 +69,18 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
             out_dir.display()
         )
     })?;
+    let log_path = out_dir.join("engine.log");
+    let log = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .map_err(|e| format!("Could not open engine log {}: {e}", log_path.display()))?;
+    let err_log = log.try_clone().map_err(|e| {
+        format!(
+            "Could not prepare engine stderr log {}: {e}",
+            log_path.display()
+        )
+    })?;
 
     let port = reserve_loopback_port()?;
     let session_token = Uuid::new_v4().to_string();
@@ -85,13 +98,14 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
         .arg(&out_dir)
         .env("TINKERQUARRY_DEV_TOKEN", &session_token)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(Stdio::from(log))
+        .stderr(Stdio::from(err_log))
         .spawn()
         .map_err(|e| {
             format!(
-                "Could not start KimCad engine at {}: {e}",
-                engine_launch.program.display()
+                "Could not start KimCad engine at {}: {e}. Engine log: {}",
+                engine_launch.program.display(),
+                log_path.display()
             )
         })?;
 
@@ -103,9 +117,10 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
         let mut child = child;
         let _ = child.kill();
         let _ = child.wait();
-        return Err(
-            "KimCad engine started but did not become healthy within 30 seconds.".to_string(),
-        );
+        return Err(format!(
+            "KimCad engine started but did not become healthy within 30 seconds. Engine log: {}",
+            log_path.display()
+        ));
     }
 
     *guard = Some(EngineRuntime {
@@ -177,11 +192,22 @@ fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {
         ));
     }
 
-    let mut candidates: Vec<PathBuf> = Vec::new();
     if let Ok(resource_dir) = app.path().resource_dir() {
         if let Some(launch) = staged_engine_launch(&resource_dir) {
             return Ok(launch);
         }
+        if !cfg!(debug_assertions) {
+            return Err(format!(
+                "Packaged TinkerQuarry is missing its bundled engine resource under {}. Reinstall TinkerQuarry or rebuild the installer.",
+                resource_dir.join("engine").display()
+            ));
+        }
+    } else if !cfg!(debug_assertions) {
+        return Err("Packaged TinkerQuarry could not resolve its resource directory.".to_string());
+    }
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
         candidates.extend(engine_binary_names().into_iter().flat_map(|name| {
             [
                 resource_dir.join(name),
@@ -222,10 +248,16 @@ fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {
         });
     }
 
-    Ok(EngineLaunch {
-        program: PathBuf::from("kimcad"),
-        prefix_args: Vec::new(),
-    })
+    if cfg!(debug_assertions) {
+        Ok(EngineLaunch {
+            program: PathBuf::from("kimcad"),
+            prefix_args: Vec::new(),
+        })
+    } else {
+        Err(
+            "Packaged TinkerQuarry could not find its bundled engine. Reinstall TinkerQuarry or rebuild the installer.".to_string(),
+        )
+    }
 }
 
 fn staged_engine_launch(resource_dir: &Path) -> Option<EngineLaunch> {

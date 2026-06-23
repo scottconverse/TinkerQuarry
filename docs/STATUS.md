@@ -1,92 +1,113 @@
-# TinkerQuarry — Status Matrix (canonical)
+# TinkerQuarry Status Matrix
 
-**As of:** 2026-06-22 · **Source:** the merged PRD audit
-([PRD-GAP-REPORT](audits/PRD-GAP-REPORT.md) + `audits/prd-audit-1…5` + the Codex auditor report).
-**This file is the single source of truth for "where we really are."** It supersedes every prior
-"done"/"CLEAR TO ADVANCE" claim.
+**As of:** 2026-06-23
 
-> **One-line truth:** TinkerQuarry's **core flow runs end-to-end** — **describe a part in plain English →
-> the local KimCad engine designs it → it renders in Studio's viewer with a readiness verdict →
-> "Make it real" slices it to real printable G-code.** The **engine** paths are covered by real automated
-> integration tests; the **front-end glue** was **manually click-verified once** this session — **not**
-> automated (read the honesty note below). The engine is forked into `packages/engine`; the
-> **OpenSCAD-Studio front end is absorbed** into `tinkerquarry/apps/ui` (branded, telemetry off) — the
-> old "reskinned SPA" gap is **closed**. It is **not yet a finished product**: **still to build** — the
-> full **Visual Correction Loop** (v1 advisory local probe-mode review exists, with a bounded
-> user-triggered repair/refine loop, but it is not yet an automated PRD-level loop), a real
-> user-invoked **Explain mode**, a tool-using **agent loop**, **visual diff**, and the **rich iteration log**. Recovery
-> continues per [TinkerQuarry-Recovery-Plan-v2.md](TinkerQuarry-Recovery-Plan-v2.md).
+This is the current source of truth for the canonical `tinkerquarry` product repo. It supersedes prior
+"done", "clear to advance", and manual-only verification claims.
 
-> **⚠ Verification honesty (read before trusting any "verified" below) — 2026-06-22, after an
-> independent adversarial audit ([honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md), 28
-> agents):** The **engine** has genuine automated coverage — an in-process HTTP server + real OpenSCAD
-> prove design, render-on-tune (80→120 mm within 0.1 mm), slice→G-code, and the save→reopen→source
-> round-trip. **Trust that layer.** But **every front-end row that says "verified LIVE" means a human
-> clicked it once and screenshotted it — NOT an automated test.** There is **no** automated
-> front-end↔engine integration test and **no `App.tsx` render test**; all front-end tests stub the
-> network. That is the *same* blind spot that let the §6.12 reopen bug ship green. So read every FE
-> "verified LIVE" as **"manually checked once; no automated coverage; can regress invisibly."** The first
-> first real FE↔engine integration test was added 2026-06-22 (`engineLive.integration.test.ts`) — but it
-> is a **live-API** test (real HTTP to the engine), **not** a browser/`App.tsx` user-flow test: it does
-> not mount React, click the UI, or POST a fresh `/api/design`. It guards two real seams (reopen→source,
-> slice-with-a-non-default-printer) and already caught a fresh overclaim — but a browser-level
-> "describe → render → make it real" test is **still missing**. Don't read it as more than it is.
+## One-Line Truth
 
-**Status legend:** `missing` (not built) · `partial` (some of it / engine-only / stub) · `implemented`
-(built + wired) · `verified` (built + wired + test/proof). **Tier:** P0 = release-blocking · P1 = v1.
+TinkerQuarry's beta core flow is now real and verified for the happy path:
 
-## P0 — release-blocking gaps
+Describe a part in plain English -> local KimCad engine designs it -> Studio viewer renders it -> Make
+it real slices it to printable G-code -> mock Send records a simulated outcome.
 
-| Area (PRD ref) | Status | Notes |
+The native Windows app now also builds and smoke-tests from both the release executable and the
+installed NSIS copy.
+
+This is not final v1. The remaining gaps are concentrated in the full autonomous Visual Correction
+Loop, external library admission, richer iteration/explain/diff features, broader UI coverage, and
+polish.
+
+## Verification Honesty
+
+The engine has genuine automated coverage: in-process HTTP, real OpenSCAD, render-on-tune,
+slice-to-G-code, save/reopen/source round-trip, live marker coverage, and real-tool marker coverage.
+
+The previous browser blind spot is partly closed. `pnpm test:e2e:web` is a committed Playwright
+happy-path test that boots the current app against the demo engine, prompts/builds, reaches the
+design-ready state, opens Make it real, handles first-real caution, slices, reaches Ready to print,
+sends through the mock connector, and records a simulated outcome.
+
+`pnpm test:e2e:tauri` is a committed native-runtime smoke that launches the built Tauri app, invokes
+`ensure_engine`, checks engine health, and verifies the UI surface. The NSIS-installed copy has also
+passed the same smoke.
+
+This is still not a full UI matrix. Mobile/narrow layouts, broad keyboard/accessibility traversal,
+hardware connector outcomes, every export path, and every error path remain outside the automated
+browser coverage.
+
+## P0 Beta Status
+
+| Area | Status | Notes |
 |---|---|---|
-| **Visual Correction Loop** (sec 6.3.1) | **partial - advisory local VCL v1** | **Built 2026-06-22:** `packages/engine/src/kimcad/visual_loop.py` defines the advisory VCL contract, decomposed yes/no probe harness, deterministic geometry-facts payload, and unavailable/error states. The local VLM audit lowered the beta probe bar to **90%** and found usable local models: `qwen3-vl:8b` (best quality, 92%), `qwen2.5vl:7b` (best class-1 recall, 88%), and `minicpm-v:8b` (best precision, 84%). The default live path now tries the best local candidate set (`qwen3-vl:8b`, `qwen2.5vl:7b`, `minicpm-v:8b`) and uses agreement when at least two critics respond; it degrades to a clearly labeled single-model advisory if only one is installed. Disagreements are `needs_review`, not pass/fail. `POST /api/visual-review/<rid>` accepts rendered PNG data URLs or labeled view objects (`{label,image}`) for a live design, uses the saved prompt + report facts, and returns `ok` / `issues` / `needs_review` / `unavailable` / `error` without affecting gate/slice/send. Each review response carries a bounded no-image `review_log` transcript. `apps/ui` captures labeled `front` / `right` / `top` viewer images when the 3D viewer is ready, downscales them for VLM latency, falls back to a labeled `current` image otherwise, runs review in the background, and appends an honest visual-review line to the Make-it-real readiness tooltip. Browser proof against the real `apps/ui` + demo engine captured labeled `front` / `right` / `top` PNGs with no console/HTTP errors (`docs/handoff/proof/vcl-multiview-browser-2026-06-22.txt`). When critics agree on an issue and return a `correction_prompt`, the UI exposes a bounded **Fix visual issue** action that routes the correction through the existing refine-in-context path, keeps Undo as the prior-candidate escape hatch, captures the prior candidate, re-runs visual review on the new candidate, and reports a lightweight pixel-change **Visual diff** percentage in the readiness tooltip; the loop stops after three user-triggered correction rounds. The wrong-face handoff path is unit-tested with a deterministic probe fixture. **Still missing for full PRD loop:** autonomous correction policy and a full before/after visual-diff viewer. |
-| **OpenSCAD Studio front-end absorbed** (§11, §13) | **working (B core)** | Studio forked into `tinkerquarry/apps/ui` (Phase 1 PASS). **Phase 4 B core wired + verified live:** the **describe surface → local engine → geometry in Studio's viewer**. `describeIntoStudio` runs `/api/design`, pulls the engine's **self-contained** SCAD (`/api/source?inline=1` resolves library `use<>`), sets it as the document, and **auto-renders** it (proven: a 55/70 mm coaster rendered in the viewer, screenshots). The **"Configure an AI provider" wall is removed** (local-first, PRD §6.1). The manufacturing rail now covers printer/material choice, manual orientation, first-real-print caution, Make-it-real slicing/download, connector send, and real-print outcome capture. Pending: user-invoked Explain/agent-loop polish and browser-level flow coverage. Proof: [audits/phase4-architecture-decision.md](audits/phase4-architecture-decision.md). |
-| **Supplied design interface productized** (design spec) | **in-progress** | **Phase 3:** real app is now the forked Studio (TinkerQuarry-branded, telemetry off, **3-column AI \| preview \| Customize** layout matching the design at desktop width). The **Make it real** rail is partially productized: printer/material choice, manual orientation controls, first-real-print caution, slice/download, connector send, and outcome prompt are wired. Pending: full right-rail layout polish and browser-level coverage. |
-| **"Show me the code" / OpenSCAD editor** (§6.5) | **working (view/edit)** | A described part's **engine-generated SCAD is shown in Studio's Monaco editor** (verified live: the 20 mm cube → `width=20.0; … difference(){ cube(...) }`) — readable + editable for self-contained parts (templates show the inlined form). Engine source endpoint `GET /api/source/<rid>` (+`?inline=1`) backs it. Pending: a readable-source/render split for templates, and wiring **edits** back through the engine's re-gate (behind the SCAD sandbox). |
-| **Rich 3D viewer** (§6.4) | **present + engine-fed** | The forked Studio viewer brings **preset views, ortho, wireframe, shadows, pan/orbit/zoom, measure, build-plate, offscreen multi-view capture**. **Now fed from the engine:** a described part's engine SCAD renders in this viewer (proven live, both LLM-codegen + template parts). Pending: section-plane/2D-SVG verification inputs (Phase 6 loop). |
-| **Right panel = Customize / Make it real** (design) | **working (orient + slice + send)** | **Customize** is its own right column (Phase 3). **Make it real** is wired + verified: a toolbar button (disabled until a design exists) slices the current engine design → **real printable G-code + estimate** ("Ready to print / ~11m 1s, 100 layers, 3.12 cm³ filament · Bambu Lab P2S") **and downloads the printable file** (verified: 52 KB `.gcode.3mf` attachment). **Manual orientation added (2026-06-22):** X/Y/Z ±90 controls call `POST /api/orient/<rid>`, rotate/drop the live mesh, refresh the preview URL, and clear cached slices/G-code before the next Make it real. **Send added (2026-06-22):** connector picker + Send button call `/api/connectors`, `/api/send/<rid>`, and `/api/print-outcome/<rid>`; Send stays disabled until the current design has a fresh successful slice. Pending: full right-rail layout polish and browser-level coverage. |
-| Real prompt → printable design — from the canonical repo | **verified** | **Phase 2 PASS:** `packages/engine` does design→gate→slice (31k-line G-code) + 38 sandbox tests pass, from `tinkerquarry`. [audits/phase2-proof.md](audits/phase2-proof.md). |
+| Canonical repo | verified | `tinkerquarry` is the product repo. `KimCadClaude` remains separate. |
+| Prompt -> engine design -> Studio viewer | verified | The app is wired to the local engine and renders generated SCAD in Studio. |
+| Make it real | verified | Fresh designs can slice to printable output. "Ready to print" is only shown after a successful slice. |
+| Send/outcome | verified happy path | UI sends through the selected connector after a fresh slice. Simulated send provenance is stored and shown honestly. Mock Send -> outcome is covered by Playwright. Hardware connector browser coverage remains separate. |
+| Native Windows packaging | verified | Rust/MSVC toolchain installed, `pnpm --dir apps\ui tauri build` passes, MSI/NSIS artifacts are produced, and release + installed NSIS smoke tests pass. |
+| OpenSCAD Studio absorption | working | Studio is forked into `apps/ui`, branded, telemetry off, and wired to the TinkerQuarry engine flow. |
+| Design-spec workflow | working | The app has the AI/design surface, viewer, Customize rail, orientation controls, Make it real, Send, and outcome path. More layout polish remains. |
+| Code view/editor | working | Engine-generated SCAD is visible/editable in Monaco. Manual edits are blocked from stale slicing until re-gated. |
+| Viewer | working | Studio viewer provides practical CAD inspection surfaces and offscreen capture support. |
+| Visual Correction Loop | partial | Advisory local probe-mode v1 exists. Default candidates include `qwen3-vl:8b`, `qwen2.5vl:7b`, and `minicpm-v:8b`; beta probe accuracy bar is 90%. The UI can run visual review, show review state/log, and route agreed issues through bounded user-triggered refinement with Undo and a lightweight visual-change percentage. The full autonomous PRD-level correction policy and full before/after visual diff viewer remain unfinished. |
+| Bundled SCAD libraries | implemented | BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt, MCAD, and clean-room MIT `tq-threads` are vendored with attribution. `tq-threads` is pinned to v0.5.0 commit `bf4ac59028997fb111a2ae598fa71137b5e1e58a`. Dan Kirshner `threads.scad` is intentionally excluded because the available source is GPL-3.0-or-later. |
+| External-library admission | missing | Consent -> sandbox copy -> include path -> sanitization flow is not wired yet. |
+| Licensing/about | implemented | GPL/source availability and third-party notices are present in-app. |
 
-## P1 — required for v1
+## P1 / V1 Gaps
 
-| Area (PRD ref) | Status | Notes |
+| Area | Status | Notes |
 |---|---|---|
-| AI tool-using agent + Explain mode + diff/undo (§6.3) | **refine working (live-verified)** | The workspace AI panel routes to the **local engine as a refine-in-context turn** (`onAiSubmit` → `handleEngineDescribe({refine:true})`; engine `history` carries context). **Verified LIVE:** an 80×60×40 box → refine "make it 80mm tall" → the engine produced a box with **height = 80** (rid 4, gate pass, rendered), using the conversation history. In-progress "Refining…" toast. **Lightweight Explain added + live-verified (2026-06-22):** the design-ready toast now LEADS with the engine's plain-English "what I made" line — the dimensional outcome (proven live: *"Dimensions match: 60.0 × 40.0 × 25.0 mm. Looks printable (92/100) · Make it real to slice"*) — so the user confirms the engine understood + built to size. **Undo added + live-verified (2026-06-22):** each describe/refine/reopen pushes the design it replaces onto a session stack; an **Undo** toolbar button restores the previous design instantly (proven live: a cube → Undo → restored the prior **sphere** — a genuinely different design, maxDim 45 → 49.9 — and the button cleared when the stack emptied), so reverting a refine is one click, not a 60–90s re-describe. Still: single-shot (not a multi-tool agent loop), no persistent Explain panel / "why-how" rationale, no visual diff, no conversation-bubble transcript. |
-| Customizer for LLM-codegen + template parts (§6.6) | **working (live-verified)** | The engine emits **Customizer sliders for template parts** (`emit_scad` hoists each param to `name = value; // [min:step:max]`; 584 engine tests; mesh/gate/slice unchanged). **Verified LIVE end-to-end:** described an 80x60x40 box -> the Customizer panel rendered Width/Depth/Height (10-170) + Wall (0.8-8) sliders, and **changing Width 80->120 re-rendered the box to 120mm** (screenshots). **Gate-on-tune now done (2026-06-22):** a debounced (700ms) `engine.render(rid, tunedValues)` **re-gates tuned values live** - the Make-it-real button title shows the current readiness verdict as you tune (now `Ready to slice`, plus advisory visual-review status when available), and the engine geometry stays in sync so Make-it-real slices exactly what's shown. |
-| Manual orient override (§6.8) | **implemented (API/client tested; FE browser flow still manual)** | The engine exposes `POST /api/orient/<rid>` for X/Y/Z 90-degree build-plate rotations. It mutates the live oriented mesh, drops it back to Z=0, bumps the geometry version, and invalidates cached slices/G-code. The UI shows compact X/Y/Z ±90 controls beside the slice profile picker and refreshes the active mesh preview with the cache-busted URL. Tests: `test_manual_orient_mesh_rotates_and_drops_to_bed`, `test_http_manual_orient_invalidates_cached_gcode`, and `engineClient.test.ts` request-shape coverage. Still missing: automated browser/App test that clicks the controls in the real UI. |
-| Slice profiles shown in plain language before slicing (§6.9) | **working (picker; blocked profile flagged)** | The pre-slice profile is a **choosable** printer + material (two `<select>`s before **Make it real**, from `/api/options` — 29 printers), persisted (localStorage), threaded into `engine.slice(rid, printer, material)`. **Now proven by a REAL automated integration test** (`engineLive.integration.test.ts`): a non-default **Prusa MK4** slice produces real G-code with the printer honoured. **Correction (honesty audit + that test):** an earlier row claimed "verified LIVE: Elegoo Neptune 4 Max produced G-code" — that was a **misread** (I saw the picker label + readiness score, not a slice). A breadth check shows **11 / 12 sampled printers slice**, but **`elegoo_neptune_4_max` FAILS** (`orca-slicer exited -51` — an *upstream* OrcaSlicer profile bug: relative extruder needs `G92 E0`). The engine now marks that profile `sliceable:false` with an explicit note, the UI disables it with "(profile blocked)", stale saved choices fall back to the first usable printer, and `POST /api/slice` refuses the blocked profile before invoking OrcaSlicer. **Layer height is surfaced before slicing in the profile picker and after slicing in the Ready-to-print line** from structured `layer_height_mm` metadata. |
-| First-real-send caution state (§6.10) | **addressed (first-real-print caution + send gate)** | **Built + live-verified (2026-06-22):** the **first** time the user commits to a real printable file ("Make it real"), a one-time caution dialog appears — a quick checklist (fits the build plate, material matches, size/orientation right) with Cancel / Make it real. A `tq-printed-real` localStorage flag means it **never shows again**; later slices go straight through (proven live: 1st→dialog, confirm→proceeds, 2nd→skips). Send is additionally gated behind a fresh successful slice for the current design, so stale G-code cannot be dispatched through the UI. |
-| **Send to printer + post-print outcome UI** (§6.10 / v1) | **implemented (client/API tested; FE browser flow still manual)** | The toolbar now loads `/api/connectors`, shows a connector picker (marking simulated/setup entries), and enables **Send** only after the current design has a fresh successful slice. `engine.send(rid, true, connector)` is called from the UI; simulated sends are labeled as such, and real hardware sends open a post-print outcome dialog (`clean` / `issues` / `failed` / `skip`) backed by `engine.outcome`. Request-shape coverage is in `engineClient.test.ts`; engine send/outcome safety is already covered in `test_webapp.py`. Still missing: automated browser/App test that clicks the full slice→send→outcome flow. |
-| "Ready to print" only after a successful slice (§6.7/§6.9) | **addressed (engine + UI)** | Design-time readiness now says **"Ready to slice"** for a clean gate, and the design toast reframes it as a **pre-slice check** ("Looks printable ... Make it real to slice"). **"Ready to print" appears only on the Make-it-real slice toast.** |
-| Bundled OpenSCAD libraries (§6.11) | **implemented (seven vendored)** | BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt, MCAD, and `tq-threads` are vendored under `packages/engine/library/vendor/` with pinned commits/tags and `vendor/ATTRIBUTION.md`. `tq-threads` is pinned to commit `cdfd4cc6a1d6baaa7f2a50ea5b9073fe43460e00` (`v0.4.0`), adding ISO 965-1 fit offsets, larger preset coverage, Windows-safe example selection, explicit provenance/fidelity docs, and expanded render proof. The engine manifest advertises them, sandbox approval is tested, and real OpenSCAD smoke renders passed. Dan Kirshner `threads.scad` is intentionally **not** bundled because the available source is GPL-3.0-or-later; `tq-threads` is the clean-room MIT replacement. Caveats: Catch'n'Hole's full data-driven API requires OpenSCAD JSON import support; Gridfinity upstream thumbscrew support remains disabled until its API is ported to `tq-threads`. |
-| External-library admission (§6.11) | **missing** | Dead registry, no sandbox admission, no UI. |
-| Export `.scad` / `.png` / `.svg` / `.dxf` (§6.13) | **partial (STL/OBJ/AMF/3MF/SVG/DXF + .scad)** | Studio's **Export** dialog offers **STL / OBJ / AMF / 3MF / SVG / DXF** (`ExportDialog.tsx`), and **File ▸ Save** writes the **`.scad`** source. **Correction (honesty audit):** an earlier pass claimed **PNG** — that was **false**; PNG is in no export-format list and isn't user-selectable. The "STL → Exported successfully" check was a **manual** click; the export-byte path is mock-tested only (`exportService.test.ts` stubs `exportModel`). Remaining: PNG (unwire-or-add), and a real automated export test on an engine part. |
-| Version history / restore / iteration log (§6.12) | **working (reopen bug fixed + live-verified)** | **Persisted save/restore + Save button + "My Designs" gallery.** **Honest correction (2026-06-22):** an earlier pass marked this "live-verified" but the live **reopen was actually broken** — the engine re-registered a reopened design's mesh but dropped its SCAD, so `GET /api/source/<rid>` 404'd and `reopenIntoStudio` silently failed in Studio. The unit/orchestration tests stubbed the source, so it slipped through. **Now fixed** (the save persists the scad; reopen restores it) **and verified LIVE end-to-end:** saved a 45mm cube → reopened it → `/api/source` served `width = 45.0 …` (was 404) and the cube re-loaded into the viewer; + a regression test asserts source-after-reopen. **Manage added:** the gallery can **delete** a saved design (two-step inline confirm), **rename**, and **duplicate** through `engineClient` — UI unit-tested. Still: no per-iteration "what was tried" log. |
-| Settings: Appearance, Privacy, **About/Licenses w/ source links** (§6.14) | **implemented** | Appearance + Privacy are Studio's. **About/Licenses added (2026-06-22):** GPL-2.0 source-availability statement + per-component licenses (TinkerQuarry/engine/Studio GPL-2.0, OpenSCAD GPL-2.0, OrcaSlicer AGPL-3.0, Ollama MIT) with source links — **closes the GPL compliance gap**. Verified in the preview; typecheck clean. |
-| Offline banner + crash/recovery error boundary (§9) | **implemented (banner live-verified)** | **Crash/recovery** already covered: a top-level `ErrorBoundary` wraps the app (`main.tsx`) + per-panel boundaries, with a branded recovery UI ("TinkerQuarry hit an unexpected error" / Reload). **Offline banner built + live-verified (2026-06-22):** `EngineStatusBanner` polls `/api/health`, shows a fixed alert after **two** consecutive failures (no flapping), clears on recovery. Proven by **actually stopping the engine** (banner appeared) and **restarting it** (banner cleared); + a deterministic unit test. |
-| Accessibility (keyboard/focus/contrast/SR) (§10/§12) | **partial (8 surfaces a11y-tested; systematic fix)** | **a11y harness + sweep (2026-06-22):** jest-axe asserting **no serious/critical violations** across eight surfaces (describe, export dialog, model selector, Customizer slider **and** dropdown, refine panel, settings, file tree, console). It exposed a **systemic pattern** — Radix `SelectTrigger`/`Switch` controls with visible-but-unwired labels announce as unnamed buttons. **Fixed:** the photo/sketch file input + **4 unnamed comboboxes** (export, model, Customizer dropdown, 2 editor selects) → `aria-label`; **and a root fix** so `SettingsControlRow` names **every** settings toggle automatically. Remaining: full workspace shell + manual keyboard/focus/contrast/SR (jsdom can't compute contrast). |
+| Full Explain mode | partial | Current explain surface is a concise readiness/design summary, not a full rationale panel. |
+| Agent loop | partial | Refine-in-context exists; a true multi-tool agent loop remains unfinished. |
+| Iteration log/history | partial | Save/reopen, rename, duplicate, delete, and Undo exist. A persistent per-iteration transcript/log remains unfinished. |
+| Visual diff | partial | Lightweight pixel-change percentage exists after visual correction. A full before/after viewer remains unfinished. |
+| Export coverage | partial | `.scad`, STL, OBJ, AMF, 3MF, SVG, and DXF are available. PNG export is not currently offered. |
+| Accessibility | partial | Several surfaces have automated a11y checks and fixes. Full workspace keyboard/focus/contrast/SR pass remains unfinished. |
+| Browser test breadth | partial | Happy-path desktop web e2e exists. Mobile/narrow, hardware, accessibility traversal, broad export, and error paths remain to be expanded. |
 
-## Genuinely strong (keep — verified real)
+## Latest Verification
 
-| Area | Status |
+Run from `C:\Users\Scott\Desktop\CODE\tinkerquarry` unless noted.
+
+| Command | Result |
 |---|---|
-| KimCad manufacturing engine (gate, auto-orient, real-G-code slice proof, 6 connectors, fail-closed safety) | **verified** |
-| Onboarding / managed model download (disk check, per-model progress, retry, done) | **implemented** |
-| Security & privacy (per-boot session token, SCAD sandbox + worker, keyring masked secrets, **zero telemetry**) | **verified** |
-| Part-family browser + honesty tiers; clarify-once; stale-session reload | **implemented** |
-| Photo/sketch on-ramp (local vision seeding — `qwen2.5vl:3b` installed, seeding-only, NOT a visual loop) | **implemented** |
-| Tests: engine **`1559 passed, 14 failed, 101 skipped`** (full run, e2e/playwright excluded). **Correction (2026-06-22):** an earlier line here said "**3** fork-policy fails" — that was an **undercount from a truncated log**; the full suite shows **14**. **All 14 are repo-build / fixture / legacy-SPA setup, NOT product**: 5× `test_bench_prompts` (needs `bench/prompts.yaml`), 4× `test_build_installer` (Windows Inno installer + lock), 3× `test_frontend` (legacy standalone SPA), 1× lockfile-pins (no `requirements.lock`; fork runs newer numpy), 1× version-lockstep (legacy SPA). Geometry/gate/slice/reopen/source/security are in the 1559 pass. Full list: `docs/handoff/proof/engine-suite.txt`. **Front end 643/643 green** (network-stubbed; see the honesty banner — FE has no automated integration/browser coverage beyond one live-API test). | **product verified; 14 repo-setup fails (corrected count)** |
+| `pnpm -r lint` | passed |
+| `pnpm -r type-check` | passed |
+| `pnpm test:unit` | 93 suites passed, 1 skipped; 657 tests passed, 2 skipped; existing React `act(...)` warnings |
+| `pnpm test:web:unit` | 4 suites passed; 16 tests passed |
+| `pnpm test:e2e:web` | 1 passed |
+| `pnpm --dir apps\ui tauri build` | passed; MSI and NSIS artifacts produced |
+| `pnpm test:e2e:tauri` | passed against release executable |
+| `pnpm test:e2e:tauri -- --exe="%TEMP%\TinkerQuarryInstallSmoke\openscad-studio.exe"` | passed against installed NSIS copy |
+| `cargo test --manifest-path apps\ui\src-tauri\Cargo.toml` | 10 passed |
+| `.\.venv\Scripts\python.exe -m pytest tests\e2e -q` from `packages\engine` | 21 passed |
+| `.\.venv\Scripts\python.exe -m pytest tests -m "not live" -q` from `packages\engine` | 1592 passed, 11 skipped, 116 deselected |
+| `.\.venv\Scripts\python.exe -m pytest tests -m live -q` from `packages\engine` | 16 passed, 100 skipped, 1603 deselected |
+| `.\.venv\Scripts\python.exe -m pytest tests -m real_tool -q` from `packages\engine` | 199 passed, 1520 deselected |
+| `tq-threads` render proof | 27/27 passed |
 
-## Proof-bar note
+## Run
 
-**Mock-API behavior (`backend/mock_api.py`) and the static prototype (`frontend/index.html`) are NOT
-product done-proof.** They prove seam shapes and design intent only. Done = real, non-mock behavior in
-the canonical app per the recovery plan's Definition of Done.
+Two-terminal dev mode:
 
-## Run (today, honest)
+```powershell
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
+$env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"
+.\.venv\Scripts\kimcad.exe web --port 8765
+```
 
-- **The real app (forked Studio + forked engine), dev:**
-  1. Engine: from `tinkerquarry/packages/engine/`: `TINKERQUARRY_DEV_TOKEN=tq-dev-token .venv\Scripts\kimcad.exe web --port 8765`
-  2. Front end: from `tinkerquarry/apps/ui/`: `pnpm dev` (vite :1420; proxies `/api`→engine with the dev token).
-  - The page boots TinkerQuarry-branded, pings `/api/health`, shows the 3-column layout; `describe→/api/design→mesh` and `/api/source` work over the proxy. **Not yet wired:** Studio's surfaces onto the engine (Phase 4 body).
-- **Engine, real, headless (canonical repo):** from `tinkerquarry/packages/engine/`: `.venv\Scripts\kimcad.exe design "a 90 mm dish" --slice`
+```powershell
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+pnpm dev
+```
+
+Then open `http://localhost:1420`.
+
+## Related Documents
+
+- [EVALUATE.md](EVALUATE.md)
+- [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md)
+- [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md)
+- [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md)
