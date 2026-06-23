@@ -46,7 +46,9 @@ Then open `http://localhost:1420`.
    issue`, `needs review`, or `unavailable`. This does not replace slicing.
 11. **Visual fix**: if visual review reports an agreed likely issue, use **Fix visual issue**. It
     should refine the current design in context, keep Undo available for the prior candidate, and
-    run visual review again. It stops after three correction rounds.
+    run visual review again. The Make-it-real tooltip should include a lightweight `Visual diff`
+    percentage showing how much the new preview changed from the prior candidate. It stops after
+    three correction rounds.
 12. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
    currently offered.
 
@@ -63,7 +65,8 @@ Then open `http://localhost:1420`.
   Undo as the prior-candidate fallback; the wrong-face handoff path is covered by a deterministic
   probe fixture. Browser proof against the real app captured labeled `front` / `right` / `top` PNGs
   with no console/HTTP errors (`docs/handoff/proof/vcl-multiview-browser-2026-06-22.txt`).
-  Autonomous correction policy and visual diff still need to be built.
+  A lightweight visual-change percentage exists after correction; autonomous correction policy and a
+  full before/after visual-diff viewer still need to be built.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.

@@ -94,6 +94,7 @@ import {
   canApplyVisualCorrection,
   visualCorrectionApplyingSummary,
 } from './utils/visualCorrection';
+import { estimatePreviewDifferencePercent, formatVisualDifference } from './utils/visualDiff';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
 import {
@@ -673,12 +674,14 @@ function App() {
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
   const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(null);
+  const [visualDiffSummary, setVisualDiffSummary] = useState<string | null>(null);
   const [visualCorrectionPrompt, setVisualCorrectionPrompt] = useState<string | null>(null);
   const [visualCorrectionRounds, setVisualCorrectionRounds] = useState(0);
   const [isApplyingVisualCorrection, setIsApplyingVisualCorrection] = useState(false);
+  const visualDiffBeforeRef = useRef<string | null>(null);
   const readinessWithVisual = useMemo(
-    () => [liveReadiness, visualReviewSummary].filter(Boolean).join('\n'),
-    [liveReadiness, visualReviewSummary]
+    () => [liveReadiness, visualReviewSummary, visualDiffSummary].filter(Boolean).join('\n'),
+    [liveReadiness, visualReviewSummary, visualDiffSummary]
   );
   // Slice profile (§6.9): the printer + material "Make it real" will slice for, shown AND choosable
   // before slicing so the user gets G-code for THEIR machine, not just the engine default. The
@@ -719,8 +722,17 @@ function App() {
       if (lastEngineRidRef.current !== rid) return;
       if (images.length === 0) {
         setVisualReviewSummary('Visual review: unavailable - no rendered view captured');
+        setVisualDiffSummary(null);
+        visualDiffBeforeRef.current = null;
         setVisualCorrectionPrompt(null);
         return;
+      }
+      const beforeDiffImage = visualDiffBeforeRef.current;
+      if (beforeDiffImage) {
+        visualDiffBeforeRef.current = null;
+        const diff = await estimatePreviewDifferencePercent(beforeDiffImage, images[0].image);
+        if (lastEngineRidRef.current !== rid) return;
+        setVisualDiffSummary(formatVisualDifference(diff));
       }
       const { data } = await engine.visualReview(rid, images);
       if (lastEngineRidRef.current !== rid) return;
@@ -791,6 +803,7 @@ function App() {
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
         setVisualReviewSummary(null);
+        setVisualDiffSummary(null);
         setVisualCorrectionPrompt(null);
         setLastSlicedRid(null);
         engineHistoryRef.current = [
@@ -831,6 +844,13 @@ function App() {
   const handleApplyVisualCorrection = useCallback(async () => {
     const prompt = visualCorrectionPrompt?.trim() ?? '';
     if (!canApplyVisualCorrection(prompt, visualCorrectionRounds, isApplyingVisualCorrection)) return;
+    setVisualDiffSummary(null);
+    visualDiffBeforeRef.current = await captureCurrentPreview({
+      viewerId: MAIN_PREVIEW_VIEWER_ID,
+      svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+      targetWidth: 320,
+      targetHeight: 240,
+    });
     setIsApplyingVisualCorrection(true);
     setVisualReviewSummary(visualCorrectionApplyingSummary(visualCorrectionRounds));
     try {
@@ -844,6 +864,8 @@ function App() {
   }, [
     handleEngineDescribe,
     isApplyingVisualCorrection,
+    activePreviewKind,
+    activePreviewSrc,
     visualCorrectionPrompt,
     visualCorrectionRounds,
   ]);
