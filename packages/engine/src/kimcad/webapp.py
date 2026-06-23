@@ -2339,8 +2339,10 @@ def make_handler(
                 return
             try:
                 from kimcad.visual_loop import (
+                    AGREEMENT_VCL_MODELS,
                     decode_image_views,
                     normalize_models,
+                    normalize_probes,
                     review_design_images_with_models,
                     unavailable_review,
                 )
@@ -2348,7 +2350,11 @@ def make_handler(
                 image_views = decode_image_views(data.get("images"))
                 images = [item["image"] for item in image_views]
                 view_labels = [item["label"] for item in image_views]
-                models = normalize_models(data.get("models") or data.get("model"))
+                requested_models = data.get("models") or data.get("model")
+                models = normalize_models(
+                    requested_models,
+                    fallback=AGREEMENT_VCL_MODELS if data.get("agreement") is True else None,
+                )
             except ValueError as e:
                 self._json(400, {"error": str(e)})
                 return
@@ -2360,6 +2366,11 @@ def make_handler(
             if not prompt:
                 review = unavailable_review("Visual review needs the original design intent.")
             else:
+                probes = normalize_probes(
+                    data.get("probes"),
+                    intent=prompt,
+                    report=payload.get("report") if isinstance(payload, dict) else None,
+                )
                 review = review_design_images_with_models(
                     intent=prompt,
                     images_b64=images,
@@ -2367,6 +2378,7 @@ def make_handler(
                     models=models,
                     view_labels=view_labels,
                     base_url=get_config().llm_backend("local").base_url,
+                    probes=probes,
                 )
             out = review.to_payload()
             with reg.lock:

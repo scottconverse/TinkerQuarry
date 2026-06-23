@@ -32,7 +32,7 @@ licenses.
 |---|---|---|
 | **OpenSCAD** | GPL-2.0-**or-later** | geometry kernel: KimCad shells out to render `.scad` → mesh |
 | **OrcaSlicer** | **AGPL-3.0** | slicer: KimCad shells out to produce G-code. Invoked as a separate program (mere aggregation / use); its AGPL terms govern *OrcaSlicer*, not KimCad's code. Not redistributed here. |
-| Ollama + models (qwen2.5:7b / qwen2.5vl:3b) | Ollama: MIT · models: Apache-2.0 (Qwen) | local AI, separate process at `:11434` |
+| Ollama + models (qwen2.5:7b / qwen2.5vl:3b / qwen2.5vl:7b / qwen3-vl:8b / minicpm-v:8b) | Ollama: MIT · Qwen models: Apache-2.0 · MiniCPM-V model license per upstream distribution | local AI and optional local visual critique, separate process at `:11434` |
 
 ## 4. Bundled SCAD libraries (planned vendoring — all GPLv2-compatible)
 

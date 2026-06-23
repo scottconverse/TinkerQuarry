@@ -2751,11 +2751,12 @@ def test_visual_review_endpoint_runs_advisory_probe_with_snapshot_facts(tmp_path
     assert review["advisory"] is True
     assert review["round_id"] == 1
     assert review["review_log"][0]["status"] == "ok"
-    assert review["review_log"][0]["models"] == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
+    assert review["review_log"][0]["models"] == ["qwen2.5vl:7b"]
     assert captured["intent"] == "a 20mm cube with a hole on the top face"
-    assert captured["models"] == ["qwen3-vl:8b", "qwen2.5vl:7b", "minicpm-v:8b"]
+    assert captured["models"] == ["qwen2.5vl:7b"]
     assert captured["images_b64"] == ["YQ=="]
     assert captured["view_labels"] == ["current_view"]
+    assert any(probe.id == "top_face_feature" for probe in captured["probes"])
     assert captured["report"]["gate_status"] == "pass"
 
 

@@ -21,9 +21,11 @@ VCL_MODEL_HIGH_QUALITY = "qwen3-vl:8b"
 VCL_MODEL_RECALL = "qwen2.5vl:7b"
 VCL_MODEL_PRECISION = "minicpm-v:8b"
 DEFAULT_VCL_MODEL = VCL_MODEL_RECALL
-DEFAULT_VCL_MODELS = (VCL_MODEL_HIGH_QUALITY, VCL_MODEL_RECALL, VCL_MODEL_PRECISION)
-MAX_VCL_MODELS = len(DEFAULT_VCL_MODELS)
-ALLOWED_VCL_MODELS = frozenset(DEFAULT_VCL_MODELS)
+DEFAULT_VCL_MODELS = (DEFAULT_VCL_MODEL,)
+AGREEMENT_VCL_MODELS = (VCL_MODEL_RECALL, VCL_MODEL_PRECISION)
+AVAILABLE_VCL_MODELS = (VCL_MODEL_HIGH_QUALITY, VCL_MODEL_RECALL, VCL_MODEL_PRECISION, "qwen3-vl:4b")
+ALLOWED_VCL_MODELS = frozenset(AVAILABLE_VCL_MODELS)
+OLLAMA_VCL_OPTIONS = {"temperature": 0, "num_ctx": 4096, "num_predict": 1024}
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,13 @@ def native_generate_url(base_url: str) -> str:
     return (base_url or "http://localhost:11434").rstrip("/").removesuffix("/v1") + "/api/generate"
 
 
+def native_chat_url(base_url: str) -> str:
+    parts = urlsplit(base_url or "")
+    if parts.scheme and parts.netloc:
+        return urlunsplit((parts.scheme, parts.netloc, "/api/chat", "", ""))
+    return (base_url or "http://localhost:11434").rstrip("/").removesuffix("/v1") + "/api/chat"
+
+
 def decode_image_payloads(values: Any) -> list[str]:
     """Return base64 image payloads from data URLs or raw base64 strings."""
     return [item["image"] for item in decode_image_views(values)]
@@ -123,8 +132,12 @@ def decode_image_views(values: Any) -> list[dict[str, str]]:
     return out
 
 
-def default_probes(intent: str) -> list[VisualProbe]:
-    """Build conservative yes/no probes from the text intent."""
+def default_probes(intent: str, report: dict[str, Any] | None = None) -> list[VisualProbe]:
+    """Build conservative yes/no probes from text intent and report/plan context.
+
+    These are visual-presence probes only. Counts, dimensions, wall thickness, and exact diameters
+    belong to the deterministic geometry gate/oracle and are carried as facts beside the review.
+    """
     prompt = intent.strip()
     probes = [
         VisualProbe(
@@ -145,7 +158,52 @@ def default_probes(intent: str) -> list[VisualProbe]:
                 f"Is the requested hole/slot/cutout on the {face} face? Answer yes or no.",
             )
         )
+    feature_rules = [
+        ("round_cylinder", r"\bcylinder|round tube\b", "Is the overall visible shape round/cylindrical rather than box-like? Answer yes or no."),
+        ("side_mounting_tabs", r"\btab|ear\b", "Are the requested side mounting tabs or ears visible? Answer yes or no."),
+        ("mounting_holes_visible", r"\bmounting holes?|screw holes?\b", "Are mounting or screw holes visible where the part appears to need them? Answer yes or no."),
+        ("gridfinity_grid", r"\bgridfinity\b", "Does the part show visible Gridfinity-style grid cells or bin/base features? Answer yes or no."),
+        ("threaded_feature", r"\bthread|threaded|screw|bolt\b", "Are helical screw threads visibly present on the requested threaded feature? Answer yes or no."),
+        ("hinge_knuckles", r"\bhinge\b", "Does the hinge show cylindrical knuckles/barrel features for a pin? Answer yes or no."),
+        ("knob_grip", r"\bknob\b", "Does the knob show grip ridges, knurling, or other graspable texture? Answer yes or no."),
+        ("tray_dividers", r"\bdivider|compartment\b", "Are the requested internal dividers or compartments visible? Answer yes or no."),
+        ("enclosure_lid", r"\benclosure|lid\b", "If a closed enclosure or lid was requested, is the top visibly covered/closed? Answer yes or no."),
+    ]
+    seen = {p.id for p in probes}
+    for probe_id, pattern, question in feature_rules:
+        if probe_id not in seen and re.search(pattern, prompt, re.I):
+            probes.append(VisualProbe(probe_id, question))
+            seen.add(probe_id)
+    if re.search(r"\bplain\b.*\b(no holes?|solid)\b|\bno holes?\b", prompt, re.I):
+        probes.append(VisualProbe("no_extra_holes", "Is the part free of unrequested holes or cut-outs? Answer yes or no."))
     return probes
+
+
+def normalize_probes(value: Any, *, intent: str, report: dict[str, Any] | None = None) -> list[VisualProbe]:
+    """Return explicit probe questions when supplied, otherwise derive them from intent/report.
+
+    Accepts the external VCL-Bench shape (`{"fixture_id": "question"}`), or a list of
+    `{id, question}` objects. This lets the product use generated/bench probes without changing the
+    runtime contract.
+    """
+    out: list[VisualProbe] = []
+    if isinstance(value, dict):
+        iterable = [{"id": key, "question": question} for key, question in value.items()]
+    elif isinstance(value, list):
+        iterable = value
+    else:
+        iterable = []
+    for idx, item in enumerate(iterable, start=1):
+        if not isinstance(item, dict):
+            continue
+        question = item.get("question")
+        if not isinstance(question, str) or not question.strip():
+            continue
+        raw_id = item.get("id")
+        probe_id = str(raw_id).strip() if raw_id is not None else f"probe_{idx}"
+        probe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", probe_id).strip("._-") or f"probe_{idx}"
+        out.append(VisualProbe(probe_id[:80], question.strip()))
+    return out or default_probes(intent, report)
 
 
 def geometry_facts_from_report(report: dict[str, Any] | None) -> dict[str, Any]:
@@ -171,8 +229,9 @@ def unavailable_review(reason: str, *, model: str = DEFAULT_VCL_MODEL) -> Visual
     )
 
 
-def normalize_models(value: Any, *, fallback: tuple[str, ...] = DEFAULT_VCL_MODELS) -> list[str]:
+def normalize_models(value: Any, *, fallback: tuple[str, ...] | None = DEFAULT_VCL_MODELS) -> list[str]:
     """Return a bounded, configured VCL model list from API input."""
+    fallback = fallback or DEFAULT_VCL_MODELS
     raw: list[Any]
     if value is None:
         raw = list(fallback)
@@ -189,7 +248,7 @@ def normalize_models(value: Any, *, fallback: tuple[str, ...] = DEFAULT_VCL_MODE
         model = item.strip()
         if model in ALLOWED_VCL_MODELS and model not in models:
             models.append(model)
-        if len(models) >= MAX_VCL_MODELS:
+        if len(models) >= len(AVAILABLE_VCL_MODELS):
             break
     return models or list(fallback)
 
@@ -204,6 +263,7 @@ def review_design_images(
     base_url: str = "http://localhost:11434/v1",
     timeout_s: float = 240.0,
     opener: Any = None,
+    probes: list[VisualProbe] | None = None,
 ) -> VisualReview:
     """Run local probe-mode visual review over supplied rendered images."""
     return _review_design_images_single(
@@ -215,6 +275,7 @@ def review_design_images(
         base_url=base_url,
         timeout_s=timeout_s,
         opener=opener,
+        probes=probes,
     )
 
 
@@ -228,6 +289,7 @@ def review_design_images_with_models(
     base_url: str = "http://localhost:11434/v1",
     timeout_s: float = 240.0,
     opener: Any = None,
+    probes: list[VisualProbe] | None = None,
 ) -> VisualReview:
     """Run advisory probe reviews, using agreement when multiple local critics respond."""
     chosen = normalize_models(list(models) if models is not None else None)
@@ -241,6 +303,7 @@ def review_design_images_with_models(
             base_url=base_url,
             timeout_s=timeout_s,
             opener=opener,
+            probes=probes,
         )
         for model in chosen
     ]
@@ -359,6 +422,7 @@ def _review_design_images_single(
     base_url: str = "http://localhost:11434/v1",
     timeout_s: float = 240.0,
     opener: Any = None,
+    probes: list[VisualProbe] | None = None,
 ) -> VisualReview:
     """Run one local probe-mode visual review over supplied rendered images."""
     if not images_b64:
@@ -369,55 +433,72 @@ def _review_design_images_single(
         if labels else
         "Rendered view labels are unavailable; inspect the supplied images as current preview views.\n"
     )
-    probes = default_probes(intent)
-    answers: list[VisualProbeResult] = []
+    active_probes = probes or default_probes(intent, report)
     findings: list[str] = []
     urlopen = opener or urllib.request.urlopen
-    for probe in probes:
-        payload = {
-            "model": model,
-            "stream": False,
-            "images": images_b64,
-            "prompt": (
-                "You are an advisory visual critic for a 3D printable part. "
-                "Answer only JSON with keys answer, pass, evidence. "
-                "The pass key must be true, false, or null. "
-                "Do not estimate dimensions or exact counts.\n"
-                f"User intent: {intent}\n"
-                f"{view_note}"
-                f"Question: {probe.question}"
-            ),
-        }
-        req = urllib.request.Request(
-            native_generate_url(base_url),
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            response = json.loads(urlopen(req, timeout=timeout_s).read())
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                return unavailable_review(
-                    "The local visual review model is not downloaded yet.", model=model
-                )
-            return VisualReview(
-                status="error",
-                mode="local-probe",
-                model=model,
-                summary="The local visual review model errored.",
-                findings=["The local visual review model errored."],
-                geometry_facts=geometry_facts_from_report(report),
-            )
-        except Exception:
+    payload = {
+        "model": model,
+        "stream": False,
+        "options": OLLAMA_VCL_OPTIONS,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are an advisory CAD visual inspector. You see rendered views of one "
+                    "3D printable part. Answer only strict JSON, with no markdown. Do not estimate "
+                    "dimensions, exact counts, wall thickness, or diameters; those are handled by "
+                    "the deterministic geometry oracle."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"User intent: {intent}\n"
+                    f"{view_note}"
+                    f"Deterministic geometry facts: {json.dumps(geometry_facts_from_report(report), sort_keys=True)}\n"
+                    "Answer every probe as JSON with this shape: "
+                    "{\"probes\":[{\"id\":\"...\",\"answer\":\"yes|no|unknown\",\"pass\":true|false|null,"
+                    "\"evidence\":\"one short visual reason\"}]}.\n"
+                    "Probe questions:\n"
+                    + "\n".join(f"- {p.id}: {p.question}" for p in active_probes)
+                ),
+                "images": images_b64,
+            },
+        ],
+    }
+    req = urllib.request.Request(
+        native_chat_url(base_url),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        response = json.loads(urlopen(req, timeout=timeout_s).read())
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
             return unavailable_review(
-                "Could not reach the local visual review model.", model=model
+                "The local visual review model is not downloaded yet.", model=model
             )
-        answers.append(_parse_probe_response(probe, str(response.get("response") or "")))
+        return VisualReview(
+            status="error",
+            mode="local-probe",
+            model=model,
+            summary="The local visual review model errored.",
+            findings=["The local visual review model errored."],
+            geometry_facts=geometry_facts_from_report(report),
+        )
+    except Exception:
+        return unavailable_review(
+            "Could not reach the local visual review model.", model=model
+        )
+    message = response.get("message") if isinstance(response.get("message"), dict) else {}
+    text = str(message.get("content") or response.get("response") or "").strip()
+    answers = _parse_probe_batch(active_probes, text)
 
     for item in answers:
         if item.pass_ is False:
             findings.append(item.evidence or f"{item.id} failed visual review.")
-    status = "issues" if findings else "ok"
+    unknowns = [item for item in answers if item.pass_ is None]
+    status = "issues" if findings else ("needs_review" if unknowns else "ok")
     correction = None
     if findings:
         correction = (
@@ -432,7 +513,11 @@ def _review_design_images_single(
         summary=(
             "No obvious visual issues found by local advisory probes."
             if status == "ok"
-            else "Local advisory probes found likely visual issues."
+            else (
+                "Local advisory probes returned unclear answers; human review is needed."
+                if status == "needs_review"
+                else "Local advisory probes found likely visual issues."
+            )
         ),
         findings=findings,
         probes=answers,
@@ -473,3 +558,51 @@ def _parse_probe_response(probe: VisualProbe, text: str) -> VisualProbeResult:
         answer = cleaned[:200]
         evidence = cleaned[:500]
     return VisualProbeResult(probe.id, probe.question, answer, passed, evidence)
+
+
+def _parse_probe_batch(probes: list[VisualProbe], text: str) -> list[VisualProbeResult]:
+    cleaned = text.strip()
+    if not cleaned:
+        return [
+            VisualProbeResult(p.id, p.question, "", None, "The local visual critic returned no answer.")
+            for p in probes
+        ]
+    try:
+        if "```" in cleaned:
+            cleaned = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", cleaned, flags=re.M).strip()
+        obj = json.loads(cleaned)
+    except Exception:
+        return [
+            VisualProbeResult(p.id, p.question, cleaned[:200], None, "The local visual critic returned unparseable output.")
+            for p in probes
+        ]
+    rows = obj.get("probes") if isinstance(obj, dict) else obj
+    if not isinstance(rows, list):
+        return [
+            VisualProbeResult(p.id, p.question, cleaned[:200], None, "The local visual critic returned JSON in the wrong shape.")
+            for p in probes
+        ]
+    by_id = {p.id: p for p in probes}
+    parsed: dict[str, VisualProbeResult] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        probe_id = str(row.get("id") or "").strip()
+        probe = by_id.get(probe_id)
+        if probe is None:
+            continue
+        passed = row.get("pass")
+        if passed not in (True, False, None):
+            passed = None
+        parsed[probe_id] = VisualProbeResult(
+            probe.id,
+            probe.question,
+            str(row.get("answer") or "").strip(),
+            passed,
+            str(row.get("evidence") or "").strip(),
+        )
+    return [
+        parsed.get(p.id)
+        or VisualProbeResult(p.id, p.question, "", None, "The local visual critic did not answer this probe.")
+        for p in probes
+    ]

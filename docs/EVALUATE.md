@@ -66,11 +66,12 @@ Then open `http://localhost:1420`.
 - **Visual Correction Loop**: advisory local probe-mode v1 exists. It can inspect rendered images
   with local probe models and report likely visual issues, and the UI now runs a bounded autonomous
   review/correction pass after generated designs. It is still not metrology-grade vision. The
-  default tries `qwen3-vl:8b`, `qwen2.5vl:7b`, and `minicpm-v:8b`, uses agreement when at least two
-  critics respond, falls back honestly if only one is installed, and treats model disagreement as
-  `needs review`. The beta acceptance bar is 90% probe accuracy; `qwen3-vl:8b` is the current
-  best-quality local option from the audit. The 3D viewer now supplies labeled `front` / `right` /
-  `top` captures when ready and falls back to `current`; the API returns a bounded no-image
+  default local critic is `qwen2.5vl:7b` in decomposed yes/no probe mode. Optional agreement mode
+  uses `qwen2.5vl:7b` + `minicpm-v:8b`; `qwen3-vl:8b` remains the best-quality selectable local
+  critic from the audit. The loop treats model disagreement, empty answers, and unparseable answers
+  as `needs review`, not pass. The beta acceptance bar is 90% probe accuracy. The 3D viewer now
+  supplies labeled `front` / `right` / `top` captures when ready and falls back to `current`; the API
+  returns a bounded no-image
   `review_log`. Agreed issues can now generate a bounded user-triggered correction/refine loop with
   Undo as the prior-candidate fallback; the wrong-face handoff path is covered by a deterministic
   probe fixture. Browser proof against the real app captured labeled `front` / `right` / `top` PNGs
