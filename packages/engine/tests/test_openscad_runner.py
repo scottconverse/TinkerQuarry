@@ -176,7 +176,7 @@ def test_render_refuses_blocked_code(tmp_path):
 
 def _fake_run_writing(content: bytes = b"mesh", returncode: int = 0, stderr: str = ""):
     def _run(cmd, **kwargs):
-        out_path = Path(cmd[2])  # cmd = [binary, "-o", out, scad]
+        out_path = Path(cmd[cmd.index("-o") + 1])
         if returncode == 0:
             out_path.write_bytes(content)
         return subprocess.CompletedProcess(cmd, returncode, stdout="", stderr=stderr)
@@ -198,12 +198,52 @@ def test_render_happy_path(tmp_path, monkeypatch):
     assert not result.fell_back_to_stl
 
 
+def test_render_can_pass_configured_backend_flag(tmp_path, monkeypatch):
+    captured: dict = {}
+
+    def _run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        Path(cmd[cmd.index("-o") + 1]).write_bytes(b"mesh")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(osr.subprocess, "run", _run)
+    render_scad(
+        "cube(5);",
+        binary=_stub_binary(tmp_path),
+        out_dir=tmp_path,
+        backend="Manifold",
+    )
+    assert "--backend=Manifold" in captured["cmd"]
+
+
+def test_render_retries_without_backend_for_older_openscad(tmp_path, monkeypatch):
+    calls = []
+
+    def _run(cmd, **kwargs):
+        calls.append(cmd)
+        if any(str(arg).startswith("--backend=") for arg in cmd):
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="unrecognised option '--backend'")
+        Path(cmd[cmd.index("-o") + 1]).write_bytes(b"mesh")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(osr.subprocess, "run", _run)
+    result = render_scad(
+        "cube(5);",
+        binary=_stub_binary(tmp_path),
+        out_dir=tmp_path,
+        backend="Manifold",
+    )
+    assert result.output_path.exists()
+    assert any("--backend=Manifold" in cmd for cmd in calls)
+    assert not any("--backend=Manifold" in cmd for cmd in calls[-1:])
+
+
 def test_render_falls_back_to_stl_when_no_lib3mf(tmp_path, monkeypatch):
     calls = {"n": 0}
 
     def _run(cmd, **kwargs):
         calls["n"] += 1
-        out_path = Path(cmd[2])
+        out_path = Path(cmd[cmd.index("-o") + 1])
         if out_path.suffix == ".3mf":
             return subprocess.CompletedProcess(
                 cmd, 1, stdout="", stderr="ERROR: lib3mf not available"
@@ -256,7 +296,7 @@ def test_render_resolves_relative_out_dir(tmp_path, monkeypatch):
     def _run(cmd, **kwargs):
         captured["cmd"] = cmd
         captured["cwd"] = kwargs.get("cwd")
-        Path(cmd[2]).write_bytes(b"mesh")
+        Path(cmd[cmd.index("-o") + 1]).write_bytes(b"mesh")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr(osr.subprocess, "run", _run)

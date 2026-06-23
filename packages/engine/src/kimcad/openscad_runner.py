@@ -48,6 +48,7 @@ _USE_INCLUDE_RE = re.compile(r"\b(use|include)\s*<([^>]*)>")
 
 # stderr fingerprints that mean "this binary can't write 3MF", not "bad model".
 _NO_3MF_RE = re.compile(r"lib3mf|3mf|Unknown file|unsupported file format", re.IGNORECASE)
+_UNSUPPORTED_BACKEND_RE = re.compile(r"backend|unrecognised option|unrecognized option", re.IGNORECASE)
 
 
 class RenderError(Exception):
@@ -356,6 +357,7 @@ def render_scad(
     output_format: str = "3mf",
     timeout_s: int = 30,
     max_output_bytes: int = 209_715_200,
+    backend: str | None = None,
 ) -> RenderResult:
     """Sanitize and render OpenSCAD source to a mesh file in ``out_dir``.
 
@@ -387,7 +389,7 @@ def render_scad(
         raise ToolMissingError("OpenSCAD", Path(binary))
     fmt = output_format.lower()
     started = time.monotonic()
-    proc, fmt, fell_back = _render_once(binary, scad_path, out_dir, basename, fmt, timeout_s)
+    proc, fmt, fell_back = _render_once(binary, scad_path, out_dir, basename, fmt, timeout_s, backend)
     duration = time.monotonic() - started
 
     if proc.returncode != 0:
@@ -420,18 +422,24 @@ def _render_once(
     basename: str,
     fmt: str,
     timeout_s: int,
+    backend: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], str, bool]:
     """Run the binary; if 3MF fails for a format reason, retry as STL once."""
     out_path = out_dir / f"{basename}.{fmt}"
-    cmd = [str(binary), "-o", str(out_path), str(scad_path)]
+    backend_arg = [f"--backend={backend}"] if backend else []
+    cmd = [str(binary), *backend_arg, "-o", str(out_path), str(scad_path)]
     try:
         proc = _run(cmd, cwd=out_dir, timeout_s=timeout_s)
     except subprocess.TimeoutExpired as e:
         raise RenderTimeout(f"openscad exceeded {timeout_s}s") from e
+    if backend and proc.returncode != 0 and _UNSUPPORTED_BACKEND_RE.search(
+        (proc.stderr or "") + "\n" + (proc.stdout or "")
+    ):
+        return _render_once(binary, scad_path, out_dir, basename, fmt, timeout_s, None)
 
     if fmt == "3mf" and proc.returncode != 0 and _NO_3MF_RE.search(proc.stderr or ""):
         stl_path = out_dir / f"{basename}.stl"
-        cmd = [str(binary), "-o", str(stl_path), str(scad_path)]
+        cmd = [str(binary), *backend_arg, "-o", str(stl_path), str(scad_path)]
         try:
             proc = _run(cmd, cwd=out_dir, timeout_s=timeout_s)
         except subprocess.TimeoutExpired as e:

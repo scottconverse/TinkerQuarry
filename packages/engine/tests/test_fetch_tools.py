@@ -61,6 +61,14 @@ def test_orcaslicer_win_pin_is_verified_and_checksummed():
     assert pin.archive == "zip"
 
 
+def test_openscad_win_pin_is_2026_snapshot_and_checksummed():
+    pin = ft.PINS["openscad"]["win"]
+    assert "OpenSCAD-2026.03.16-x86-64.zip" in pin.url
+    assert pin.verified is True
+    assert pin.sha256 == "0f1c4eda175a75b42bb4ac7ab8fdd65574c4d15e13440e07bf00c575b42c6353"
+    assert pin.archive == "zip"
+
+
 # --- KC-8 (#13): off-Windows failures must be actionable, not a bare SystemExit -----------------
 
 def test_missing_pin_off_windows_gives_an_actionable_install_hint(monkeypatch):

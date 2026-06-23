@@ -1,6 +1,5 @@
 """Build KimCad README-FULL.pdf — the full technical reference with architecture diagrams."""
 import sys
-import textwrap
 from pathlib import Path
 
 try:
@@ -242,7 +241,6 @@ def bullet(pdf: KimCadPDF, items: list[str], indent: int = 4):
 
 def note_box(pdf: KimCadPDF, text: str):
     pdf.ln(2)
-    x, y = pdf.get_x(), pdf.get_y()
     pdf.set_x(10)
     pdf.set_fill_color(*LIGHT)
     pdf.set_draw_color(*LIGHT)
@@ -250,6 +248,7 @@ def note_box(pdf: KimCadPDF, text: str):
     safe_text = _safe(text.strip())
     lines = pdf.multi_cell(pdf.w - 20, line_h, safe_text, dry_run=True, output="LINES")
     box_h = len(lines) * line_h + 8
+    y = pdf.get_y()
     pdf.rect(10, y, pdf.w - 20, box_h, "F")
     pdf.set_xy(14, y + 4)
     pdf.set_font("Helvetica", "", 9.5)
@@ -336,7 +335,6 @@ def pipeline_diagram(pdf: KimCadPDF):
     x0 = 20
     box_w = pdf.w - 40
     box_h = 11
-    gap = 5
     arrow_h = 5
     x = x0
 

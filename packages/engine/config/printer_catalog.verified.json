@@ -1,6 +1,6 @@
 {
-  "verified_at": "2026-06-23T02:24:12.656879+00:00",
-  "catalog_sha256": "cb194831a68ff8b1b184e510d1d69865cbac425bb6fda514404ea700ee763770",
+  "verified_at": "2026-06-23T19:44:34.644692+00:00",
+  "catalog_sha256": "9b7db2bc5e807bc34622cb2cba623fdcbbbf5823a39777fc9742a84243141f9c",
   "slice_proven_printers": [
     "anycubic_kobra2",
     "anycubic_kobra2_max",

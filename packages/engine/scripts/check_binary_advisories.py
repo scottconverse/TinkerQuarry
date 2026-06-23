@@ -47,9 +47,19 @@ class BinaryReview:
 REVIEWS: tuple[BinaryReview, ...] = (
     BinaryReview(
         name="OpenSCAD",
-        pinned_version="2021.01",
-        reviewed="2026-06-11",
+        pinned_version="2026.03.16",
+        reviewed="2026-06-23",
         advisories=(
+            Advisory(
+                id="CVE-2020-28599",
+                summary="Out-of-bounds write parsing a crafted STL import",
+                assessment=(
+                    "Not exposed: KimCad never feeds STL INTO OpenSCAD. OpenSCAD renders "
+                    "sanitizer-gated .scad source to mesh output, and import()/surface() are "
+                    "blocked before the subprocess is launched."
+                ),
+                blocking=False,
+            ),
             Advisory(
                 id="CVE-2022-0496",
                 summary="Out-of-bounds memory access parsing a crafted STL import",

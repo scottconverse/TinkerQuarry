@@ -52,12 +52,12 @@ class ToolPin:
 PINS: dict[str, dict[str, ToolPin]] = {
     "openscad": {
         "win": ToolPin(
-            url="https://files.openscad.org/OpenSCAD-2021.01-x86-64.zip",
+            url="https://files.openscad.org/snapshots/OpenSCAD-2026.03.16-x86-64.zip",
             archive="zip",
             exe_name="openscad.exe",
             dest_subdir="openscad",
             verified=True,
-            sha256="fb0caabf5bbc89f8f2f80c10b79ae64d697aaff6efd58b2756f5d6270edb7ba7",
+            sha256="0f1c4eda175a75b42bb4ac7ab8fdd65574c4d15e13440e07bf00c575b42c6353",
         ),
         "mac": ToolPin(
             url="https://files.openscad.org/OpenSCAD-2021.01.dmg",

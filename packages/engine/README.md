@@ -115,7 +115,7 @@ on another machine — not a printable STL). A short walkthrough is in
 
 - **Python 3.13** — the supported line for this version (it's what the lockfile, the CI
   gate, and the optional CadQuery backend are all built and proven on)
-- OpenSCAD 2021.01+ (`lib3mf` lets it emit 3MF as the *render* output, else STL; either
+- OpenSCAD 2026.03.16 on Windows (`lib3mf` lets it emit 3MF as the *render* output, else STL; either
   way the slice path consumes an STL, so a `lib3mf`-less build does not block printing)
 - OrcaSlicer (CLI)
 - An LLM backend. KimCad is **local-first**: out of the box it talks to a local
@@ -162,8 +162,8 @@ dependency):
 python scripts/fetch_tools.py
 ```
 
-On Windows this fetches both OpenSCAD and OrcaSlicer as verified, checksum-pinned
-portable builds. The OrcaSlicer pin is **v2.4.0-alpha** on purpose: the 2.3.2
+On Windows this fetches OpenSCAD **2026.03.16** (snapshot build, Manifold backend, checksum-pinned)
+and OrcaSlicer as verified, checksum-pinned portable builds. The OrcaSlicer pin is **v2.4.0-alpha** on purpose: the 2.3.2
 "stable" build is the only stable that carries the Bambu P2S profile, but it
 crashes on every CLI slice on a GPU-less machine (upstream issue #12906), whereas
 2.4.0-alpha handles that case and ships the same P2S profile. The macOS/Linux

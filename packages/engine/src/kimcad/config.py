@@ -472,3 +472,20 @@ class Config:
 
     def default_output_format(self) -> str:
         return str(self._d["defaults"].get("output_format", "3mf"))
+
+    def openscad_backend(self) -> str | None:
+        """The optional OpenSCAD geometry backend flag.
+
+        OpenSCAD 2026.x ships with Manifold as the fast default. Keeping this as a config value lets
+        us flip one product knob to CGAL if the stricter Manifold backend rejects too many generated
+        models during corpus verification.
+        """
+        value = str(self._d.get("defaults", {}).get("openscad_backend", "Manifold")).strip()
+        if not value:
+            return None
+        normalized = value.lower()
+        if normalized == "manifold":
+            return "Manifold"
+        if normalized == "cgal":
+            return "CGAL"
+        raise UnknownConfigKey(f"unknown OpenSCAD backend {value!r}. Available: Manifold, CGAL.")

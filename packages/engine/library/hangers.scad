@@ -22,16 +22,18 @@ module sawtooth_hanger(plate_w = 40, plate_h = 15, plate_t = 3, tooth_count = 5,
     clear = 0.2;
     run = plate_w / tooth_count;
     difference() {
-        union() {
-            cube([plate_w, plate_t, plate_h]);
-            // sawtooth teeth on the top edge; each rises tooth_depth, base overlaps the plate
-            // by eps so the top stays exactly at plate_h + tooth_depth (envelope-exact).
-            for (i = [0:tooth_count - 1])
-                translate([i * run, plate_t, plate_h - eps])
-                    rotate([90, 0, 0])
-                        linear_extrude(height = plate_t)
-                            polygon([[0, 0], [run, 0], [0, tooth_depth + eps]]);
-        }
+        // One extruded 2D outline avoids coplanar/internal faces between separate tooth solids
+        // and the plate. OpenSCAD's Manifold backend rejects those more honestly than old CGAL.
+        translate([0, plate_t, 0])
+            rotate([90, 0, 0])
+                linear_extrude(height = plate_t)
+                    polygon(concat(
+                        [[0, 0], [plate_w, 0], [plate_w, plate_h]],
+                        [
+                            for (i = [tooth_count - 1:-1:0])
+                                each [[i * run, plate_h + tooth_depth], [i * run, plate_h]]
+                        ]
+                    ));
         // two screw holes through the plate (along Y)
         for (x = [plate_w * 0.25, plate_w * 0.75])
             translate([x, -eps, plate_h * 0.45])

@@ -48,6 +48,13 @@ def test_material_min_wall():
     assert abs(pla.min_wall_mm(0.4) - 0.8) < 1e-9
 
 
+def test_openscad_backend_default_and_cgal_override():
+    assert Config.load(local=None).openscad_backend() == "Manifold"
+    assert Config({"defaults": {"openscad_backend": "CGAL"}}).openscad_backend() == "CGAL"
+    with pytest.raises(UnknownConfigKey, match="OpenSCAD backend"):
+        Config({"defaults": {"openscad_backend": "banana"}}).openscad_backend()
+
+
 def test_material_carries_nominal_density():
     # Slice 10: materials carry a nominal density (g/cm³) so print weight can be estimated from
     # the slicer's reported volume when the OrcaSlicer profile itself reports none.

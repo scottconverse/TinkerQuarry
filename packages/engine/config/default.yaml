@@ -108,6 +108,10 @@ defaults:
   printer: bambu_p2s
   material: pla
   output_format: "3mf"   # falls back to "stl" if OpenSCAD lacks lib3mf
+  # OpenSCAD 2026.x uses the modern Manifold backend by default. Keep this explicit so a
+  # beta gate can flip to CGAL if corpus re-rendering shows too many stricter-manifold regressions.
+  # Supported: "Manifold" (default) or "CGAL".
+  openscad_backend: "Manifold"
 
 # Build volume = [x, y, z] in mm. nozzle_diameter in mm.
 # OrcaSlicer profile names below are verified against the pinned shipped build
@@ -147,12 +151,10 @@ printers:
     reference_hardware: true          # Kim's; validated in the final beta, not yet
   elegoo_neptune_4_max:
     name: "Elegoo Neptune 4 Max"
-    build_volume: [426, 426, 480]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    build_volume: [420, 420, 480]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
     nozzle_diameter: 0.4
-    # OrcaSlicer 2.4.0 dropped the parenthesized "(0.4 nozzle)" form: machine profiles are now
-    # "Elegoo Neptune 4 Max 0.4 nozzle" and process profiles abbreviate to "@Elegoo N4Max 0.4 nozzle".
-    orca_machine_profile: "Elegoo Neptune 4 Max 0.4 nozzle"
-    orca_process_profile: "0.20mm Standard @Elegoo N4Max 0.4 nozzle"
+    orca_machine_profile: "Elegoo Neptune 4 Max (0.4 nozzle)"
+    orca_process_profile: "0.20mm Standard @Elegoo Neptune4Max (0.4 nozzle)"
     orca_filament_profiles:
       pla: "Generic PLA @Elegoo"
       petg: "Generic PETG @Elegoo"
@@ -358,30 +360,30 @@ printers:
       abs: "Anycubic ABS @Anycubic Kobra S1 0.4 nozzle"
   elegoo_neptune4:
     name: "Elegoo Neptune 4"
-    build_volume: [230, 230, 265]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    build_volume: [225, 225, 265]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
     nozzle_diameter: 0.4
-    orca_machine_profile: "Elegoo Neptune 4 0.4 nozzle"
-    orca_process_profile: "0.20mm Standard @Elegoo N4 0.4 nozzle"
+    orca_machine_profile: "Elegoo Neptune 4 (0.4 nozzle)"
+    orca_process_profile: "0.20mm Standard @Elegoo Neptune4 (0.4 nozzle)"
     orca_filament_profiles:
       pla: "Generic PLA @Elegoo"
       petg: "Generic PETG @Elegoo"
       abs: "Generic ABS @Elegoo"
   elegoo_neptune4_pro:
     name: "Elegoo Neptune 4 Pro"
-    build_volume: [230, 230, 265]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    build_volume: [235, 230, 265]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
     nozzle_diameter: 0.4
-    orca_machine_profile: "Elegoo Neptune 4 Pro 0.4 nozzle"
-    orca_process_profile: "0.20mm Standard @Elegoo N4Pro 0.4 nozzle"
+    orca_machine_profile: "Elegoo Neptune 4 Pro (0.4 nozzle)"
+    orca_process_profile: "0.20mm Standard @Elegoo Neptune4Pro (0.4 nozzle)"
     orca_filament_profiles:
       pla: "Generic PLA @Elegoo"
       petg: "Generic PETG @Elegoo"
       abs: "Generic ABS @Elegoo"
   elegoo_neptune4_plus:
     name: "Elegoo Neptune 4 Plus"
-    build_volume: [325, 325, 385]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
+    build_volume: [320, 320, 385]   # == shipped Orca profile printable area (OrcaSlicer 2.4.0)
     nozzle_diameter: 0.4
-    orca_machine_profile: "Elegoo Neptune 4 Plus 0.4 nozzle"
-    orca_process_profile: "0.20mm Standard @Elegoo N4Plus 0.4 nozzle"
+    orca_machine_profile: "Elegoo Neptune 4 Plus (0.4 nozzle)"
+    orca_process_profile: "0.20mm Standard @Elegoo Neptune4 Plus (0.4 nozzle)"
     orca_filament_profiles:
       pla: "Generic PLA @Elegoo"
       petg: "Generic PETG @Elegoo"

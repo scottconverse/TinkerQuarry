@@ -411,6 +411,7 @@ class Pipeline:
             output_format=self.config.default_output_format(),
             timeout_s=self.config.limit("openscad_timeout_simple_s"),
             max_output_bytes=self.config.limit("max_output_bytes"),
+            backend=self.config.openscad_backend(),
         )
 
     def _default_slicer(self, mesh_path: Path, out_dir: Path, basename: str) -> SliceResult:
