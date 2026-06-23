@@ -1,0 +1,23 @@
+VCL multiview browser proof
+Date: 2026-06-22
+
+Scope
+- Real apps/ui Vite app at http://127.0.0.1:1420
+- Real packages/engine web server in --demo mode at http://127.0.0.1:8765
+- Chromium via Playwright
+- User-facing Welcome describe path, not the legacy engine SPA and not the raw __TQ_DESCRIBE__ hook
+
+Command
+packages\engine\.venv\Scripts\python.exe C:\Users\Scott\Documents\Codex\2026-06-21\this\work\vcl_multiview_proof.py
+
+Result
+{'labels': ['front', 'right', 'top'], 'image_lengths': [4678, 4790, 6222], 'ignored': {'console': [], 'responses': []}}
+
+Meaning
+- The canonical apps/ui ThreeViewer registered the workspace-preview capture handle.
+- The handle captured labeled front/right/top PNG data URLs.
+- No browser console errors or HTTP >=400 responses occurred during the proof run.
+
+Limits
+- This is a proof artifact, not a committed Playwright test.
+- It proves multiview capture wiring in the real browser flow; it does not prove real VLM accuracy or the full make-it-real browser journey.

@@ -61,8 +61,9 @@ Then open `http://localhost:1420`.
   `top` captures when ready and falls back to `current`; the API returns a bounded no-image
   `review_log`. Agreed issues can now generate a bounded user-triggered correction/refine loop with
   Undo as the prior-candidate fallback; the wrong-face handoff path is covered by a deterministic
-  probe fixture. Autonomous correction policy, visual diff, and browser-level real-image multiview
-  proof still need to be built.
+  probe fixture. Browser proof against the real app captured labeled `front` / `right` / `top` PNGs
+  with no console/HTTP errors (`docs/handoff/proof/vcl-multiview-browser-2026-06-22.txt`).
+  Autonomous correction policy and visual diff still need to be built.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.
