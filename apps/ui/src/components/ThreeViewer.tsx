@@ -146,6 +146,15 @@ declare global {
       sectionAxis: SectionAxis | null;
       sectionOffset: number | null;
     };
+    __TQ_PREVIEW_CAPTURE__?: Record<
+      string,
+      {
+        captureViews: (
+          labels: string[],
+          options?: { targetWidth?: number; targetHeight?: number }
+        ) => Promise<Array<{ label: string; image: string }>>;
+      }
+    >;
   }
 }
 
@@ -1100,6 +1109,96 @@ export function ThreeViewer({
   const cameraControlsEnabled = interactionMode !== 'annotate';
 
   const activeBounds = selection.bounds ?? loadedModel?.bounds ?? null;
+
+  useEffect(() => {
+    if (!viewerId) {
+      return;
+    }
+
+    const captureCanvas = (
+      canvas: HTMLCanvasElement,
+      options?: { targetWidth?: number; targetHeight?: number }
+    ) => {
+      if (!options?.targetWidth && !options?.targetHeight) {
+        return canvas.toDataURL('image/png');
+      }
+      const sourceWidth = canvas.width || canvas.clientWidth;
+      const sourceHeight = canvas.height || canvas.clientHeight;
+      const maxWidth = options.targetWidth ?? sourceWidth;
+      const maxHeight = options.targetHeight ?? sourceHeight;
+      const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const out = document.createElement('canvas');
+      out.width = width;
+      out.height = height;
+      out.getContext('2d')?.drawImage(canvas, 0, 0, width, height);
+      return out.toDataURL('image/png');
+    };
+
+    const captureViews = async (
+      labels: string[],
+      options?: { targetWidth?: number; targetHeight?: number }
+    ) => {
+      const controls = cameraControlsRef.current;
+      const frame = modelFrame;
+      const surface = previewSurfaceRef.current;
+      const canvas = surface?.querySelector('canvas[data-engine]') as HTMLCanvasElement | null;
+      if (!controls || !frame || !canvas) {
+        return [];
+      }
+
+      const originalPosition = controls.getPosition(new THREE.Vector3(), true);
+      const originalTarget = controls.getTarget(new THREE.Vector3(), true);
+      const sphere = getExpandedFitBox(frame.box, sceneStyle).getBoundingSphere(new THREE.Sphere());
+      const distance = controls.getDistanceToFitSphere(sphere.radius);
+      const directions: Record<string, THREE.Vector3> = {
+        front: new THREE.Vector3(0, -1, 0),
+        right: new THREE.Vector3(1, 0, 0),
+        top: new THREE.Vector3(0, 0, 1),
+      };
+      const captured: Array<{ label: string; image: string }> = [];
+
+      try {
+        for (const label of labels) {
+          const direction = directions[label];
+          if (!direction) {
+            continue;
+          }
+          const nextPosition = sphere.center.clone().addScaledVector(direction, distance);
+          await controls.setLookAt(
+            nextPosition.x,
+            nextPosition.y,
+            nextPosition.z,
+            sphere.center.x,
+            sphere.center.y,
+            sphere.center.z,
+            false
+          );
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          captured.push({ label, image: captureCanvas(canvas, options) });
+        }
+      } finally {
+        await controls.setLookAt(
+          originalPosition.x,
+          originalPosition.y,
+          originalPosition.z,
+          originalTarget.x,
+          originalTarget.y,
+          originalTarget.z,
+          false
+        );
+      }
+
+      return captured;
+    };
+
+    window.__TQ_PREVIEW_CAPTURE__ = window.__TQ_PREVIEW_CAPTURE__ ?? {};
+    window.__TQ_PREVIEW_CAPTURE__[viewerId] = { captureViews };
+    return () => {
+      delete window.__TQ_PREVIEW_CAPTURE__?.[viewerId];
+    };
+  }, [modelFrame, sceneStyle, viewerId]);
 
   useEffect(() => {
     const element = previewSurfaceRef.current;

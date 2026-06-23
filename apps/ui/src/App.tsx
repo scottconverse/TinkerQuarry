@@ -84,7 +84,11 @@ import {
 import { DEFAULT_TAB_NAME } from './stores/workspaceFactories';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
-import { captureCurrentPreview, MAIN_PREVIEW_VIEWER_ID } from './utils/capturePreview';
+import {
+  captureCurrentPreview,
+  captureVisualReviewImages,
+  MAIN_PREVIEW_VIEWER_ID,
+} from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
 import {
@@ -698,18 +702,18 @@ function App() {
       setVisualReviewSummary('Visual review: running');
       await new Promise((resolve) => window.setTimeout(resolve, 400));
       if (lastEngineRidRef.current !== rid) return;
-      const image = await captureCurrentPreview({
+      const images = await captureVisualReviewImages({
         viewerId: MAIN_PREVIEW_VIEWER_ID,
         svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
         targetWidth: 640,
         targetHeight: 480,
       });
       if (lastEngineRidRef.current !== rid) return;
-      if (!image) {
+      if (images.length === 0) {
         setVisualReviewSummary('Visual review: unavailable - no rendered view captured');
         return;
       }
-      const { data } = await engine.visualReview(rid, [{ label: 'current', image }]);
+      const { data } = await engine.visualReview(rid, images);
       if (lastEngineRidRef.current !== rid) return;
       const round = data.round_id ? ` round ${data.round_id}` : '';
       if (data.status === 'issues') {

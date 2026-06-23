@@ -1,6 +1,12 @@
 import { captureSvgPreviewImage, type SvgPreviewImageOptions } from './captureSvgPreviewImage';
 
 export const MAIN_PREVIEW_VIEWER_ID = 'workspace-preview';
+export const VISUAL_REVIEW_VIEW_LABELS = ['front', 'right', 'top'] as const;
+
+export interface VisualReviewCapturedImage {
+  label: string;
+  image: string;
+}
 
 export type CaptureCurrentPreviewOptions = Pick<
   SvgPreviewImageOptions,
@@ -69,4 +75,29 @@ export async function captureCurrentPreview(
   }
 
   return null;
+}
+
+export async function captureVisualReviewImages(
+  options: CaptureCurrentPreviewOptions = {}
+): Promise<VisualReviewCapturedImage[]> {
+  const viewerId = options.viewerId ?? null;
+  const captureHandle = viewerId ? window.__TQ_PREVIEW_CAPTURE__?.[viewerId] : null;
+  if (captureHandle) {
+    try {
+      const captures = await captureHandle.captureViews([...VISUAL_REVIEW_VIEW_LABELS], {
+        targetWidth: options.targetWidth,
+        targetHeight: options.targetHeight,
+      });
+      if (captures.length > 0) {
+        return captures;
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[capturePreview] Failed to capture labeled 3D views:', error);
+      }
+    }
+  }
+
+  const image = await captureCurrentPreview(options);
+  return image ? [{ label: 'current', image }] : [];
 }

@@ -1,11 +1,12 @@
 /** @jest-environment jsdom */
 
 import { jest } from '@jest/globals';
-import { captureCurrentPreview } from '../capturePreview';
+import { captureCurrentPreview, captureVisualReviewImages } from '../capturePreview';
 
 describe('captureCurrentPreview', () => {
   afterEach(() => {
     document.body.innerHTML = '';
+    delete window.__TQ_PREVIEW_CAPTURE__;
     jest.restoreAllMocks();
   });
 
@@ -93,5 +94,41 @@ describe('captureCurrentPreview', () => {
     expect(result).toBe('data:image/png;base64,scoped-svg');
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:scoped-preview');
+  });
+
+  it('captures labeled visual-review views through the registered 3D viewer handle', async () => {
+    window.__TQ_PREVIEW_CAPTURE__ = {
+      'viewer-2': {
+        captureViews: jest.fn(async (labels: string[]) =>
+          labels.map((label) => ({ label, image: `data:image/png;base64,${label}` }))
+        ),
+      },
+    };
+
+    const result = await captureVisualReviewImages({
+      viewerId: 'viewer-2',
+      targetWidth: 640,
+      targetHeight: 480,
+    });
+
+    expect(result.map((item) => item.label)).toEqual(['front', 'right', 'top']);
+    expect(window.__TQ_PREVIEW_CAPTURE__['viewer-2'].captureViews).toHaveBeenCalledWith(
+      ['front', 'right', 'top'],
+      { targetWidth: 640, targetHeight: 480 }
+    );
+  });
+
+  it('falls back to the current preview when labeled visual-review capture is unavailable', async () => {
+    const scopedRoot = document.createElement('div');
+    scopedRoot.setAttribute('data-preview-root', 'viewer-2');
+    const activeCanvas = document.createElement('canvas');
+    activeCanvas.dataset.engine = 'active';
+    jest.spyOn(activeCanvas, 'toDataURL').mockReturnValue('data:image/png;base64,current');
+    scopedRoot.appendChild(activeCanvas);
+    document.body.appendChild(scopedRoot);
+
+    const result = await captureVisualReviewImages({ viewerId: 'viewer-2' });
+
+    expect(result).toEqual([{ label: 'current', image: 'data:image/png;base64,current' }]);
   });
 });

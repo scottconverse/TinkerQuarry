@@ -54,8 +54,10 @@ Then open `http://localhost:1420`.
   default tries `qwen3-vl:8b`, `qwen2.5vl:7b`, and `minicpm-v:8b`, uses agreement when at least two
   critics respond, falls back honestly if only one is installed, and treats model disagreement as
   `needs review`. The beta acceptance bar is 90% probe accuracy; `qwen3-vl:8b` is the current
-  best-quality local option from the audit. Automatic multi-view capture, multi-round repair,
-  best-candidate retention, convergence, visual diff, and round logging still need to be built.
+  best-quality local option from the audit. The 3D viewer now supplies labeled `front` / `right` /
+  `top` captures when ready and falls back to `current`; the API returns a bounded no-image
+  `review_log`. Multi-round repair, best-candidate retention, convergence, visual diff, browser-level
+  multiview proof, and automated wrong-face fixture proof still need to be built.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and
   smoke-render proof. Dan Kirshner `threads.scad` remains excluded.
