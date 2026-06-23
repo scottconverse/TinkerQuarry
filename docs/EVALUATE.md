@@ -44,7 +44,10 @@ Then open `http://localhost:1420`.
 10. **Visual review**: after a successful design/reopen, hover **Make it real**. The tooltip should
    include an advisory line such as `Visual review: running`, `no obvious issues found`, `likely
    issue`, `needs review`, or `unavailable`. This does not replace slicing.
-11. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
+11. **Visual fix**: if visual review reports an agreed likely issue, use **Fix visual issue**. It
+    should refine the current design in context, keep Undo available for the prior candidate, and
+    run visual review again. It stops after three correction rounds.
+12. **Export**: export STL / OBJ / AMF / 3MF / SVG / DXF, or use File > Save for `.scad`. PNG is not
    currently offered.
 
 ## What Is Not Here Yet
@@ -56,7 +59,8 @@ Then open `http://localhost:1420`.
   `needs review`. The beta acceptance bar is 90% probe accuracy; `qwen3-vl:8b` is the current
   best-quality local option from the audit. The 3D viewer now supplies labeled `front` / `right` /
   `top` captures when ready and falls back to `current`; the API returns a bounded no-image
-  `review_log`. Multi-round repair, best-candidate retention, convergence, visual diff, browser-level
+  `review_log`. Agreed issues can now generate a bounded user-triggered correction/refine loop with
+  Undo as the prior-candidate fallback. Autonomous correction policy, visual diff, browser-level
   multiview proof, and automated wrong-face fixture proof still need to be built.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, Catch'n'Hole, gridfinity-rebuilt,
   MCAD, and the clean-room MIT `tq-threads` replacement are vendored with pinned attribution and

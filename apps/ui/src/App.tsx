@@ -89,6 +89,11 @@ import {
   captureVisualReviewImages,
   MAIN_PREVIEW_VIEWER_ID,
 } from './utils/capturePreview';
+import {
+  MAX_VISUAL_CORRECTION_ROUNDS,
+  canApplyVisualCorrection,
+  visualCorrectionApplyingSummary,
+} from './utils/visualCorrection';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
 import {
@@ -668,6 +673,9 @@ function App() {
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
   const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(null);
+  const [visualCorrectionPrompt, setVisualCorrectionPrompt] = useState<string | null>(null);
+  const [visualCorrectionRounds, setVisualCorrectionRounds] = useState(0);
+  const [isApplyingVisualCorrection, setIsApplyingVisualCorrection] = useState(false);
   const readinessWithVisual = useMemo(
     () => [liveReadiness, visualReviewSummary].filter(Boolean).join('\n'),
     [liveReadiness, visualReviewSummary]
@@ -711,6 +719,7 @@ function App() {
       if (lastEngineRidRef.current !== rid) return;
       if (images.length === 0) {
         setVisualReviewSummary('Visual review: unavailable - no rendered view captured');
+        setVisualCorrectionPrompt(null);
         return;
       }
       const { data } = await engine.visualReview(rid, images);
@@ -719,6 +728,7 @@ function App() {
       if (data.status === 'issues') {
         const first = data.findings?.[0] ?? data.summary ?? 'likely visual issue found';
         setVisualReviewSummary(`Visual review${round}: likely issue - ${first}`);
+        setVisualCorrectionPrompt(data.correction_prompt ?? null);
         notifyError({
           operation: 'visual review',
           capture: false,
@@ -729,6 +739,7 @@ function App() {
       }
       if (data.status === 'ok') {
         setVisualReviewSummary(`Visual review${round}: no obvious issues found`);
+        setVisualCorrectionPrompt(null);
         notifySuccess('Visual review complete', {
           toastId: 'engine-visual-review',
           description: data.summary ?? 'No obvious visual issues found.',
@@ -738,6 +749,7 @@ function App() {
       if (data.status === 'needs_review') {
         const first = data.findings?.[0] ?? data.summary ?? 'local visual critics disagreed';
         setVisualReviewSummary(`Visual review${round}: needs review - ${first}`);
+        setVisualCorrectionPrompt(null);
         notifySuccess('Visual review needs review', {
           toastId: 'engine-visual-review',
           description: first,
@@ -745,12 +757,16 @@ function App() {
         return;
       }
       setVisualReviewSummary(`Visual review: unavailable - ${data.summary || data.error || 'not run'}`);
+      setVisualCorrectionPrompt(null);
     },
     [activePreviewKind, activePreviewSrc]
   );
   const handleEngineDescribe = useCallback(
     async (prompt: string, opts?: { refine?: boolean }) => {
-      if (!opts?.refine) engineHistoryRef.current = [];
+      if (!opts?.refine) {
+        engineHistoryRef.current = [];
+        setVisualCorrectionRounds(0);
+      }
       // The local engine plans + renders + gates — seconds, not instant. Show progress so the
       // describe surface doesn't look frozen; the result toast replaces this (same toastId).
       notifySuccess(opts?.refine ? 'Refining…' : 'Designing…', {
@@ -775,6 +791,7 @@ function App() {
         setHasEngineDesign(true);
         setLiveReadiness(result.gate || null);
         setVisualReviewSummary(null);
+        setVisualCorrectionPrompt(null);
         setLastSlicedRid(null);
         engineHistoryRef.current = [
           ...engineHistoryRef.current,
@@ -811,6 +828,25 @@ function App() {
     },
     [renderCodeDirect, runVisualReview]
   );
+  const handleApplyVisualCorrection = useCallback(async () => {
+    const prompt = visualCorrectionPrompt?.trim() ?? '';
+    if (!canApplyVisualCorrection(prompt, visualCorrectionRounds, isApplyingVisualCorrection)) return;
+    setIsApplyingVisualCorrection(true);
+    setVisualReviewSummary(visualCorrectionApplyingSummary(visualCorrectionRounds));
+    try {
+      const result = await handleEngineDescribe(prompt, { refine: true });
+      if (result.ok) {
+        setVisualCorrectionRounds((rounds) => rounds + 1);
+      }
+    } finally {
+      setIsApplyingVisualCorrection(false);
+    }
+  }, [
+    handleEngineDescribe,
+    isApplyingVisualCorrection,
+    visualCorrectionPrompt,
+    visualCorrectionRounds,
+  ]);
 
   // "Make it real": slice the current engine design into printable G-code, surfacing the real print
   // estimate (time / layers / filament). This is the manufacturing payoff and where "Ready to print"
@@ -3162,6 +3198,33 @@ function App() {
                 ))
               )}
             </div>
+          )}
+
+          {visualCorrectionPrompt && (
+            <Button
+              data-testid="apply-visual-correction-button"
+              variant="secondary"
+              onClick={() => {
+                void handleApplyVisualCorrection();
+              }}
+              size="sm"
+              disabled={
+                isRendering ||
+                !canApplyVisualCorrection(
+                  visualCorrectionPrompt,
+                  visualCorrectionRounds,
+                  isApplyingVisualCorrection
+                )
+              }
+              className="text-xs px-2 py-1"
+              title={
+                visualCorrectionRounds >= MAX_VISUAL_CORRECTION_ROUNDS
+                  ? `Visual correction stopped after ${MAX_VISUAL_CORRECTION_ROUNDS} rounds`
+                  : visualCorrectionPrompt
+              }
+            >
+              {isApplyingVisualCorrection ? 'Fixing' : 'Fix visual issue'}
+            </Button>
           )}
 
           <Button
