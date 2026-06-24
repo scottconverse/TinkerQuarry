@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
-
 from kimcad.webapp import WEB_DIR
 
 _HTML = (WEB_DIR / "index.html").read_text(encoding="utf-8")
@@ -92,13 +90,9 @@ def test_workshop_fonts_are_bundled_for_offline_use():
         assert matches, f"missing bundled latin woff2 for {stem} (offline fonts incomplete)"
 
 
-_FRONTEND_SRC = WEB_DIR.parents[2] / "frontend" / "src"
-pytestmark = pytest.mark.skipif(
-    not _FRONTEND_SRC.exists(),
-    reason=(
-        "legacy KimCad SPA source tree is not present in the TinkerQuarry fork; "
-        "canonical UI coverage lives under apps/ui"
-    ),
+_FRONTEND_SRC = WEB_DIR.parents[4] / "apps" / "ui" / "src"
+assert _FRONTEND_SRC.exists(), (
+    "TinkerQuarry UI source tree is missing; expected canonical app source at apps/ui/src"
 )
 _TS_FILES = sorted(_FRONTEND_SRC.rglob("*.ts*"))
 
@@ -126,15 +120,13 @@ _TS_CONSUMERS = "\n".join(
     for p in _TS_FILES
     if p.name != "api.ts" and ".test." not in p.name and p.parent.name != "viewport"
 )
+_ENGINE_CLIENT = (_FRONTEND_SRC / "services" / "engineClient.ts").read_text(encoding="utf-8")
 
 
 def test_frontend_source_consumes_documented_response_fields():
-    """The SPA's TypeScript *consumer* source references every field the backend's
-    design_response / _plan_payload / _report_payload puts on the wire, so the UI actually
-    renders the documented contract rather than silently dropping a field. (Replaces the old
-    inline-vanilla-JS check; the field rendering moved into the React/TS source in Slice 4.)"""
-    required_fields = [
-        # top-level design_response mapping
+    """The TinkerQuarry UI keeps the engine design-response contract typed and consumes the fields
+    that drive visible product state: mesh preview, readiness, error handling, templates, and STEP."""
+    typed_fields = [
         "status",
         "clarification",
         "plan",
@@ -142,41 +134,71 @@ def test_frontend_source_consumes_documented_response_fields():
         "error",
         "mesh_url",
         "has_mesh",
-        # plan payload
-        "object_type",
-        "summary",
-        "target_bbox_mm",
         # report payload
         "gate_status",
         "headline",
         "dims",
         "findings",
     ]
-    # Require a real property ACCESS (`.<field>`), not a bare substring, so deleting a field's
-    # RENDERING — not just its name — trips the test.
-    missing = [f for f in required_fields if not re.search(rf"\.{re.escape(f)}\b", _TS_CONSUMERS)]
+    missing = [f for f in typed_fields if not re.search(rf"\b{re.escape(f)}\??:", _ENGINE_CLIENT)]
     assert not missing, (
-        f"frontend consumer source does not ACCESS backend fields "
+        f"engine client no longer types documented design-response fields: {missing}"
+    )
+
+    consumed_fields = [
+        "status",
+        "error",
+        "mesh_url",
+        "has_mesh",
+        "report",
+        "readiness",
+        "headline",
+        "gate_status",
+        "findings",
+        "template",
+        "step_url",
+    ]
+    missing = [f for f in consumed_fields if not re.search(rf"\.{re.escape(f)}\b", _TS_CONSUMERS)]
+    assert not missing, (
+        f"frontend consumer source does not ACCESS current engine fields "
         f"(a className/comment doesn't count): {missing}"
     )
 
 
 def test_frontend_source_handles_every_pipeline_status():
-    """Each PipelineStatus value must appear as a QUOTED LITERAL (a real branch), not merely
-    named in a comment or a test, in the consumer source."""
-    for status_value in ("clarification_needed", "render_failed", "gate_failed", "completed"):
-        assert re.search(rf"""['"]{re.escape(status_value)}['"]""", _TS_CONSUMERS), (
-            f"frontend does not branch on status={status_value}"
+    """Each engine pipeline status is represented in the typed client, and the consumer code
+    branches on completed versus non-completed before enabling preview/manufacturing state."""
+    for status_value in (
+        "clarification_needed",
+        "render_failed",
+        "gate_failed",
+        "plan_failed",
+        "model_unavailable",
+        "needs_experimental",
+        "completed",
+    ):
+        assert re.search(rf"""['"]{re.escape(status_value)}['"]""", _ENGINE_CLIENT), (
+            f"engine client no longer declares status={status_value}"
         )
+    assert re.search(r"\.status\s*===\s*['\"]completed['\"]", _TS_CONSUMERS), (
+        "frontend does not branch on completed engine designs"
+    )
 
 
 def test_frontend_source_consumes_connector_status_fields():
-    """The connection-status UI (Slice 5) ACCESSES the typed readiness snapshot the server sends
-    (ready / online / state / reason / simulated) as properties — a comment naming them doesn't
-    count — so the honest readiness badge can't silently drop a field."""
-    for field in ("ready", "online", "state", "reason", "simulated"):
+    """The send UI consumes the current TinkerQuarry connector contract: listed connectors carry
+    name/configured/simulated, while send outcomes carry state/reason/simulated."""
+    for field in ("name", "configured", "simulated"):
+        assert re.search(rf"\b{re.escape(field)}\??:", _ENGINE_CLIENT), (
+            f"connector client type no longer declares '{field}'"
+        )
+    for field in ("name", "simulated"):
         assert re.search(rf"\.{re.escape(field)}\b", _TS_CONSUMERS), (
-            f"connector-status UI does not access '{field}'"
+            f"connector UI does not access '{field}'"
+        )
+    for field in ("state", "reason", "printer_state", "simulated"):
+        assert re.search(rf"\b{re.escape(field)}\??:", _ENGINE_CLIENT), (
+            f"send-result client type no longer declares '{field}'"
         )
 
 

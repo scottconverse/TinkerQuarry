@@ -325,9 +325,15 @@ def find_cadquery_interpreter(
             cmds.append([str(x) for x in c])
     if include_defaults:
         if sys.platform == "win32":
-            # The documented repo-local worker venv wins over the global launcher probes.
-            local_worker = PROJECT_ROOT / ".venv-cq313" / "Scripts" / "python.exe"
-            cmds.append([str(local_worker)])
+            # The documented repo-local worker venv wins over the global launcher probes. Prefer
+            # 3.13 when present, but accept the current CadQuery-supported 3.12 worker venv too so
+            # a zero-skip release gate can use a repo-local interpreter instead of mutating the
+            # user's global Python install.
+            for local_worker in (
+                PROJECT_ROOT / ".venv-cq313" / "Scripts" / "python.exe",
+                PROJECT_ROOT / ".venv-cq312" / "Scripts" / "python.exe",
+            ):
+                cmds.append([str(local_worker)])
             cmds.extend([["py", f"-{v}"] for v in ("3.13", "3.12", "3.11")])
         cmds.extend([[n] for n in ("python3.13", "python3.12", "python3.11", "python3")])
 
@@ -335,13 +341,14 @@ def find_cadquery_interpreter(
         try:
             # The probe is ~3-4s warm, but a COLD venv (fresh pip install, Defender scanning
             # the new OCP binaries) measured 41s on the CI runner — 20s timed out and the
-            # strict gate read it as "no cadquery" (2026-06-10). 90s bounds a genuinely hung
-            # candidate while surviving a first-touch import; the Config layer caches the
-            # discovered result so the cost is paid once.
+            # strict gate read it as "no cadquery" (2026-06-10). The repo-local 3.12 worker
+            # can also take ~70s on first import after install/Defender scanning, so 240s matches
+            # the strict gate headroom while still bounding a genuinely hung candidate. The Config
+            # layer caches the discovered result so the cost is paid once.
             # Scrub secrets from the probe env too (the probe needs none) — ENG-002.
             proc = subprocess.run(
                 [*cmd, "-c", _PROBE], capture_output=True, text=True,
-                timeout=_env_timeout("KIMCAD_CQ_PROBE_TIMEOUT_S", 90),
+                timeout=_env_timeout("KIMCAD_CQ_PROBE_TIMEOUT_S", 240),
                 env=_worker_env(),
             )
         except (OSError, subprocess.SubprocessError):

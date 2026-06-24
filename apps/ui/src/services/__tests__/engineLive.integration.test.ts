@@ -1,33 +1,55 @@
 /** @jest-environment node */
-import { describe, it, expect } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 /**
- * The first real LIVE-API integration test from the front-end suite. SCOPE (be honest): this makes
- * REAL HTTP calls to the running engine and asserts the REAL responses — it does NOT mount `App.tsx`,
- * click the UI or render React. It is NOT a browser/user-flow test; a
- * Playwright-style "describe → render → make it real" test is still missing. What it DOES do is guard
- * the API seams the rest of this suite only stubs — which is exactly how the §6.12 reopen bug shipped
- * GREEN (the unit test stubbed `/api/source`, the real endpoint 404'd). So a real-path break
- * (response-shape drift, a dropped field, a 404) is actually caught here.
- *
- * It is environment-gated: if the engine isn't reachable (e.g. CI), the cases are `it.skip` — they show
- * as SKIPPED, never as a false pass. To run it: start the engine
- * (`TINKERQUARRY_DEV_TOKEN=tq-dev-token .venv/Scripts/kimcad.exe web --port 8765`) and run jest.
+ * Real LIVE-API integration from the front-end suite. This makes real HTTP calls to the engine
+ * and asserts real responses; it does not mount React. The test starts a deterministic demo engine
+ * when TQ_ENGINE is not supplied, so release runs execute the cases instead of reporting skips.
  */
 
-const BASE = process.env.TQ_ENGINE || 'http://127.0.0.1:8765';
+let base = process.env.TQ_ENGINE || '';
 const TOKEN = process.env.TINKERQUARRY_DEV_TOKEN || 'tq-dev-token';
+let savedId: string | undefined;
+let engineProcess: ChildProcessWithoutNullStreams | undefined;
 
-async function getJson(path: string): Promise<{ ok: boolean; status: number; body: unknown }> {
-  const r = await fetch(BASE + path);
+function engineRoot(): string {
+  return path.resolve(process.cwd(), '..', '..', 'packages', 'engine');
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForHealth(url: string, timeoutMs = 45_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetch(url + '/api/health');
+      if (r.ok) return;
+      lastError = new Error(`health returned ${r.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(250);
+  }
+  throw lastError instanceof Error ? lastError : new Error('engine did not become healthy');
+}
+
+async function getJson(pathname: string): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const r = await fetch(base + pathname);
   return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) };
 }
 
 async function postJson(
-  path: string,
+  pathname: string,
   body: Record<string, unknown>
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
-  const r = await fetch(BASE + path, {
+  const r = await fetch(base + pathname, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-KimCad-Session': TOKEN },
     body: JSON.stringify(body),
@@ -38,41 +60,65 @@ async function postJson(
 function getRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
+
 function ridFromMeshUrl(u: unknown): number {
   return Number(String(u).split('?')[0].split('/').pop());
 }
 
-// Resolve reachability + seed a saved design at module load so the live test is clean-machine safe.
-let engineUp = false;
-let savedId: string | undefined;
-try {
-  engineUp = (await fetch(BASE + '/api/health')).ok;
-  if (engineUp) {
-    const d = await fetch(BASE + '/api/designs').then((r) => r.json());
-    savedId = d?.designs?.[0]?.id;
-    if (!savedId) {
-      const designed = await postJson('/api/design', { prompt: 'a small test gear' });
-      const rid = ridFromMeshUrl(getRecord(designed.body).mesh_url);
-      if (designed.ok && Number.isFinite(rid)) {
-        const saved = await postJson('/api/designs/save', {
-          design_id: rid,
-          name: 'Live integration seed',
-        });
-        const savedBody = getRecord(saved.body);
-        if (saved.ok && typeof savedBody.id === 'string') {
-          savedId = savedBody.id;
-        }
-      }
-    }
-  }
-} catch {
-  engineUp = false;
-}
-const live = engineUp && savedId ? it : it.skip;
+async function seedSavedDesign(): Promise<string> {
+  const existing = await getJson('/api/designs');
+  const existingBody = getRecord(existing.body);
+  const designs = Array.isArray(existingBody.designs) ? existingBody.designs : [];
+  const firstId = getRecord(designs[0]).id;
+  if (typeof firstId === 'string') return firstId;
 
-describe('engine integration (LIVE) — anchors the manual "verified LIVE" FE claims', () => {
-  live(
-    'reopen → /api/source serves real SCAD (the §6.12 path the unit tests stub away)',
+  const designed = await postJson('/api/design', { prompt: 'a small test gear' });
+  expect(designed.ok).toBe(true);
+  const rid = ridFromMeshUrl(getRecord(designed.body).mesh_url);
+  expect(Number.isFinite(rid)).toBe(true);
+
+  const saved = await postJson('/api/designs/save', {
+    design_id: rid,
+    name: 'Live integration seed',
+  });
+  expect(saved.ok).toBe(true);
+  const savedBody = getRecord(saved.body);
+  expect(typeof savedBody.id).toBe('string');
+  return savedBody.id as string;
+}
+
+beforeAll(async () => {
+  if (!base) {
+    const port = 8765 + Number(process.env.JEST_WORKER_ID || '1');
+    base = `http://127.0.0.1:${port}`;
+    const root = engineRoot();
+    const outDir = mkdtempSync(path.join(tmpdir(), 'tq-engine-live-'));
+    engineProcess = spawn(
+      path.join(root, '.venv', 'Scripts', 'python.exe'),
+      ['-m', 'kimcad.cli', 'web', '--host', '127.0.0.1', '--port', String(port), '--demo', '--out', outDir],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          PYTHONPATH: path.join(root, 'src'),
+          TINKERQUARRY_DEV_TOKEN: TOKEN,
+          USERPROFILE: outDir,
+          HOME: outDir,
+        },
+      }
+    );
+  }
+  await waitForHealth(base);
+  savedId = await seedSavedDesign();
+}, 120_000);
+
+afterAll(() => {
+  engineProcess?.kill();
+});
+
+describe('engine integration (LIVE) - anchors the manual "verified LIVE" FE claims', () => {
+  it(
+    'reopen -> /api/source serves real SCAD (the section 6.12 path the unit tests stub away)',
     async () => {
       const reopened = await getJson(`/api/designs/${savedId}`);
       expect(reopened.ok).toBe(true);
@@ -80,37 +126,31 @@ describe('engine integration (LIVE) — anchors the manual "verified LIVE" FE cl
       expect(Number.isFinite(rid)).toBe(true);
 
       const src = await getJson(`/api/source/${rid}?inline=1`);
-      // This was a real 404 before the reopen fix — and it shipped green because the FE stubbed it.
       expect(src.ok).toBe(true);
       const sourceBody = getRecord(src.body);
       expect(typeof sourceBody.scad).toBe('string');
       expect((sourceBody.scad as string).length).toBeGreaterThan(10);
     },
-    30000
+    30_000
   );
 
-  live(
-    'slice with a NON-default printer returns real G-code for THAT printer (the §6.9 picker)',
+  it(
+    'slice with a non-default printer returns real G-code for that printer',
     async () => {
-      // Prusa MK4 (a non-default profile that actually slices). NOTE: this test was first written
-      // against elegoo_neptune_4_max — and it CAUGHT that that profile fails to slice (OrcaSlicer
-      // exit -51, an upstream relative-extruder/G92-E0 profile bug), exposing an over-claim that a
-      // manual click had missed. 11/12 sampled printers slice; elegoo_neptune_4_max is the exception.
       const reopened = await getJson(`/api/designs/${savedId}`);
       const rid = ridFromMeshUrl(getRecord(reopened.body).mesh_url);
 
-      const r = await fetch(`${BASE}/api/slice/${rid}`, {
+      const r = await fetch(`${base}/api/slice/${rid}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-KimCad-Session': TOKEN },
         body: JSON.stringify({ printer: 'prusa_mk4', material: 'pla' }),
       });
       const body = await r.json();
       expect(r.ok).toBe(true);
-      expect(body.sliced).toBe(true); // real OrcaSlicer slice succeeded
-      expect(String(body.estimate || '')).toMatch(/layer/i); // a real estimate, not an empty stub
-      // The chosen non-default printer was honoured (not silently the default Bambu).
+      expect(body.sliced).toBe(true);
+      expect(String(body.estimate || '')).toMatch(/layer/i);
       expect(String(body.printer)).toMatch(/prusa/i);
     },
-    90000
+    90_000
   );
 });

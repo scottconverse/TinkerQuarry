@@ -193,6 +193,14 @@ def pytest_collection_modifyitems(config, items):  # noqa: ARG001
     for item in items:
         item.add_marker(skip)
 
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
+    """Release policy: skipped tests are failures. Provision the lane or make the proof runnable."""
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    skipped = reporter.stats.get("skipped", []) if reporter is not None else []
+    if skipped:
+        session.exitstatus = 1
+
 @pytest.fixture(autouse=True)
 def _default_cadquery_backend_off(request, monkeypatch):
     """Hermeticity for CadQuery interpreter DISCOVERY: by DEFAULT it finds nothing in tests, so

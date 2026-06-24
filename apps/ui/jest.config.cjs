@@ -22,6 +22,7 @@ module.exports = {
     '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  reporters: ['default', '<rootDir>/../../scripts/jest-no-skips-reporter.cjs'],
   transform: {
     '^.+\\.(ts|tsx)$': [
       'ts-jest',

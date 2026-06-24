@@ -11,9 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parents[1]
 
 
 def _declared() -> str:
@@ -57,28 +56,12 @@ def test_readme_beta_badge_matches_the_declared_version():
     )
 
 
-def test_frontend_package_version_is_in_lockstep():
-    """11.3-audit FINDING-001/002: package.json AND its lock carry the npm-semver twin of
-    pyproject's PEP 440 version (0.9.0b1 <-> 0.9.0-beta.1) — enforced, not promised."""
+def test_workspace_ui_package_version_is_in_lockstep():
+    """TinkerQuarry's canonical UI package tracks the root workspace version."""
     import json
-    import re
-
-    if not (ROOT / "frontend" / "package.json").exists():
-        pytest.skip(
-            "legacy KimCad frontend package is not present in the TinkerQuarry fork; "
-            "canonical UI versioning lives at the repo workspace level"
-        )
-
-    declared = _declared()
-    # 11.4-audit FINDING-005: every PEP 440 pre-release form maps (b/rc/a -> npm
-    # beta/rc/alpha); an unmapped form still fails CLOSED on the package.json compare.
-    m = re.fullmatch(r"(\d+\.\d+\.\d+)(a|b|rc)(\d+)", declared)
-    kinds = {"a": "alpha", "b": "beta", "rc": "rc"}
-    expected = f"{m.group(1)}-{kinds[m.group(2)]}.{m.group(3)}" if m else declared
-    pkg = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))
+    expected = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+    pkg = json.loads((REPO_ROOT / "apps" / "ui" / "package.json").read_text(encoding="utf-8"))
     assert pkg["version"] == expected
-    lock = json.loads((ROOT / "frontend" / "package-lock.json").read_text(encoding="utf-8"))
-    assert lock["version"] == expected
 
 
 def test_installer_scripts_take_the_version_as_a_parameter():

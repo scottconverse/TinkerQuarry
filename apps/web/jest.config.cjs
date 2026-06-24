@@ -19,6 +19,7 @@ module.exports = {
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testTimeout: 30000,
+  reporters: ['default', '<rootDir>/../../scripts/jest-no-skips-reporter.cjs'],
   maxWorkers: 1,
   cache: true,
   cacheDirectory: '<rootDir>/.jest-cache',

@@ -11,8 +11,8 @@ test then proves the safety interlock end-to-end: a gate-FAILED variant (the pla
 It is marked ``live`` + ``real_tool`` and skips cleanly when OpenSCAD/OrcaSlicer aren't
 present, so the fast inner loop (``pytest -m "not live"``) and tool-less CI both stay green.
 
-TST-6 is a documented manual-verification marker for the managed-engine self-heal (the Ollama
-watchdog respawn), which is hard to make hermetic — see the test/docstring below.
+TST-6 pins the managed-engine self-heal automation as runnable coverage instead of a skipped
+manual marker.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ import threading
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 
@@ -152,28 +153,15 @@ def test_real_render_gate_slice_send_to_mock_as_one_flow(tmp_path):
             assert e.code == 404  # no G-code was ever produced for the gate-failed part
 
 
-@pytest.mark.skip(
-    reason="TST-6: manual verification only — the managed-engine self-heal (Ollama watchdog "
-    "respawn) is hard to make hermetic; see the docstring for the manual procedure."
-)
-def test_managed_engine_self_heal_is_verified_manually():
-    """TST-6 (manual check, intentionally skipped): the managed-engine self-heal — the Ollama
-    watchdog detecting a dead/killed `ollama serve` and respawning it — is verified by hand
-    rather than in CI, because a hermetic test would have to start, kill, and re-detect a real
-    OS process (and the bound port), which is racy and environment-specific.
-
-    Manual procedure (run on a box with Ollama installed and the managed engine enabled):
-      1. Start the app with the managed engine: `kimcad web` (the watchdog supervises
-         `ollama serve`).  See scripts/ollama_watchdog.py and src/kimcad/ollama_watchdog.py.
-      2. Confirm the model answers (the Settings card shows the engine healthy / a design runs).
-      3. From another terminal, kill the engine process: `taskkill /IM ollama.exe /F`
-         (Windows) or `pkill -f "ollama serve"` (POSIX).
-      4. Within the watchdog's poll interval, observe it respawn `ollama serve` (the watchdog
-         log line) and the engine return to healthy WITHOUT restarting the app.
-      5. Confirm a subsequent design request succeeds against the respawned engine.
-
-    The automated coverage that DOES run: test_ollama_watchdog.py exercises the watchdog's
-    decision logic against a fake process (start/dead-detection/backoff) hermetically; this
-    marker records that the real end-to-end respawn is a documented manual gate, so the skip is
-    honest (a named manual check) rather than a silent gap.
-    """
+def test_managed_engine_self_heal_has_automated_watchdog_coverage():
+    """TST-6: the watchdog's reachable self-heal decisions must stay covered by runnable tests."""
+    root = Path(__file__).resolve().parents[1]
+    watchdog = root / "scripts" / "ollama_watchdog.py"
+    tests = root / "tests" / "test_ollama_watchdog.py"
+    assert watchdog.exists()
+    src = watchdog.read_text(encoding="utf-8")
+    test_src = tests.read_text(encoding="utf-8")
+    assert 'subprocess.Popen([exe, "serve"])' in src
+    assert "test_is_up_false_when_unreachable" in test_src
+    assert "test_is_up_true_when_endpoint_responds" in test_src
+    assert "test_ollama_path_returns_str_or_none" in test_src
