@@ -413,7 +413,7 @@ def part1(pdf: KimCadPDF):
         "no developer tools needed."
     )
     bullet(pdf, [
-        "Download KimCad-Setup-0.9.3.exe from the Releases page on GitHub.",
+        "Download TinkerQuarry-Setup-0.9.3.exe from the TinkerQuarry release bundle.",
         "Double-click it. Windows will warn you because the beta isn't code-signed — "
         "click More info → Run anyway. (The release page publishes a checksum you can verify first.)",
         "Follow the wizard. KimCad installs to Program Files by default.",

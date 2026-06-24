@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_ENVIRONMENT?: string;
   readonly VITE_SHARE_API_URL?: string;
   readonly VITE_ENABLE_PROD_SHARE_DEV?: string;
+  readonly VITE_TQ_REPOSITORY_URL?: string;
+  readonly VITE_TQ_MAC_RELEASE_BASE?: string;
 }
 
 declare global {

@@ -1,7 +1,7 @@
 {
-  "name": "OpenSCAD Studio",
-  "short_name": "OpenSCAD Studio",
-  "description": "A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot.",
+  "name": "TinkerQuarry",
+  "short_name": "TinkerQuarry",
+  "description": "Local-first describe-to-print CAD for makers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

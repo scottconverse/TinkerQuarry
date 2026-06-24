@@ -1,10 +1,8 @@
-const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
-
 export type MacArch = 'aarch64' | 'x64';
 
 const RELEASE_ASSETS: Record<MacArch, string> = {
-  aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
-  x64: 'OpenSCAD.Studio_latest_x64.dmg',
+  aarch64: 'TinkerQuarry_latest_aarch64.dmg',
+  x64: 'TinkerQuarry_latest_x64.dmg',
 };
 
 interface UserAgentDataLike {
@@ -76,6 +74,8 @@ export async function resolveMacDownloadArch(
   }
 }
 
-export function getMacDownloadUrl(arch: MacArch): string {
-  return `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
+export function getMacDownloadUrl(arch: MacArch, releaseBase?: string | null): string | null {
+  if (!releaseBase) return null;
+  const base = releaseBase.replace(/\/+$/, '');
+  return `${base}/${RELEASE_ASSETS[arch]}`;
 }

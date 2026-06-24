@@ -2,7 +2,7 @@
 
 Stages ``dist/staging/`` as the EXACT tree the installer lays down, then compiles
 ``installer/kimcad.iss`` with the pinned Inno Setup into
-``dist/KimCad-Setup-<version>.exe``:
+``dist/TinkerQuarry-Setup-<version>.exe``:
 
     staging/
       python/            the python.org EMBEDDABLE CPython (pinned URL + SHA-256)
@@ -221,7 +221,7 @@ def smoke_staging() -> None:
 
 def compile_installer(iscc: Path) -> Path:
     version = _version()
-    print(f"inno: compiling KimCad-Setup-{version}.exe …")
+    print(f"inno: compiling TinkerQuarry-Setup-{version}.exe …")
     if not iscc.exists():
         raise RuntimeError(
             f"Inno Setup compiler not found at {iscc} - install the pinned 6.7.3 there "
@@ -236,10 +236,10 @@ def compile_installer(iscc: Path) -> Path:
          f"/DStagingDir={STAGING}", f"/O{DIST}", str(ROOT / "installer" / "kimcad.iss")],
         check=True,
     )
-    out = DIST / f"KimCad-Setup-{version}.exe"
+    out = DIST / f"TinkerQuarry-Setup-{version}.exe"
     assert out.exists(), f"Inno reported success but {out} is missing"
     sha = hashlib.sha256(out.read_bytes()).hexdigest()
-    (DIST / f"KimCad-Setup-{version}.exe.sha256").write_text(sha + "\n", encoding="utf-8")
+    (DIST / f"TinkerQuarry-Setup-{version}.exe.sha256").write_text(sha + "\n", encoding="utf-8")
     print(f"  built {out.name} ({out.stat().st_size / 1e6:.1f} MB, sha256 {sha[:16]}…)")
     return out
 

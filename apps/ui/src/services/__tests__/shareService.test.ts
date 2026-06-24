@@ -22,7 +22,7 @@ describe('shareService', () => {
       createMockResponse(
         {
           id: 'abc12345',
-          url: 'https://openscad-studio.pages.dev/s/abc12345',
+          url: 'https://share.tinkerquarry.local/s/abc12345',
           thumbnailUploadToken: 'token-123',
         },
         { status: 200 }
@@ -37,7 +37,7 @@ describe('shareService', () => {
 
     expect(result).toEqual({
       id: 'abc12345',
-      url: 'https://openscad-studio.pages.dev/s/abc12345',
+      url: 'https://share.tinkerquarry.local/s/abc12345',
       thumbnailUploadToken: 'token-123',
     });
     expect(fetchSpy).toHaveBeenCalledWith(

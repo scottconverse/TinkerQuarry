@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform } from '../platform';
 import { isExportValidationError } from '../services/exportErrors';
@@ -78,6 +78,7 @@ export function ExportDialog({
   const [format, setFormat] = useState<ProductExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Reset format each time the dialog opens so the default reflects the current preview kind.
   // useState only runs once at mount, but this component stays mounted with isOpen=false.
@@ -85,8 +86,18 @@ export function ExportDialog({
     if (isOpen) {
       setFormat(previewKind === 'svg' ? 'svg' : 'stl');
       setError('');
+      window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     }
   }, [isOpen, previewKind]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -160,9 +171,15 @@ export function ExportDialog({
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
     >
       <div
         data-testid="export-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-dialog-title"
         className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-secondary)',
@@ -175,10 +192,10 @@ export function ExportDialog({
           className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--border-primary)' }}
         >
-          <Text variant="section-heading" weight="medium" color="tertiary">
+          <Text id="export-dialog-title" variant="section-heading" weight="medium" color="tertiary">
             Export Model
           </Text>
-          <IconButton size="sm" onClick={onClose} title="Close">
+          <IconButton ref={closeButtonRef} size="sm" onClick={onClose} title="Close" aria-label="Close export dialog">
             <TbX size={16} />
           </IconButton>
         </div>

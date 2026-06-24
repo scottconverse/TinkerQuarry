@@ -105,7 +105,7 @@ if (sentryEnabled) {
     dsn: sentryDsn,
     enabled: true,
     environment: import.meta.env.VITE_SENTRY_ENVIRONMENT ?? import.meta.env.MODE,
-    release: `openscad-studio@${APP_VERSION}`,
+    release: `tinkerquarry@${APP_VERSION}`,
     sendDefaultPii: false,
     maxBreadcrumbs: 0,
     normalizeDepth: 4,

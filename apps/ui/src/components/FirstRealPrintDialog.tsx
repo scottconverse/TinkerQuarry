@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Button, IconButton, Text } from './ui';
 import { TbX, TbAlertTriangle } from 'react-icons/tb';
 
@@ -14,17 +15,34 @@ interface FirstRealPrintDialogProps {
  * After the user confirms once, the caller sets a localStorage flag and this never shows again.
  */
 export function FirstRealPrintDialog({ onConfirm, onClose }: FirstRealPrintDialogProps) {
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    window.requestAnimationFrame(() => confirmRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
     >
       <div
         data-testid="first-real-print-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Before your first real print"
+        aria-labelledby="first-real-print-title"
         className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}
         onClick={(e) => e.stopPropagation()}
@@ -35,11 +53,11 @@ export function FirstRealPrintDialog({ onConfirm, onClose }: FirstRealPrintDialo
         >
           <div className="flex items-center gap-2">
             <TbAlertTriangle size={18} style={{ color: 'var(--accent-primary)' }} />
-            <Text variant="section-heading" weight="medium" color="tertiary">
+            <Text id="first-real-print-title" variant="section-heading" weight="medium" color="tertiary">
               Before your first real print
             </Text>
           </div>
-          <IconButton size="sm" onClick={onClose} title="Close">
+          <IconButton size="sm" onClick={onClose} title="Close" aria-label="Close first real print dialog">
             <TbX size={16} />
           </IconButton>
         </div>
@@ -67,7 +85,7 @@ export function FirstRealPrintDialog({ onConfirm, onClose }: FirstRealPrintDialo
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" data-testid="first-real-print-confirm" onClick={onConfirm}>
+          <Button ref={confirmRef} variant="primary" data-testid="first-real-print-confirm" onClick={onConfirm}>
             Make it real
           </Button>
         </div>

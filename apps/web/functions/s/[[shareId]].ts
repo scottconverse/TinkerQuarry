@@ -150,14 +150,14 @@ async function handleShareMeta(context: EventContext<Env, string, unknown>) {
   const thumbnailUrl = share.thumbnailKey
     ? getThumbnailUrl(origin, shareId)
     : `${origin}/icon-512.png`;
-  const ogTitle = `${share.title} — OpenSCAD Studio`;
+  const ogTitle = `${share.title} — TinkerQuarry`;
   const twitterCard = share.thumbnailKey ? 'summary_large_image' : 'summary';
 
   const updated = [
     [{ attr: 'property', name: 'og:title' }, ogTitle],
     [
       { attr: 'property', name: 'og:description' },
-      'Open this parametric design in OpenSCAD Studio. Customize parameters and download STL for 3D printing.',
+      'Open this TinkerQuarry design. Customize parameters, validate it, and download a print-ready file.',
     ],
     [{ attr: 'property', name: 'og:image' }, thumbnailUrl],
     [{ attr: 'property', name: 'og:url' }, shareUrl],
@@ -165,7 +165,7 @@ async function handleShareMeta(context: EventContext<Env, string, unknown>) {
     [{ attr: 'name', name: 'twitter:title' }, ogTitle],
     [
       { attr: 'name', name: 'twitter:description' },
-      'Open this parametric design in OpenSCAD Studio. Customize parameters and download STL for 3D printing.',
+      'Open this TinkerQuarry design. Customize parameters, validate it, and download a print-ready file.',
     ],
     [{ attr: 'name', name: 'twitter:image' }, thumbnailUrl],
   ].reduce(

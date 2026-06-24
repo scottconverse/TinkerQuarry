@@ -23,9 +23,10 @@ const initialShareContext = parseShareContext(window.location.pathname, window.l
 if (initialShareContext) {
   window.__SHARE_CONTEXT = initialShareContext;
 }
-window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || window.location.origin;
+window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || '';
 window.__SHARE_ENABLED =
-  import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
+  Boolean(window.__SHARE_API_BASE) &&
+  (import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true');
 
 // Prevent accidental tab close when there are unsaved changes.
 // We import the store module at the top level (it's a singleton) and read

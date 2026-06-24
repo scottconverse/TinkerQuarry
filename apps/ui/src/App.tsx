@@ -160,7 +160,8 @@ import {
   isOpenScadProjectFilePath,
 } from "../../../packages/shared/src/openscadProjectFiles";
 
-const REPOSITORY_URL = "https://github.com/zacharyfmarion/openscad-studio";
+const REPOSITORY_URL = import.meta.env.VITE_TQ_REPOSITORY_URL || "";
+const MAC_RELEASE_BASE = import.meta.env.VITE_TQ_MAC_RELEASE_BASE || "";
 const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = "(max-width: 900px)";
 
 const OPENSCAD_FILE_FILTERS = [
@@ -297,7 +298,7 @@ function useMacDownloadUrl() {
     };
   }, []);
 
-  return getMacDownloadUrl(arch);
+  return getMacDownloadUrl(arch, MAC_RELEASE_BASE);
 }
 
 interface HeaderIconLinkProps {
@@ -818,6 +819,7 @@ function App() {
   });
   const visualDiffBeforeRef = useRef<string | null>(null);
   const visualLoopRunRef = useRef(0);
+  const printOutcomeCleanRef = useRef<HTMLButtonElement | null>(null);
   const appendIterationLog = useCallback(
     (entry: Omit<IterationLogEntry, "id" | "createdAt">) => {
       setIterationLog((items) => {
@@ -3345,6 +3347,12 @@ function App() {
     previousSettingsDialogRef.current = showSettingsDialog;
   }, [analytics, settingsInitialTab, showSettingsDialog]);
 
+  useEffect(() => {
+    if (printOutcome != null) {
+      window.requestAnimationFrame(() => printOutcomeCleanRef.current?.focus());
+    }
+  }, [printOutcome]);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -3761,7 +3769,7 @@ function App() {
       }}
     >
       <header
-        className="relative flex items-center gap-1.5 shrink-0 py-1"
+        className="relative flex items-center gap-1.5 shrink-0 overflow-x-auto py-1"
         style={{
           backgroundColor: "var(--bg-secondary)",
           borderBottom: "1px solid var(--border-subtle)",
@@ -3781,7 +3789,7 @@ function App() {
         <div className="flex-1" />
 
         {!isMobile && !isHeaderWorkspaceSwitcherHidden && (
-          <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+          <div className="hidden lg:flex shrink-0 items-center justify-center px-2">
             <HeaderWorkspaceControls
               layoutPreset={settings.ui.defaultLayoutPreset}
               onLayoutPresetChange={handleHeaderLayoutSelect}
@@ -4119,23 +4127,27 @@ function App() {
             }}
           />
 
-          {!capabilities.hasNativeMenu && !isMobile && (
+          {!capabilities.hasNativeMenu && !isMobile && (REPOSITORY_URL || macDownloadUrl) && (
             <>
-              <HeaderIconLink
-                href={REPOSITORY_URL}
-                title="View GitHub Repository"
-                ariaLabel="View GitHub Repository"
-                openInNewTab
-              >
-                <TbBrandGithub size={15} />
-              </HeaderIconLink>
-              <HeaderIconLink
-                href={macDownloadUrl}
-                title="Download for Mac"
-                ariaLabel="Download for Mac"
-              >
-                <TbDownload size={15} />
-              </HeaderIconLink>
+              {REPOSITORY_URL && (
+                <HeaderIconLink
+                  href={REPOSITORY_URL}
+                  title="View GitHub Repository"
+                  ariaLabel="View GitHub Repository"
+                  openInNewTab
+                >
+                  <TbBrandGithub size={15} />
+                </HeaderIconLink>
+              )}
+              {macDownloadUrl && (
+                <HeaderIconLink
+                  href={macDownloadUrl}
+                  title="Download for Mac"
+                  ariaLabel="Download for Mac"
+                >
+                  <TbDownload size={15} />
+                </HeaderIconLink>
+              )}
             </>
           )}
 
@@ -4523,12 +4535,17 @@ function App() {
           onClick={() => {
             void handlePrintOutcome("skip");
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              void handlePrintOutcome("skip");
+            }
+          }}
         >
           <div
             data-testid="print-outcome-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label="How did the print turn out?"
+            aria-labelledby="print-outcome-title"
             className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
             style={{
               backgroundColor: "var(--bg-secondary)",
@@ -4537,6 +4554,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div
+              id="print-outcome-title"
               className="px-6 py-4 text-sm font-medium"
               style={{ borderBottom: "1px solid var(--border-primary)" }}
             >
@@ -4575,6 +4593,7 @@ function App() {
                 Issues
               </Button>
               <Button
+                ref={printOutcomeCleanRef}
                 variant="primary"
                 onClick={() => void handlePrintOutcome("clean")}
               >

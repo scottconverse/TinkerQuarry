@@ -35,14 +35,14 @@ describe('shareRouting', () => {
   });
 
   it('builds preset-based share URLs predictably', () => {
-    expect(buildShareUrl('https://openscad-studio.pages.dev', 'abc12345', 'customizer-first')).toBe(
-      'https://openscad-studio.pages.dev/s/abc12345'
+    expect(buildShareUrl('https://share.tinkerquarry.local', 'abc12345', 'customizer-first')).toBe(
+      'https://share.tinkerquarry.local/s/abc12345'
     );
-    expect(buildShareUrl('https://openscad-studio.pages.dev', 'abc12345', 'default')).toBe(
-      'https://openscad-studio.pages.dev/s/abc12345?mode=default'
+    expect(buildShareUrl('https://share.tinkerquarry.local', 'abc12345', 'default')).toBe(
+      'https://share.tinkerquarry.local/s/abc12345?mode=default'
     );
-    expect(buildShareUrl('https://openscad-studio.pages.dev', 'abc12345', 'ai-first')).toBe(
-      'https://openscad-studio.pages.dev/s/abc12345?mode=ai-first'
+    expect(buildShareUrl('https://share.tinkerquarry.local', 'abc12345', 'ai-first')).toBe(
+      'https://share.tinkerquarry.local/s/abc12345?mode=ai-first'
     );
   });
 });

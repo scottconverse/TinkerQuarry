@@ -40,7 +40,7 @@ TinkerQuarry Studio app:
 
 ### Beta notes — honest status
 
-- **It's a beta.** The product happy path is real and verified, but real-hardware print validation, broader mobile/accessibility/error-path browser coverage, and richer visual-diff/explain surfaces remain beta work. See `../../docs/STATUS.md`.
+- **It's a beta.** The product happy path and a broader browser smoke are real and verified, but real-hardware print validation, comprehensive accessibility/error-path/export browser coverage, and richer visual-diff/explain surfaces remain beta work. See `../../docs/STATUS.md`.
 - **The installer is unsigned** (no code-signing cert yet), so Windows SmartScreen can warn on local builds.
 - **A curated catalog of ~29 printers** across the top makers (Bambu, Creality, Prusa, Anycubic, Elegoo, Qidi, Sovol) — each build-volume-gated and **slice-proven in CI**; three of them (Bambu P2S, A1, Elegoo Neptune 4 Max) are **reference printers** also wired for native direct-send. The rest of the 1,400-profile library is on disk and promoted into the picker as each machine clears the slice bar ([supported printers](docs/supported-printers.md)).
 
@@ -66,9 +66,9 @@ TinkerQuarry Studio app:
   in-app confirm → live status), a Bambu-native LAN connector for the P2S/A1, and in-app model
   downloads with progress.
 - **Stage 11** (`stage-11` + `beta`) — the **Windows installer** (WebView2 shell, bundled Python +
-  SPA + OpenSCAD + OrcaSlicer + PrintProof3D) and the **beta gate** — the `0.9.0b1` release.
+  SPA + OpenSCAD + OrcaSlicer + PrintProof3D) and the TinkerQuarry beta gate.
 
-Full detail in the [CHANGELOG](CHANGELOG.md) and [ROADMAP](ROADMAP.md).
+Current release proof and remaining beta work live in the root [STATUS matrix](../../docs/STATUS.md).
 
 </details>
 
@@ -474,7 +474,7 @@ recipe (briefcase `.app` / AppImage), and what's left to build.
 | [Troubleshooting](docs/troubleshooting.md) | fix a setup or runtime snag, symptom-first |
 | [Supported printers](docs/supported-printers.md) | the printer + connection matrix |
 | [API reference](docs/api.md) | integrate against the local HTTP API |
-| [ARCHITECTURE.md](ARCHITECTURE.md) · [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) | go deep on the design, the plan, and the history |
+| [Root status matrix](../../docs/STATUS.md) · [evaluation guide](../../docs/EVALUATE.md) | current proof, remaining beta work, and release-gate commands |
 
 Task-specific guides live in [`docs/`](docs/README.md): the
 [photo/sketch on-ramp](docs/guide-photo-onramp.md), [sliders & units](docs/guide-sliders-and-units.md),
@@ -488,8 +488,7 @@ KimCad is open source and welcomes use, issues, and pull requests.
 - **[Discussions](../../discussions)** — questions, ideas, show-and-tell, and the
   real-hardware testing thread.
 - **[Issues](../../issues)** — bug reports and concrete feature requests.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how the build/test gate works and how to send a
-  change.
+- **[Evaluation guide](../../docs/EVALUATE.md)** — how the build/test gate works.
 - **[SECURITY.md](SECURITY.md)** — how to report a security concern.
 
 A note on scope: real-printer validation happens on the maintainer's hardware during the

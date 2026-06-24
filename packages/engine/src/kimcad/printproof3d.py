@@ -31,6 +31,7 @@ from pathlib import Path
 
 from kimcad.config import Material, Printer
 from kimcad.smart_mesh import PrintProofIssue, PrintProofReport
+from kimcad.subprocess_env import scrubbed_env
 
 # A runner produces the report at the ``-o`` path in ``argv`` (real: the subprocess; a test fake:
 # writes a canned report there). It must not raise to signal a validation *result* — only a
@@ -47,7 +48,13 @@ def _subprocess_runner(argv: list[str], timeout_s: float) -> None:
     caught by the caller (which then degrades to no report). stdout/stderr are captured (not
     inherited, so the engine can't scribble on KimCad's console) and intentionally not surfaced —
     the parsed report, not the engine's chatter, is the contract."""
-    subprocess.run(argv, timeout=timeout_s, capture_output=True, check=False)
+    subprocess.run(
+        argv,
+        timeout=timeout_s,
+        capture_output=True,
+        check=False,
+        env=scrubbed_env(),
+    )
 
 
 def validate_model(

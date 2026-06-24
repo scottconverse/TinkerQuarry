@@ -1,0 +1,767 @@
+{
+  "title": "TinkerQuarry",
+  "profileRoot": "C:\\Users\\Scott\\Desktop\\CODE\\tinkerquarry\\docs\\audits\\gate-tinkerquarry-2026-06-23-gauntlet-all\\artifacts\\workflow-profile",
+  "browserProfileDir": "C:\\Users\\Scott\\Desktop\\CODE\\tinkerquarry\\docs\\audits\\gate-tinkerquarry-2026-06-23-gauntlet-all\\artifacts\\workflow-browser-profile",
+  "engineOut": "C:\\Users\\Scott\\Desktop\\CODE\\tinkerquarry\\docs\\audits\\gate-tinkerquarry-2026-06-23-gauntlet-all\\artifacts\\workflow-profile\\engine-output",
+  "engineOutputExists": true,
+  "interactivesAfterWorkflow": [
+    {
+      "index": 0,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "File",
+      "disabled": false
+    },
+    {
+      "index": 1,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Edit",
+      "disabled": false
+    },
+    {
+      "index": 2,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Switch to the AI-first workspace",
+      "text": "AI",
+      "disabled": false
+    },
+    {
+      "index": 3,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Switch to the editor-first workspace",
+      "text": "Edit",
+      "disabled": false
+    },
+    {
+      "index": 4,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Switch to the customizer-first workspace",
+      "text": "Customize",
+      "disabled": false
+    },
+    {
+      "index": 5,
+      "tag": "button",
+      "role": "",
+      "testid": "render-button",
+      "aria": "",
+      "title": "",
+      "text": "Render (⌘↵)",
+      "disabled": false
+    },
+    {
+      "index": 6,
+      "tag": "button",
+      "role": "",
+      "testid": "save-design-button",
+      "aria": "",
+      "title": "Save this design to My Designs",
+      "text": "Save",
+      "disabled": false
+    },
+    {
+      "index": 7,
+      "tag": "select",
+      "role": "",
+      "testid": "printer-select",
+      "aria": "Printer",
+      "title": "",
+      "text": "Bambu Lab P2SBambu Lab A1Elegoo Neptune 4 Max (profile blocked)Bambu Lab P1PBambu Lab P1SBambu Lab X1 CarbonBambu Lab X1",
+      "disabled": false
+    },
+    {
+      "index": 8,
+      "tag": "select",
+      "role": "",
+      "testid": "material-select",
+      "aria": "Material",
+      "title": "",
+      "text": "PLAPETGTPUABS",
+      "disabled": false
+    },
+    {
+      "index": 9,
+      "tag": "button",
+      "role": "",
+      "testid": "orient-x--90",
+      "aria": "Rotate X minus 90 degrees",
+      "title": "Rotate X -90 degrees",
+      "text": "X-90",
+      "disabled": false
+    },
+    {
+      "index": 10,
+      "tag": "button",
+      "role": "",
+      "testid": "orient-x-90",
+      "aria": "Rotate X plus 90 degrees",
+      "title": "Rotate X +90 degrees",
+      "text": "X+90",
+      "disabled": false
+    },
+    {
+      "index": 11,
+      "tag": "button",
+      "role": "",
+      "testid": "orient-y--90",
+      "aria": "Rotate Y minus 90 degrees",
+      "title": "Rotate Y -90 degrees",
+      "text": "Y-90",
+      "disabled": false
+    },
+    {
+      "index": 12,
+      "tag": "button",
+      "role": "",
+      "testid": "orient-y-90",
+      "aria": "Rotate Y plus 90 degrees",
+      "title": "Rotate Y +90 degrees",
+      "text": "Y+90",
+      "disabled": false
+    },
+    {
+      "index": 13,
+      "tag": "button",
+      "role": "",
+      "testid": "orient-z--90",
+      "aria": "Rotate Z minus 90 degrees",
+      "title": "Rotate Z -90 degrees",
+      "text": "Z-90",
+      "disabled": false
+    },
+    {
+      "index": 14,
+      "tag": "button",
+      "role": "",
+      "testid": "orient-z-90",
+      "aria": "Rotate Z plus 90 degrees",
+      "title": "Rotate Z +90 degrees",
+      "text": "Z+90",
+      "disabled": false
+    },
+    {
+      "index": 15,
+      "tag": "button",
+      "role": "",
+      "testid": "make-it-real-button",
+      "aria": "",
+      "title": "Ready to slice (92/100)\nVisual review: skipped - deterministic part family, math-gated\n— slice to make it real",
+      "text": "Make it real",
+      "disabled": false
+    },
+    {
+      "index": 16,
+      "tag": "select",
+      "role": "",
+      "testid": "connector-select",
+      "aria": "Printer connection",
+      "title": "",
+      "text": "mock (simulated)octoprint (setup)moonraker (setup)prusalink (setup)duet (setup)marlin (setup)bambu_p2s (setup)bambu_a1 (",
+      "disabled": false
+    },
+    {
+      "index": 17,
+      "tag": "button",
+      "role": "",
+      "testid": "send-to-printer-button",
+      "aria": "",
+      "title": "Send to the simulated printer connection",
+      "text": "Send",
+      "disabled": false
+    },
+    {
+      "index": 18,
+      "tag": "button",
+      "role": "",
+      "testid": "export-button",
+      "aria": "",
+      "title": "",
+      "text": "Export",
+      "disabled": false
+    },
+    {
+      "index": 19,
+      "tag": "a",
+      "role": "",
+      "testid": "",
+      "aria": "View GitHub Repository",
+      "title": "View GitHub Repository",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 20,
+      "tag": "a",
+      "role": "",
+      "testid": "",
+      "aria": "Download for Mac",
+      "title": "Download for Mac",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 21,
+      "tag": "button",
+      "role": "",
+      "testid": "settings-button",
+      "aria": "Settings",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 22,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "New file",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 23,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Hide file tree",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 24,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "main.scad",
+      "text": "main.scad",
+      "disabled": false
+    },
+    {
+      "index": 25,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "AIEditor+ NewNo conversation yetDescribe the changes you want to make belowa small test gearAttach imagesNo AI provider ",
+      "disabled": false
+    },
+    {
+      "index": 26,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "AI",
+      "disabled": false
+    },
+    {
+      "index": 27,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Change panel type",
+      "title": "Change panel type",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 28,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Editor",
+      "disabled": false
+    },
+    {
+      "index": 29,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Change panel type",
+      "title": "Change panel type",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 30,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "+ NewNo conversation yetDescribe the changes you want to make belowa small test gearAttach imagesNo AI provider configur",
+      "disabled": false
+    },
+    {
+      "index": 31,
+      "tag": "button",
+      "role": "",
+      "testid": "ai-new-conversation-button",
+      "aria": "",
+      "title": "Start new conversation",
+      "text": "+ New",
+      "disabled": false
+    },
+    {
+      "index": 32,
+      "tag": "textarea",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Enter submits. Shift+Enter adds a newline.",
+      "text": "a small test gear",
+      "disabled": false
+    },
+    {
+      "index": 33,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Upload images",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 34,
+      "tag": "button",
+      "role": "",
+      "testid": "ai-submit-button",
+      "aria": "",
+      "title": "Send (Enter). Shift+Enter adds a newline.",
+      "text": "Send",
+      "disabled": false
+    },
+    {
+      "index": 35,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Preview(3D)Console2Drag to orbit. Right-drag or Shift-drag to pan. Wheel to zoom. Use M, B, S, and A when the viewer is ",
+      "disabled": false
+    },
+    {
+      "index": 36,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Preview(3D)",
+      "disabled": false
+    },
+    {
+      "index": 37,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Change panel type",
+      "title": "Change panel type",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 38,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Console",
+      "disabled": false
+    },
+    {
+      "index": 39,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Change panel type",
+      "title": "Change panel type",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 40,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Drag to orbit. Right-drag or Shift-drag to pan. Wheel to zoom. Use M, B, S, and A when the viewer is focused to switch i",
+      "disabled": false
+    },
+    {
+      "index": 41,
+      "tag": "div",
+      "role": "",
+      "testid": "preview-3d-root",
+      "aria": "",
+      "title": "",
+      "text": "Drag to orbit. Right-drag or Shift-drag to pan. Wheel to zoom. Use M, B, S, and A when the viewer is focused to switch i",
+      "disabled": false
+    },
+    {
+      "index": 42,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-toggle-orbit",
+      "aria": "Orbit (Esc)",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 43,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-toggle-measure",
+      "aria": "Measure (M)",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 44,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-toggle-bbox",
+      "aria": "Bounds (B)",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 45,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-toggle-section",
+      "aria": "Section (S)",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 46,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-toggle-annotate",
+      "aria": "Annotate (A)",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 47,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-fit-view",
+      "aria": "Fit to View",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 48,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-toggle-orthographic",
+      "aria": "Orthographic Projection",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 49,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Wireframe Mode",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 50,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Toggle Shadows",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 51,
+      "tag": "button",
+      "role": "",
+      "testid": "preview-controls-hint-dismiss",
+      "aria": "Dismiss controls hint",
+      "title": "Dismiss controls hint",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 52,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "CustomizerNo parameters yetAsk the AI to add customizer parameters with sliders and labels.Refine with AIEdit Code",
+      "disabled": false
+    },
+    {
+      "index": 53,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Customizer",
+      "disabled": false
+    },
+    {
+      "index": 54,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Change panel type",
+      "title": "Change panel type",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 55,
+      "tag": "div",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "No parameters yetAsk the AI to add customizer parameters with sliders and labels.Refine with AIEdit Code",
+      "disabled": false
+    },
+    {
+      "index": 56,
+      "tag": "button",
+      "role": "",
+      "testid": "customizer-refine-button",
+      "aria": "",
+      "title": "",
+      "text": "Refine with AI",
+      "disabled": false
+    },
+    {
+      "index": 57,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Edit Code",
+      "disabled": false
+    },
+    {
+      "index": 58,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Customize",
+      "disabled": false
+    },
+    {
+      "index": 59,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Undo design",
+      "disabled": true
+    },
+    {
+      "index": 60,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Rotate X +90 degrees",
+      "text": "X+90",
+      "disabled": false
+    },
+    {
+      "index": 61,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Rotate Y +90 degrees",
+      "text": "Y+90",
+      "disabled": false
+    },
+    {
+      "index": 62,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Rotate Z +90 degrees",
+      "text": "Z+90",
+      "disabled": false
+    },
+    {
+      "index": 63,
+      "tag": "select",
+      "role": "",
+      "testid": "",
+      "aria": "Rail printer",
+      "title": "",
+      "text": "Bambu Lab P2SBambu Lab A1Elegoo Neptune 4 MaxBambu Lab P1PBambu Lab P1SBambu Lab X1 CarbonBambu Lab X1EBambu Lab A1 mini",
+      "disabled": false
+    },
+    {
+      "index": 64,
+      "tag": "select",
+      "role": "",
+      "testid": "",
+      "aria": "Rail material",
+      "title": "",
+      "text": "PLAPETGTPUABS",
+      "disabled": false
+    },
+    {
+      "index": 65,
+      "tag": "button",
+      "role": "",
+      "testid": "rail-make-it-real-button",
+      "aria": "",
+      "title": "",
+      "text": "Slice",
+      "disabled": false
+    },
+    {
+      "index": 66,
+      "tag": "button",
+      "role": "",
+      "testid": "rail-send-to-printer-button",
+      "aria": "",
+      "title": "",
+      "text": "Send",
+      "disabled": false
+    },
+    {
+      "index": 67,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Restore",
+      "disabled": false
+    },
+    {
+      "index": 68,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Restore",
+      "disabled": false
+    },
+    {
+      "index": 69,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Restore",
+      "disabled": false
+    },
+    {
+      "index": 70,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Restore",
+      "disabled": false
+    },
+    {
+      "index": 71,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Restore",
+      "disabled": false
+    },
+    {
+      "index": 72,
+      "tag": "li",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Simulated outcome recorded",
+      "disabled": false
+    },
+    {
+      "index": 73,
+      "tag": "li",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Simulated send completeJob mock-1",
+      "disabled": false
+    },
+    {
+      "index": 74,
+      "tag": "li",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Ready to print~51m 37s, 200 layers, 33.63 cm3 filament - 0.2 mm layers · Bambu Lab P2S",
+      "disabled": false
+    }
+  ],
+  "clickedControls": [
+    "preview-fit-view",
+    "preview-toggle-orthographic",
+    "preview-toggle-annotate"
+  ],
+  "rootText": "File\nEdit\nAI\nEdit\nCustomize\nRender (⌘↵)\nSave\nBambu Lab P2S\nBambu Lab A1\nElegoo Neptune 4 Max (profile blocked)\nBambu Lab P1P\nBambu Lab P1S\nBambu Lab X1 Carbon\nBambu Lab X1E\nBambu Lab A1 mini\nCreality K1\nCreality K1 Max\nCreality K1C\nCreality K2 Plus\nCreality Ender-3 V3\nCreality Ender-3 V3 KE\nCreality CR-10 SE\nPrusa MK4\nPrusa MINI\nAnycubic Kobra 2\nAnycubic Kobra 2 Max\nAnycubic Kobra S1\nElegoo Neptune 4\nElegoo Neptune 4 Pro\nElegoo Neptune 4 Plus\nQidi Q1 Pro\nQidi X-Max 3\nQidi X-Plus 3\nSovol SV06\nSovol SV07\nSovol SV08\n·\nPLA\nPETG\nTPU\nABS\n·\n0.2 mm layers\nX-90\nX+90\nY-90\nY+90\nZ-90\nZ+90\nMake it real\nmock (simulated)\noctoprint (setup)\nmoonraker (setup)\nprusalink (setup)\nduet (setup)\nmarlin (setup)\nbambu_p2s (setup)\nbambu_a1 (setup)\nSend\nExport\nVisual review: skipped - deterministic part family, math-gated\nLatest: Visual review: skipped - deterministic part family, math-gated\nCustomize\nReadiness visible\nOrient\nManual controls ready\nSlice\nSliced\nSend\nReady for mock\nFiles\nmain.scad\nAI\nEditor\n+ New\nNo conversation yet\nDescribe the changes you want to make below\nAttach images\nNo AI provider configured\nSend\nPreview(3D)\nConsole\n2\nDrag to orbit. Right-drag or Shift-drag to pan. Wheel to zoom. Use M, B, S, and A when the viewer is focused to switch inspection tools.\nCustomizer\nNo parameters yet\n\nAsk the AI to add customizer parameters with sliders and labels.\n\nRefine with AI\nEdit Code\nCUSTOMIZE\nReady to slice (92/100)\nVCL: Visual review: skipped - deterministic part family, math-gated\nCustomize\n",
+  "consoleErrors": [],
+  "responseErrors": []
+}

@@ -6,10 +6,11 @@
 
 > **2026-06-23 status note:** the beta core is now real: describe -> preview ->
 > customize/orient -> slice -> download/mock-send is implemented and covered by automated proof. The
-> advisory local Visual Correction Loop v1 exists, external-library admission is wired through a
-> sandbox with render proof, and iteration history exists as a source-snapshot transcript. Full
-> visual diff, rich Explain, server-side branching, and broad first-run/error-path coverage remain
-> incomplete. For current proof, see the canonical [STATUS matrix](STATUS.md).
+> native Windows package has staged, installed, and first-run proof. The advisory local Visual
+> Correction Loop v1 exists, external-library admission is wired through a sandbox with render proof,
+> and iteration history exists as a source-snapshot transcript. Full visual diff, rich Explain,
+> server-side branching, real hardware certification, and broader mobile/error-path coverage remain
+> beta work. For current proof, see the canonical [STATUS matrix](STATUS.md).
 
 This manual has three parts. Read the one that fits you:
 
@@ -54,9 +55,9 @@ together; the pieces are:
 
 **The first time you open TinkerQuarry, a setup wizard walks you through it:**
 
-> Current beta proof note: the setup surfaces are implemented, and native smoke can run with an
-> isolated profile. The fully clean first-run/dependency-absent release matrix is still a gate item;
-> see [STATUS.md](STATUS.md) before treating this as a final installer guarantee.
+> Current beta proof note: the setup surfaces are implemented and covered by isolated-profile native
+> smoke, installed-app smoke, and dependency-absent browser proof. See [STATUS.md](STATUS.md) for the
+> latest release evidence.
 
 1. **Welcome** — what the app does.
 2. **Set up your AI** — one click. TinkerQuarry downloads and starts the local AI for you; you don't
@@ -168,7 +169,8 @@ SPA front-end served by the engine's local web server.
 | OpenSCAD                                    | geometry kernel (SCAD → mesh, 3MF/STL)            | path set in `config/local.yaml` → `binaries.openscad` |
 | OrcaSlicer                                  | slicer (mesh → G-code, with printer profiles)     | `binaries.orcaslicer`                                 |
 | Ollama + `qwen2.5:7b`                       | on-device design-plan LLM                         | OpenAI-compatible endpoint at `:11434`                |
-| Ollama + `qwen2.5vl:7b`                     | on-device vision (photo/sketch + visual critique) | optional                                              |
+| Ollama + `qwen2.5vl:3b`                     | on-device photo/sketch reader                     | optional                                              |
+| Ollama + local VCL probe model(s)           | advisory visual critique after generation         | optional                                              |
 | trimesh / manifold3d / numpy / scipy        | mesh validation & hardening                       | pip deps                                              |
 | CadQuery                                    | _optional_ editable `.STEP` export                | absent → that feature is simply off                   |
 
@@ -251,9 +253,12 @@ optional `bambulabs-api` package), `moonraker`, `prusalink`. A send always requi
 ## AI backends
 
 The planner is an **on-device** OpenAI-compatible model (`qwen2.5:7b` via Ollama by default; chosen
-in an on-machine bake-off for reliable structured plans on CPU). Vision uses `qwen2.5vl:7b`. A
-**cloud** backend can be enabled opt-in (Settings; off by default) and is allow-listed from the
-shipped config so a local override can't silently widen it. Vision always runs locally.
+in an on-machine bake-off for reliable structured plans on CPU). Photo/sketch input uses the smaller
+local vision reader (`qwen2.5vl:3b`). The advisory Visual Correction Loop uses selectable local
+probe-mode critic models such as `qwen2.5vl:7b`, `qwen3-vl:8b`, or `minicpm-v:8b`, depending on what
+is installed. A **cloud** backend can be enabled opt-in (Settings; off by default) and is
+allow-listed from the shipped config so a local override can't silently widen it. Vision always runs
+locally unless the user explicitly chooses an alternate AI backend.
 
 ## Tests & dev checks
 

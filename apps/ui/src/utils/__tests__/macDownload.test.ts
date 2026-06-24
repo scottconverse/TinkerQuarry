@@ -27,8 +27,9 @@ describe('macDownload', () => {
     };
 
     await expect(resolveMacDownloadArch(navigatorLike)).resolves.toBe('aarch64');
-    expect(getMacDownloadUrl('aarch64')).toBe(
-      'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download/OpenSCAD.Studio_latest_aarch64.dmg'
+    expect(getMacDownloadUrl('aarch64')).toBeNull();
+    expect(getMacDownloadUrl('aarch64', 'https://example.com/releases')).toBe(
+      'https://example.com/releases/TinkerQuarry_latest_aarch64.dmg'
     );
   });
 
@@ -41,8 +42,9 @@ describe('macDownload', () => {
     };
 
     await expect(resolveMacDownloadArch(navigatorLike)).resolves.toBe('x64');
-    expect(getMacDownloadUrl('x64')).toBe(
-      'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download/OpenSCAD.Studio_latest_x64.dmg'
+    expect(getMacDownloadUrl('x64')).toBeNull();
+    expect(getMacDownloadUrl('x64', 'https://example.com/releases/')).toBe(
+      'https://example.com/releases/TinkerQuarry_latest_x64.dmg'
     );
   });
 

@@ -67,6 +67,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
   const [aiCanSave, setAiCanSave] = useState(false);
   const aiRef = useRef<AiSettingsHandle>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { updateTheme } = useTheme();
   const analytics = useAnalytics();
@@ -80,6 +81,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       if (initialTab) setActiveSection(initialTab);
       getPlatform().getLibraryPaths().then(setAutoDiscoveredPaths);
       lastTrackedSectionRef.current = null;
+      window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialTab]);
@@ -220,6 +222,15 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     onClose();
   }, [localVimConfig, settings, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [handleClose, isOpen]);
+
   if (!isOpen) return null;
 
   const isDesktop = '__TAURI_INTERNALS__' in window;
@@ -253,8 +264,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
       onClick={handleClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') handleClose();
+      }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
         className="rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex h-[600px] overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-secondary)',
@@ -274,6 +291,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             <Text
               variant="section-heading"
               as="h2"
+              id="settings-dialog-title"
               className="uppercase tracking-wider"
               color="tertiary"
             >
@@ -287,6 +305,8 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 key={item.key}
                 type="button"
                 data-testid={`settings-nav-${item.key}`}
+                aria-pressed={activeSection === item.key}
+                aria-current={activeSection === item.key ? 'page' : undefined}
                 onClick={() => setActiveSection(item.key)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150"
                 style={{
@@ -331,6 +351,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               {sectionTitle[activeSection]}
             </Text>
             <IconButton
+              ref={closeButtonRef}
               size="sm"
               onClick={handleClose}
               title="Close settings"

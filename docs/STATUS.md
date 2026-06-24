@@ -15,26 +15,28 @@ it real slices it to printable G-code -> mock Send records a simulated outcome.
 The native Windows app now also builds and smoke-tests from both the release executable and the
 installed NSIS copy. The packaged executable is `tinkerquarry.exe`.
 
-This is not final v1. The remaining gaps are concentrated in richer Explain/diff features, mobile
-and error-path browser coverage, hardware connector proof, and polish.
+This is not final v1. The remaining gaps are concentrated in richer Explain/diff features,
+hardware connector proof, the long tail of browser error/export/accessibility states, and polish.
 
 ## Verification Honesty
 
 The engine has genuine automated coverage: in-process HTTP, real OpenSCAD, render-on-tune,
 slice-to-G-code, save/reopen/source round-trip, live marker coverage, and real-tool marker coverage.
 
-The previous browser blind spot is partly closed. `pnpm test:e2e:web` is a committed Playwright
-happy-path test that boots the current app against the demo engine, prompts/builds, reaches the
+The previous browser blind spot is partly closed. `pnpm test:e2e:web` is committed Playwright
+coverage that boots the current app against the demo engine, prompts/builds, reaches the
 design-ready state, opens Make it real, handles first-real caution, slices, reaches Ready to print,
-sends through the mock connector, and records a simulated outcome.
+sends through the mock connector, records a simulated outcome, walks the desktop workspace controls,
+checks key menu/dialog accessibility wiring, and smoke-tests a mobile/narrow viewport.
 
 `pnpm test:e2e:tauri` is a committed native-runtime smoke that launches the built Tauri app, invokes
 `ensure_engine`, checks engine health, and verifies the UI surface. `pnpm test:e2e:tauri:installed`
 installs the current NSIS artifact into a temp directory, launches it with an isolated profile, and
 drives the native build/slice/send workflow through the mock connector.
 
-This is still not a full UI matrix. Mobile/narrow layouts, broad keyboard/accessibility traversal,
-hardware connector outcomes, and every error path remain outside the automated browser coverage.
+This is still not a full UI matrix. Hardware connector outcomes, every error path, every export
+format, and a comprehensive screen-reader/keyboard traversal remain outside the automated browser
+coverage.
 
 ## P0 Beta Status
 
@@ -65,7 +67,7 @@ hardware connector outcomes, and every error path remain outside the automated b
 | Visual diff           | partial | Lightweight pixel-change percentage exists after visual correction. A full before/after viewer remains unfinished.                                                                                        |
 | Export coverage       | working | `.scad`, STL, OBJ, AMF, 3MF, SVG, DXF, PNG preview, STEP when the engine offers it, and portable `.kimcad` import/export are available.                                                                   |
 | Accessibility         | partial | Several surfaces have automated a11y checks and fixes. Full workspace keyboard/focus/contrast/SR pass remains unfinished.                                                                                 |
-| Browser test breadth  | partial | Happy-path desktop web e2e exists. Mobile/narrow, hardware, accessibility traversal, broad export, and error paths remain to be expanded.                                                                 |
+| Browser test breadth  | partial | Desktop core-flow e2e, workspace-control traversal, menu/dialog keyboard checks, and mobile boot/no-horizontal-overflow smoke exist. Hardware, broad export, full accessibility traversal, and error paths remain to be expanded. |
 
 ## Latest Verification
 

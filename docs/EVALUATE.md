@@ -4,12 +4,13 @@ A no-spin walkthrough so you can judge the real product yourself, not a descript
 short smoke is a few minutes; the full proof commands are a release-gate run.
 
 > **Verification honesty:** the engine has real automated tests, and the main desktop web flow now has
-> a durable Playwright happy-path test. The checked-in browser test covers app boot against the demo
-> engine, prompt/build, rendered design-ready state, the right-side Customize / Make it real rail,
-> Make it real, first-real caution, slice, Ready-to-print state, mock Send, and post-send outcome
-> recording. This is not a full UI matrix: mobile/narrow layouts, every error path, and hardware
-> connector outcomes still need broader coverage. Browser e2e and native smoke now support isolated
-> temp profile roots so proof does not depend on Scott's existing app data.
+> durable Playwright coverage. The checked-in browser tests cover app boot against the demo engine,
+> prompt/build, rendered design-ready state, the right-side Customize / Make it real rail, Make it
+> real, first-real caution, slice, Ready-to-print state, mock Send, post-send outcome recording,
+> desktop workspace controls, menu/dialog keyboard wiring, and a mobile/narrow smoke. This is not a
+> full UI matrix: every error path, every export format, real hardware connector outcomes, and
+> comprehensive accessibility traversal still need broader coverage. Browser e2e and native smoke now
+> support isolated temp profile roots so proof does not depend on Scott's existing app data.
 
 ## Run It
 
@@ -86,13 +87,21 @@ Then open `http://localhost:1420`.
   Admitted libraries are user-provided and are not redistributed by TinkerQuarry.
 - **Explain/diff/iteration history**: current Explain is still mostly readiness/design summary.
   Persistent iteration history exists; full visual/structural diff remains incomplete.
-- **Browser-level coverage breadth**: the committed Playwright test covers the core happy path through
-  mock send/outcome. It does not yet cover mobile/narrow layouts, hardware connectors, every export
-  format, every profile, or accessibility keyboard traversal.
+- **Browser-level coverage breadth**: the committed Playwright tests cover the core path through mock
+  send/outcome, desktop workspace controls, menu/dialog keyboard wiring, and a mobile/narrow smoke.
+  They do not yet cover hardware connectors, every export format, every profile, every error path, or
+  comprehensive accessibility traversal.
 
 ## Automated Proof Commands
 
 From `C:\Users\Scott\Desktop\CODE\tinkerquarry`:
+
+```powershell
+pnpm test:release
+```
+
+The release command above runs the gate, native package build, native smoke, and installed-app e2e
+proof. To run the component lanes separately:
 
 ```powershell
 pnpm -r lint

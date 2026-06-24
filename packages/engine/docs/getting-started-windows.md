@@ -1,16 +1,16 @@
 # Getting started on Windows
 
-> **The easy way (the beta installer):** download `KimCad-Setup-<version>.exe` from the
-> releases page, double-click it, and follow
+> **The easy way (the beta installer):** download `TinkerQuarry_<version>_x64-setup.exe` from the
+> TinkerQuarry release bundle, double-click it, and follow
 > **[docs/install-guide.md](install-guide.md)** — no terminal at any point. The installer
-> bundles everything below, and the in-app setup wizard's **Set up KimCad's AI** button
+> bundles everything below, and the in-app setup wizard's **Set up local AI** button
 > handles the AI engine and the model downloads automatically — no manual Ollama install.
 >
 > **The rest of this page is the FROM-SOURCE path** — for developers, or anyone who
-> prefers to run KimCad from a code checkout. (Even here, KimCad can set up its own AI
+> prefers to run the KimCad engine from a code checkout. (Even here, KimCad can set up its own AI
 > engine on first launch — Step 2 below is just the manual equivalent.)
 
-This walks you from nothing to a running KimCad, step by step. No CAD experience needed —
+This walks you from nothing to a running TinkerQuarry/KimCad source checkout, step by step. No CAD experience needed —
 and no programming. You'll copy a few commands into a terminal; each one is given exactly
 as you should type it. Setup means installing Python and KimCad's own files, then letting
 KimCad set up its AI (or installing Ollama yourself, below) — about 15–30 minutes, most of

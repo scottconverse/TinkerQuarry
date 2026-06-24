@@ -13,7 +13,7 @@ Attach all three (artifact + both attestation files) to the GitHub release.
 
 Usage (defaults to the standard installer path):
 
-    python scripts/prepare_release_assets.py [dist/KimCad-Setup-<version>.exe ...]
+    python scripts/prepare_release_assets.py [dist/TinkerQuarry-Setup-<version>.exe ...]
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def _version() -> str:
 
 def main(argv: list[str]) -> int:
     version = _version()
-    artifacts = [Path(a) for a in argv] or [ROOT / "dist" / f"KimCad-Setup-{version}.exe"]
+    artifacts = [Path(a) for a in argv] or [ROOT / "dist" / f"TinkerQuarry-Setup-{version}.exe"]
     missing = [a for a in artifacts if not a.exists()]
     if missing:
         print(f"ERROR: artifact(s) not found: {', '.join(str(m) for m in missing)}")
@@ -77,7 +77,7 @@ def main(argv: list[str]) -> int:
     (out_dir / "SHA256SUMS.txt").write_text("\n".join(sums_lines) + "\n", encoding="utf-8")
 
     manifest = {
-        "product": "KimCad",
+        "product": "TinkerQuarry",
         "version": version,
         "build_date_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "source_commit": _git_commit(),

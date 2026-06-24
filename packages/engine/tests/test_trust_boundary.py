@@ -9,6 +9,8 @@ behavior is covered in test_settings_store.py.
 from __future__ import annotations
 
 import subprocess
+import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -67,6 +69,68 @@ def test_openscad_child_env_omits_planted_secrets(tmp_path, monkeypatch):
     assert "PRINTER_TOKEN" not in env
     assert env.get("TOKENIZER_PATH") == "keep-me"
     assert "OPENSCADPATH" in env  # the overlay the child actually needs survives
+
+
+def test_orcaslicer_child_env_omits_planted_secrets(tmp_path, monkeypatch):
+    """The slicer is a third-party subprocess and does not need LLM/printer credentials."""
+    import kimcad.slicer as slicer_mod
+    from kimcad.slicer import SliceSettings, slice_model
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-planted")
+    monkeypatch.setenv("PRINTER_TOKEN", "tok-planted")
+    monkeypatch.setenv("TOKENIZER_PATH", "keep-me")
+
+    seen = {}
+
+    def _fake_run(cmd, **kwargs):
+        seen["env"] = kwargs.get("env")
+        out = Path(cmd[cmd.index("--export-3mf") + 1])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(out, "w") as zf:
+            zf.writestr("3D/3dmodel.model", "<model/>")
+            zf.writestr("Metadata/plate_1.gcode", "G1 X1 Y1 E1\n")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(slicer_mod.subprocess, "run", _fake_run)
+    stub = tmp_path / "orca-slicer.exe"
+    stub.write_bytes(b"")
+
+    slice_model(
+        tmp_path / "part.3mf",
+        binary=stub,
+        out_dir=tmp_path,
+        settings=SliceSettings(Path("machine.json"), Path("process.json"), Path("filament.json")),
+    )
+
+    env = seen["env"]
+    assert env is not None
+    assert "OPENROUTER_API_KEY" not in env
+    assert "PRINTER_TOKEN" not in env
+    assert env.get("TOKENIZER_PATH") == "keep-me"
+
+
+def test_printproof3d_child_env_omits_planted_secrets(monkeypatch):
+    """PrintProof3D validation is also run at arm's length with a scrubbed env."""
+    import kimcad.printproof3d as pp3d
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-planted")
+    monkeypatch.setenv("PRINTER_TOKEN", "tok-planted")
+    monkeypatch.setenv("TOKENIZER_PATH", "keep-me")
+
+    seen = {}
+
+    def _fake_run(cmd, **kwargs):
+        seen["env"] = kwargs.get("env")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(pp3d.subprocess, "run", _fake_run)
+    pp3d._subprocess_runner(["printproof3d", "--version"], 1.0)
+
+    env = seen["env"]
+    assert env is not None
+    assert "OPENROUTER_API_KEY" not in env
+    assert "PRINTER_TOKEN" not in env
+    assert env.get("TOKENIZER_PATH") == "keep-me"
 
 
 def test_scrub_is_shared_single_source():

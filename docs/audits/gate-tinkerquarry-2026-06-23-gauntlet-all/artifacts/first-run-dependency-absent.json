@@ -1,0 +1,178 @@
+{
+  "url": "http://127.0.0.1:1434/",
+  "title": "TinkerQuarry",
+  "profileDir": "C:\\Users\\Scott\\Desktop\\CODE\\tinkerquarry\\docs\\audits\\gate-tinkerquarry-2026-06-23-gauntlet-all\\artifacts\\first-run-absent-profile",
+  "profileExists": true,
+  "rootText": "What do you want to create?\nDrop up to 4 images\nBuild\nCould not reach the local engine. Is it running?Check again\nTry an example:\nCreate a 3D printable mini lamp\nDesign a parametric phone stand\nMake a custom gear with 20 teeth\nCreate a simple mounting bracket\nDesign a pencil holder with holes\nMy Designs:\nImport .kimcad\n\nNo saved designs yet.\n\nOpen File\nOpen Folder\nStart with empty project →",
+  "buildVisible": true,
+  "buildEnabled": false,
+  "recoveryVisible": true,
+  "exampleStates": [
+    {
+      "text": "Create a 3D printable mini lamp",
+      "enabled": false
+    },
+    {
+      "text": "Design a parametric phone stand",
+      "enabled": false
+    },
+    {
+      "text": "Make a custom gear with 20 teeth",
+      "enabled": false
+    }
+  ],
+  "interactives": [
+    {
+      "index": 0,
+      "tag": "textarea",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 1,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "Upload images",
+      "title": "",
+      "text": "",
+      "disabled": false
+    },
+    {
+      "index": 2,
+      "tag": "button",
+      "role": "",
+      "testid": "ai-submit-button",
+      "aria": "",
+      "title": "Build",
+      "text": "Build",
+      "disabled": true
+    },
+    {
+      "index": 3,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "",
+      "text": "Check again",
+      "disabled": false
+    },
+    {
+      "index": 4,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Set up local AI before starting an example",
+      "text": "Create a 3D printable mini lamp",
+      "disabled": true
+    },
+    {
+      "index": 5,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Set up local AI before starting an example",
+      "text": "Design a parametric phone stand",
+      "disabled": true
+    },
+    {
+      "index": 6,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Set up local AI before starting an example",
+      "text": "Make a custom gear with 20 teeth",
+      "disabled": true
+    },
+    {
+      "index": 7,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Set up local AI before starting an example",
+      "text": "Create a simple mounting bracket",
+      "disabled": true
+    },
+    {
+      "index": 8,
+      "tag": "button",
+      "role": "",
+      "testid": "",
+      "aria": "",
+      "title": "Set up local AI before starting an example",
+      "text": "Design a pencil holder with holes",
+      "disabled": true
+    },
+    {
+      "index": 9,
+      "tag": "button",
+      "role": "",
+      "testid": "import-kimcad-design",
+      "aria": "",
+      "title": "",
+      "text": "Import .kimcad",
+      "disabled": false
+    },
+    {
+      "index": 10,
+      "tag": "button",
+      "role": "",
+      "testid": "welcome-open-file",
+      "aria": "",
+      "title": "",
+      "text": "Open File",
+      "disabled": false
+    },
+    {
+      "index": 11,
+      "tag": "button",
+      "role": "",
+      "testid": "welcome-open-folder",
+      "aria": "",
+      "title": "",
+      "text": "Open Folder",
+      "disabled": false
+    },
+    {
+      "index": 12,
+      "tag": "button",
+      "role": "",
+      "testid": "welcome-start-empty-project",
+      "aria": "",
+      "title": "",
+      "text": "Start with empty project →",
+      "disabled": false
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ],
+  "responseErrors": [
+    "500 http://127.0.0.1:1434/api/health",
+    "500 http://127.0.0.1:1434/api/designs",
+    "500 http://127.0.0.1:1434/api/model-status",
+    "500 http://127.0.0.1:1434/api/options",
+    "500 http://127.0.0.1:1434/api/connectors",
+    "500 http://127.0.0.1:1434/api/designs",
+    "500 http://127.0.0.1:1434/api/model-status",
+    "500 http://127.0.0.1:1434/api/designs",
+    "500 http://127.0.0.1:1434/api/designs"
+  ]
+}

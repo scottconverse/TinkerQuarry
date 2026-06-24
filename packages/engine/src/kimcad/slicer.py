@@ -36,6 +36,7 @@ from typing import Any
 
 from kimcad.config import Material, Printer
 from kimcad.errors import ToolMissingError
+from kimcad.subprocess_env import scrubbed_env
 
 # A real motion line: G0/G1 (linear) or G2/G3 (arc), case-insensitive, with a word
 # boundary so G10/G28/G92 etc. are not mistaken for moves.
@@ -222,7 +223,13 @@ def slice_model(
 
     started = time.monotonic()
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            env=scrubbed_env(),
+        )
     except subprocess.TimeoutExpired as e:
         raise SliceTimeout(f"orca-slicer exceeded {timeout_s}s") from e
     duration = time.monotonic() - started

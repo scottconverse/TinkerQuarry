@@ -69,7 +69,7 @@ describe('/s/[[shareId]] metadata rewriting', () => {
     );
 
     const html = await response.text();
-    expect(html).toContain('content="Bracket — OpenSCAD Studio"');
+    expect(html).toContain('content="Bracket — TinkerQuarry"');
     expect(html).toContain('content="https://studio.test/icon-512.png"');
     expect(html).toContain('content="https://studio.test/s/abc12345"');
     expect(response.headers.get('Cross-Origin-Embedder-Policy')).toBe('require-corp');

@@ -1,4 +1,4 @@
-# KimCad FAQ
+# TinkerQuarry / KimCad FAQ
 
 Quick answers to the questions beta users actually ask. Deeper detail lives in the
 [User Manual](USER-MANUAL.md); install steps in the [install guide](install-guide.md);
@@ -7,9 +7,9 @@ problems in [troubleshooting](troubleshooting.md).
 ### 1. Windows showed a scary blue "Windows protected your PC" screen. Is this safe?
 
 Yes — that's SmartScreen reacting to an **unsigned beta** (we don't have a code-signing
-certificate yet; signing is planned). Click **More info**, confirm the file is the KimCad
+certificate yet; signing is planned). Click **More info**, confirm the file is the TinkerQuarry
 installer you downloaded ("Unknown publisher" is expected), then **Run anyway**. Only
-download the installer from the official KimCad GitHub Releases page — and if you want
+download the installer from the TinkerQuarry release bundle — and if you want
 certainty, verify the SHA-256 checksum published alongside it. KimCad runs entirely on your
 computer; the installer uploads nothing.
 

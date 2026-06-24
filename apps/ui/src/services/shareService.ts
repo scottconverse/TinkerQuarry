@@ -1,11 +1,11 @@
 import type { CreateShareRequest, CreateShareResponse, ShareData } from '../types/share';
 
 export function getShareApiBase(): string {
-  return window.__SHARE_API_BASE || 'https://openscad-studio.pages.dev';
+  return window.__SHARE_API_BASE || '';
 }
 
 export function isShareEnabled(): boolean {
-  return window.__SHARE_ENABLED === true;
+  return window.__SHARE_ENABLED === true && Boolean(getShareApiBase());
 }
 
 type ShareErrorOptions = {

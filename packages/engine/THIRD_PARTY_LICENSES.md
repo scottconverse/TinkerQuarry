@@ -6,9 +6,9 @@ combined work is GPL-2.0-compatible.
 
 > **Why GPL-2.0:** TinkerQuarry (Option B) absorbs the **OpenSCAD-Studio** front-end, which is
 > **GPL-2.0-only**. A combined work containing GPL-2.0-only code must itself be GPL-2.0. KimCad's
-> own code was therefore relicensed Apache-2.0 → GPL-2.0. See
-> [`STRATEGY-RECON.md`](../STRATEGY-RECON.md) for the full analysis. *(Not legal advice; get counsel
-> sign-off before a public 1.0.)*
+> own code was therefore relicensed Apache-2.0 → GPL-2.0. The current root
+> [STATUS matrix](../../docs/STATUS.md) tracks release proof and remaining beta work. *(Not legal
+> advice; get counsel sign-off before a public 1.0.)*
 
 ## 1. KimCad's own code & templates
 
@@ -35,10 +35,10 @@ their own licenses and source-availability terms.
 | **PrintProof3D 0.6.2** | MIT | readiness validation engine: KimCad shells out to validate the rendered mesh | Windows binary is fetched from the GitHub release and pinned by SHA-256 in `scripts/build_installer.py`. Source/release: <https://github.com/scottconverse/PrintProof3D/releases/tag/v0.6.2>. |
 | Ollama + models (qwen2.5:7b / qwen2.5vl:7b / qwen3-vl:8b / minicpm-v:8b) | Ollama: MIT · Qwen models: Apache-2.0 · MiniCPM-V model license per upstream distribution | local AI and optional local visual critique, separate process at `:11434` | Not bundled in the installer; managed/setup flows may download or use a user-installed local runtime. |
 
-## 4. Bundled SCAD libraries (planned vendoring — all GPLv2-compatible)
+## 4. Bundled SCAD libraries (vendored — all GPLv2-compatible)
 
-Per [STRATEGY-RECON](../STRATEGY-RECON.md), the permissive SCAD stack vendored into the approved
-`library/` path. All are GPLv2-compatible (✅ redistributable in a GPL-2.0 product):
+The permissive SCAD stack is vendored into the approved `library/` path. All are GPLv2-compatible
+(redistributable in a GPL-2.0 product):
 
 | Library | License |
 |---|---|
