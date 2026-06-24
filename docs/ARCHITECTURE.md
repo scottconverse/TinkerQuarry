@@ -143,8 +143,8 @@ pnpm test:release
 
 v1.3.1 was tagged and published from commit `4e159c2a189e4b388204baf636acd46ac430a1c0`
 after the release command, installed-app smoke, and GauntletGate pass were clean. The current `main`
-branch also has a post-release clean GauntletGate checkpoint at
-`fb8dff8583af6450f1ed61c8a854b1bd4be51876` / `gauntletgate-2026-06-24-clean`.
+branch also has a post-release clean GauntletGate rerun checkpoint at
+`gauntletgate-2026-06-24-rerun-clean-2`.
 
 See:
 

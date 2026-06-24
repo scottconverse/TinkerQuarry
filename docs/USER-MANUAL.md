@@ -346,8 +346,8 @@ pnpm test:release
 
 For published v1.3.1, it passed on commit `4e159c2a189e4b388204baf636acd46ac430a1c0`
 before the public tag and release assets were published. The current `main` branch has an additional
-post-release clean GauntletGate checkpoint at
-`fb8dff8583af6450f1ed61c8a854b1bd4be51876` / `gauntletgate-2026-06-24-clean`. The gate includes:
+post-release clean GauntletGate rerun checkpoint at
+`gauntletgate-2026-06-24-rerun-clean-2`. The gate includes:
 
 - lint;
 - type-check;

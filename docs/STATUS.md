@@ -2,7 +2,7 @@
 
 **As of:** 2026-06-24
 **Product release:** v1.3.1
-**Current clean-gate HEAD:** fb8dff8583af6450f1ed61c8a854b1bd4be51876
+**Current clean-gate marker:** `gauntletgate-2026-06-24-rerun-clean-2`
 
 This is the current source of truth for the canonical `tinkerquarry` product repo. It supersedes prior
 "done", "clear to advance", and manual-only verification claims.

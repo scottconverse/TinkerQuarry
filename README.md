@@ -121,8 +121,8 @@ pnpm test:release
 
 For published `v1.3.1`, this passed on commit
 `4e159c2a189e4b388204baf636acd46ac430a1c0` before the public tag and release assets
-were published. The post-release clean gate is recorded separately at
-`gauntletgate-2026-06-24-clean` / `fb8dff8583af6450f1ed61c8a854b1bd4be51876`.
+were published. The post-release clean rerun gate is recorded separately at
+`gauntletgate-2026-06-24-rerun-clean-2`.
 It covers:
 
 - lint and type-check;
