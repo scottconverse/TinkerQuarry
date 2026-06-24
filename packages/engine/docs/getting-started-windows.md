@@ -61,18 +61,18 @@ designer (`qwen2.5:7b`, ~4.7 GB) and the small vision model that reads photos an
 > Either way KimCad uses whatever's there. `ollama list` (or `kimcad models` once installed)
 > shows both `qwen2.5:7b` and `qwen2.5vl:3b` once they're present.
 
-## Step 3 — Get KimCad
+## Step 3 — Get TinkerQuarry
 
 Download the code as a ZIP from the project's GitHub page (the green **Code** button →
 **Download ZIP**), then unzip it somewhere easy. **Watch the folder nesting:** GitHub's
-ZIP unpacks into a folder named like `KimCadClaude-main` — that *inner* folder (the one
-containing `README.md` and `pyproject.toml`) is your KimCad folder. Move/rename it to
-`C:\KimCad` so it matches the commands below. (If you know git: `git clone` works too.)
+ZIP unpacks into a folder named like `TinkerQuarry-main` — that *inner* folder is your
+TinkerQuarry checkout. The KimCad engine lives under `packages\engine`. Move/rename the checkout to
+`C:\TinkerQuarry` so it matches the commands below. (If you know git: `git clone` works too.)
 
 Then, in your terminal — from the folder that contains `pyproject.toml`:
 
 ```
-cd C:\KimCad
+cd C:\TinkerQuarry\packages\engine
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.lock
@@ -101,7 +101,7 @@ screen shows live progress the whole time.
 ## Day-to-day
 
 - **Starting KimCad later:** open a terminal, then
-  `cd C:\KimCad`, `.venv\Scripts\activate`, `kimcad web`. KimCad starts its own AI engine
+  `cd C:\TinkerQuarry\packages\engine`, `.venv\Scripts\activate`, `kimcad web`. KimCad starts its own AI engine
   automatically (and a system Ollama, if you installed one, starts itself with Windows).
 - **Your designs are saved automatically** — see [guide-my-designs.md](guide-my-designs.md).
 - **Stopping:** press `Ctrl+C` in the terminal, or just close it.

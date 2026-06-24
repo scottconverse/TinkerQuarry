@@ -1,0 +1,8 @@
+title: TinkerQuarry
+description: Local-first AI CAD for real 3D-printable parts.
+markdown: kramdown
+theme: null
+exclude:
+  - audits/
+  - handoff/
+  - prd/

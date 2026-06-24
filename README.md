@@ -1,51 +1,83 @@
 # TinkerQuarry
 
-**Status: beta core flow implemented and under active gate hardening. Not final v1.**
+**Local-first AI CAD for real 3D-printable parts.**
 
-TinkerQuarry is a local-first CAD-to-print application: describe a part in plain English, tune it,
-inspect the generated OpenSCAD, and produce a checked printable file. The intended differentiator is a
-Visual Correction Loop that looks at rendered views of the generated model and fixes spatial mistakes.
+TinkerQuarry turns a plain-English prompt into a checked, printable file. Describe a part, inspect
+and tune the generated OpenSCAD, validate it against your printer, slice it, then download or send
+the job through a configured connector. The product is private by default: no account, no telemetry,
+and no cloud model unless you explicitly configure one.
 
-The current repo is the canonical product repo. The engine is forked into `packages/engine`; the
-OpenSCAD Studio front end is forked into `apps/ui`.
+[![Release](https://img.shields.io/badge/release-v1.3.0-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.0)
+[![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
+[![Status](https://img.shields.io/badge/gate-0%2F0%2F0%2F0%2F0-1d7a4e)](docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md)
 
-## Honest State
+## What It Does
 
-What is real and worth trusting:
+TinkerQuarry is built for functional 3D-printing work:
 
-- The manufacturing engine can design, gate, orient, slice, save, reopen, and serve generated source.
-- The front end boots as the TinkerQuarry Studio app and is wired to the local engine for the core
-  describe-to-viewer and make-it-real download flow.
-- Manual build-plate orientation is wired in the UI and engine; changing pose invalidates stale
-  slices/G-code before the next Make it real action.
-- Send-to-printer UI is wired after a successful slice, with connector selection and simulated/real
-  outcome provenance.
-- Engine coverage is substantial and real; the core browser flow now has durable Playwright coverage.
-- Native Windows packaging builds and has been smoke-tested from both the release executable and the
-  installed NSIS copy.
-- Source/license disclosure exists in-app for the current core components.
+1. **Describe** the object you need, such as `a wall hook for a 12 mm dowel`.
+2. **Review** the generated model in the Studio workspace with viewer controls, source view, and
+   parameter surfaces.
+3. **Make it real** by selecting a printer/material, applying orientation, and running the
+   printability gate.
+4. **Slice** only after the model passes readiness checks.
+5. **Download or send** the proven output, with mock-send and outcome recording covered by release
+   tests.
 
-What is still not done:
+## Current Release Truth
 
-- The Visual Correction Loop has an advisory local probe-mode v1 and bounded autonomous correction
-  pass, but not metrology-grade critique or a full before/after evidence viewer.
-- Bundled third-party SCAD libraries are vendored, with caveats noted below.
-- External-library admission is wired through consent, sandbox copy, manifest, sanitizer, and real
-  OpenSCAD render proof. User-provided libraries are not redistributed.
-- Persistent iteration history exists, but full structural/visual diff and server-side branching
-  remain incomplete.
-- Browser-level coverage is still narrow: happy-path desktop web flow through mock send/outcome and
-  native startup/workflow smoke are covered, but not a broad mobile/accessibility/error-path matrix.
+Version `v1.3.0` is a Windows beta release. The core product path is implemented and release-gated:
 
-For the current detailed truth, read:
+- Prompt -> local KimCad engine -> OpenSCAD model -> Studio viewer.
+- Customize / Make it real rail with readiness, manual orientation, slice, send, and iteration log.
+- Printability gate blocks stale or unsafe manufacturing output.
+- Mock send/outcome path is browser-tested.
+- Native Tauri Windows package builds and installed-app smoke passes.
+- GitHub release gate passed locally with `0 Blocker / 0 Critical / 0 Major / 0 Minor / 0 Nit`.
 
-- [docs/STATUS.md](docs/STATUS.md)
-- [docs/EVALUATE.md](docs/EVALUATE.md)
-- [docs/audits/honesty-audit-2026-06-22.md](docs/audits/honesty-audit-2026-06-22.md)
+Known beta boundaries are documented, not hidden:
 
-## Run
+- Hardware connector proof beyond mock send remains a validation lane.
+- Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
+- Full visual diff and richer Explain surfaces remain future work.
+- Browser coverage includes the core flow, workspace controls, menu/dialog keyboard checks, and
+  mobile smoke; it is not yet every error/export/accessibility permutation.
 
-Use two PowerShell terminals.
+See [docs/STATUS.md](docs/STATUS.md) for the evidence-backed status matrix.
+
+## Architecture At A Glance
+
+![TinkerQuarry architecture](docs/assets/tinkerquarry-architecture.svg)
+
+TinkerQuarry is a desktop-first product composed of:
+
+- **React/TypeScript Studio app** in `apps/ui`.
+- **Tauri WebView2 shell** for the native Windows package.
+- **KimCad Python engine** in `packages/engine`.
+- **OpenSCAD 2026.03.16 Manifold** for geometry rendering.
+- **OrcaSlicer** for G-code generation.
+- **PrintProof3D 0.6.2** for printability analysis.
+- **Optional local/cloud model providers** selected by the user.
+
+The product name is **TinkerQuarry**. The internal engine and CLI are **KimCad**. That naming split is
+intentional because KimCad remains the reusable engine layer inside this product.
+
+## Install And Use
+
+The supported beta target is Windows.
+
+1. Download the release installer when published, or build from source with the commands below.
+2. Open TinkerQuarry.
+3. Choose or confirm printer/material settings.
+4. Describe a part and build it.
+5. Slice only after the app shows readiness.
+
+Full instructions are in the [User Manual](docs/USER-MANUAL.md).
+
+## Developer Quick Start
+
+Use two PowerShell terminals:
 
 ```powershell
 # Terminal 1: engine
@@ -60,77 +92,54 @@ cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
 pnpm dev
 ```
 
-Then open `http://localhost:1420`.
+Open `http://localhost:1420`.
 
-## Tests
+## Release Proof
+
+The local release command is:
 
 ```powershell
-# Root UI/web checks
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry
-pnpm -r lint
-pnpm -r type-check
-cd apps\ui
-node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js --runInBand
-cd ..\..
-pnpm test:web:unit
-
-# Durable browser flow: app boot -> prompt/build -> Make it real -> slice -> Send -> outcome
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry
-pnpm test:e2e:web
-
-# Native Tauri runtime smoke against the built release exe
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry
-pnpm test:e2e:tauri
-
-# Native Tauri workflow smoke against the installed app, with isolated user profile
-pnpm test:e2e:tauri:installed
-
-# Full local release proof: gate tests, Rust tests, native build, release smoke, installed smoke
 pnpm test:release
-
-# Native Windows package build
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry
-pnpm --dir apps\ui tauri build
-
-# Front-end unit suite, direct app command
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
-node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js
-
-# Live API integration test; requires the engine running on port 8765
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
-node --experimental-vm-modules --no-warnings node_modules\jest\bin\jest.js engineLive.integration
-
-# Engine suites
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
-.\.venv\Scripts\python.exe -m pytest tests -m "not live" -q
-.\.venv\Scripts\python.exe -m pytest tests -m live -q
-.\.venv\Scripts\python.exe -m pytest tests -m real_tool -q
 ```
 
-See [docs/STATUS.md](docs/STATUS.md) and [docs/EVALUATE.md](docs/EVALUATE.md) for current proof
-commands, known gaps, and environment setup.
+For `v1.3.0`, this passed on commit `0cf99a0` and covered:
 
-## Repository Decision
+- lint and type-check;
+- UI Jest suite;
+- web unit suite;
+- full engine pytest suite;
+- Playwright browser walkthroughs;
+- Rust/Tauri tests;
+- native Windows build;
+- release executable smoke;
+- installed NSIS workflow smoke.
 
-- `tinkerquarry` is the product repo of record.
-- `KimCadClaude` remains a separate product for a different audience.
-- `openscad-studio` is the upstream front-end base already forked into `apps/ui`.
+The final GauntletGate report is
+[docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md](docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md).
 
-## Library Decision
+## Documentation
 
-TinkerQuarry remains **GPL-2.0-only**. Bundled libraries must be GPLv2-compatible.
+- [Professional User Manual](docs/USER-MANUAL.md)
+- [Architecture And Technologies](docs/ARCHITECTURE.md)
+- [Evaluation Guide](docs/EVALUATE.md)
+- [Status Matrix](docs/STATUS.md)
+- [Third-Party Licenses](packages/engine/THIRD_PARTY_LICENSES.md)
 
-Vendored under `packages/engine/library/vendor` with pinned commits and attribution:
+## Repository Map
 
-- BOSL2
-- Round-Anything
-- YAPP_Box
-- gridfinity-rebuilt-openscad
-
-Dan Kirshner `threads.scad` is **not** vendored into this GPL-2.0-only repo because the available
-source is GPL-3.0-or-later. Thread support is provided by first-party `packages/engine/library/threads.scad`,
-which wraps vendored BOSL2's BSD-2-Clause threading modules.
+```text
+apps/ui/          TinkerQuarry Studio UI and Tauri desktop shell
+apps/web/         lightweight public/share web surface
+packages/engine/  KimCad engine, HTTP API, tools, config, printer profiles
+packages/shared/  shared package helpers
+docs/             product docs, status, audits, landing page, manual
+scripts/          native release and smoke-test helpers
+```
 
 ## License
 
-GPL-2.0-only. See [LICENSE](LICENSE).
+TinkerQuarry is GPL-2.0-only. See [LICENSE](LICENSE).
+
+Bundled third-party SCAD libraries are selected for GPL-2.0 compatibility. Dan Kirshner
+`threads.scad` is intentionally excluded because the available source is GPL-3.0-or-later; thread
+support is provided by a first-party wrapper over vendored BOSL2.

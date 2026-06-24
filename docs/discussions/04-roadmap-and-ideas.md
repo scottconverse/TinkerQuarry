@@ -1,35 +1,33 @@
-<!-- Category: 💡 Ideas -->
+<!-- Category: Ideas -->
 
-# Roadmap & ideas — what should we build next?
+# Roadmap and ideas
 
-Here's where TinkerQuarry is and where it's headed. **Reply with what *you* want** — upvote others'
-ideas with 👍 so we can see what matters most.
+Use this thread for feature requests, beta feedback, and workflow ideas.
 
-### ✅ Working today
-- Plain-English → design → **printability gate** → slice → print-ready G-code, end-to-end, local.
-- On-device AI planner; photo/sketch input (on-device vision).
-- 3D preview, parameter refinement, design save/export (`.kimcad`).
-- Direct send connectors: OctoPrint, Bambu (LAN), Moonraker, PrusaLink.
-- Passes the adversarial release gate (0 blockers; new users reach the core feature).
+## v1.3.0 baseline
 
-### 🔜 Near-term
-- **Physical-printer validation** — the send path is wired; real-hardware shakedown is next.
-- **Licensing/About surface** — an in-app third-party-licenses panel.
-- **Editable STEP export** polish (CadQuery path).
-- Smoothing the first-design cold-start (determinate progress; model warm-keep).
+The Windows beta now has a release-gated core path: prompt, design, inspect, validate, slice, mock
+send, and outcome recording.
 
-### 🧭 Bigger directions (want your input)
-- More **templates** (the deterministic, no-LLM fast path) — which functional parts should be
-  first-class? Brackets, enclosures, mounts, gridfinity-style bins, cable management…
-- **Assemblies / multi-part** designs.
-- **Tolerances & fit** presets per printer/material (clearance that just works).
-- **More printers** out of the box.
-- A **part library** you can browse and remix.
-- Non-Windows packaging.
+## High-value next areas
 
-### 💬 Tell us
-1. What did you **try to make** that didn't come out right? (Failure cases drive the roadmap.)
-2. What **template** would you use weekly?
-3. What's the **one feature** that would make this part of your workflow?
+- Real hardware connector certification and reports.
+- More deterministic templates for common functional parts.
+- Stronger visual diff and Explain surfaces.
+- Broader accessibility and error-path browser coverage.
+- Better tolerance presets per printer/material.
+- More packaging targets after Windows.
+- Part library / remix workflow.
 
-No idea is too small. The best roadmap is the one shaped by what people actually print.
+## What to include in an idea
+
+```text
+Problem:
+Who has this problem:
+What a good solution would feel like:
+How often you would use it:
+Any example part or workflow:
+```
+
+Failure cases are welcome. If TinkerQuarry made the wrong thing, that is often the most useful
+feedback.

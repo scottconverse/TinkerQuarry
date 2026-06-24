@@ -1,48 +1,35 @@
-<!-- Category: 📣 Announcements · Pin this -->
+<!-- Category: Announcements · Pin this -->
 
-# TinkerQuarry: describe a part in plain words, print it — all on your machine
+# Welcome to TinkerQuarry v1.3.0
 
-Hi all 👋
+TinkerQuarry is a local-first AI CAD application for making real 3D-printable parts. Describe a
+part in plain language, inspect the generated OpenSCAD, validate it against your printer/material,
+slice it, then download or send the proven output.
 
-TinkerQuarry is a local-first, AI-native app for making real, printable things. You **describe** a
-part — _"a desk cable clip for an 8 mm cable"_ — and it designs the shape, **checks that it will
-actually print** on your printer, and hands you a ready-to-print file. You can also start from a
-**photo** or a **sketch**.
+The v1.3.0 Windows beta is now public and release-gated.
 
-Everything runs on your own computer. No account, no cloud by default — your prompts, images, and
-designs stay on your machine.
+## What is working in v1.3.0
 
-### What makes it different
+- Prompt -> local KimCad engine -> OpenSCAD source -> Studio viewer.
+- Customize / Make it real rail with readiness, manual orientation, slice, send, and iteration log.
+- Printability gate that blocks stale or unsafe manufacturing output.
+- Mock send and print-outcome recording.
+- Native Windows package build, release-executable smoke, and installed-app workflow smoke.
+- Full local release proof: `pnpm test:release` passed on commit `0cf99a0`.
 
-- **Plain words in, printable file out.** No CAD to learn — you don't draw anything.
-- **It checks before it prints.** A _printability gate_ validates every part against your printer's
-  build volume and capabilities. A part that won't print is **blocked and explained**, not handed to
-  you to discover at the nozzle.
-- **Genuinely local.** The AI runs on-device. It even sets itself up on first run and self-heals if
-  the AI is interrupted — no "go install this yourself."
+## What is still beta
 
-### A real run (laptop-class machine, no GPU)
+- Hardware connector proof beyond the mock connector is still a validation lane.
+- Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
+- Full visual diff and richer Explain surfaces are future work.
+- Browser coverage is meaningful but not every error/export/accessibility permutation.
 
-```
-$ tinkerquarry design "a desk cable clip for an 8 mm cable" --slice
-Gate: PASS · 16 × 27 × 10 mm · watertight · Readiness 92/100
-Slice: 17,034 G-code lines → part.gcode.3mf (~6m58s, 50 layers)
-```
+## Start here
 
-Words → print-ready G-code, on your machine.
+- Manual: `docs/USER-MANUAL.md`
+- Architecture: `docs/ARCHITECTURE.md`
+- Status matrix: `docs/STATUS.md`
+- Release gate: `docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md`
 
-### Where it's at
-
-The beta happy path is proven end-to-end on the tested Windows environment: describe -> AI plan ->
-geometry -> printability gate -> slice -> G-code, with mock send/outcome proof. Broader first-run
-isolation, hardware connector proof, mobile/accessibility/error-path coverage, and final gate
-clearance are still in progress.
-
-### Get involved
-
-- New here? Read the **[FAQ](02-faq.md)** and the **[Manual](../MANUAL.md)**.
-- Printed something? Post it in **[Show & Tell](03-show-and-tell.md)**.
-- Have an idea or a wish? **[Roadmap & ideas](04-roadmap-and-ideas.md)**.
-- Stuck? **[Getting started / troubleshooting](05-getting-started-help.md)**.
-
-Welcome to the quarry. Let's make things. ⛏️🧱
+If you print something, please post it in Show and Tell. Real parts and failure cases are the best
+signal for the next stage.

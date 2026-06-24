@@ -1,13 +1,14 @@
 # TinkerQuarry Status Matrix
 
 **As of:** 2026-06-23
+**Product release:** v1.3.0
 
 This is the current source of truth for the canonical `tinkerquarry` product repo. It supersedes prior
 "done", "clear to advance", and manual-only verification claims.
 
 ## One-Line Truth
 
-TinkerQuarry's beta core flow is now real and verified for the happy path:
+TinkerQuarry's beta core flow is real and verified:
 
 Describe a part in plain English -> local KimCad engine designs it -> Studio viewer renders it -> Make
 it real slices it to printable G-code -> mock Send records a simulated outcome.
@@ -77,10 +78,10 @@ Run from `C:\Users\Scott\Desktop\CODE\tinkerquarry` unless noted.
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `pnpm -r lint`                                                                                                                                 | passed                                                                                       |
 | `pnpm -r type-check`                                                                                                                           | passed                                                                                       |
-| `node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand` from `apps\ui`                                        | 93 suites passed, 1 skipped; 661 tests passed, 2 skipped; existing React `act(...)` warnings |
+| `node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand` from `apps\ui`                                        | 94 suites passed, 1 skipped; 662 tests passed, 2 skipped; existing React `act(...)` warnings |
 | `pnpm test:web:unit`                                                                                                                           | 4 suites passed; 16 tests passed                                                             |
 | `.\.venv\Scripts\python.exe -m pytest tests\test_external_libraries.py -q` from `packages\engine`                                              | 6 passed; includes real OpenSCAD render through an admitted external library                 |
-| `pnpm test:e2e:web apps/ui/e2e/manufacturing-flow.spec.ts --project=system-chrome`                                                             | 1 passed; now runs with isolated temp app-data/home variables                                |
+| `pnpm test:e2e:web`                                                                                                                             | 3 passed; core manufacturing flow, workspace walkthrough, and mobile/narrow smoke            |
 | `cmd /c "call ...\LaunchDevCmd.bat -arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && pnpm.cmd tauri:build"`                             | passed; MSI and NSIS artifacts produced                                                      |
 | `node scripts/smoke-tauri-runtime.mjs`                                                                                                         | passed against release executable                                                            |
 | `pnpm test:e2e:tauri:installed`                                                                                                                | passed against installed NSIS copy with isolated profile and native build/slice/send workflow |
@@ -92,6 +93,7 @@ Run from `C:\Users\Scott\Desktop\CODE\tinkerquarry` unless noted.
 | `dist\staging\tools\openscad\openscad.exe --version` from `packages\engine`                                                                    | `OpenSCAD version 2026.03.16`                                                                |
 | `.\.venv\Scripts\python.exe scripts\verify_install.py dist\staging --port 8743` from `packages\engine`                                         | `VERIFY-INSTALL: ALL GREEN`                                                                  |
 | First-party BOSL2-backed thread wrapper + kept Gridfinity render proof                                                                         | 4/4 passed                                                                                   |
+| `pnpm test:release` from repo root                                                                                                              | passed on commit `0cf99a0`; includes gate, browser e2e, native build, release smoke, installed-app smoke |
 
 ## Run
 
@@ -113,6 +115,8 @@ Then open `http://localhost:1420`.
 ## Related Documents
 
 - [EVALUATE.md](EVALUATE.md)
+- [USER-MANUAL.md](USER-MANUAL.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
 - [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md) - historical 2026-06-22 handoff, superseded for current status
 - [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md)
 - [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md)

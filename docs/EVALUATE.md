@@ -126,6 +126,8 @@ From `C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine`:
 ## Where The Truth Lives
 
 - [STATUS.md](STATUS.md)
+- [USER-MANUAL.md](USER-MANUAL.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
 - [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md) - historical 2026-06-22 handoff, not current status
 - [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md)
 - [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md)

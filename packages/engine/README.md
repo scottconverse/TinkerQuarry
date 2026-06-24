@@ -5,7 +5,7 @@
 KimCad remains the engine/CLI/protocol name inside the TinkerQuarry product. The user-facing app,
 installer, status, and release proof live at the repository root and under `apps/ui`.
 
-![beta](https://img.shields.io/badge/beta-0.9.3-2563eb)
+![engine](https://img.shields.io/badge/engine-0.9.3-2563eb)
 ![platform](https://img.shields.io/badge/platform-Windows-0078D6)
 ![python](https://img.shields.io/badge/python-3.13-3776AB)
 ![license](https://img.shields.io/badge/license-GPL--2.0-1d7a4e)
@@ -467,7 +467,8 @@ recipe (briefcase `.app` / AppImage), and what's left to build.
 
 | Read this | If you want to |
 |---|---|
-| **[User manual](docs/USER-MANUAL.md)** | the complete guide — everyday use, the CLI/power-user surface, and the architecture |
+| **[Product user manual](../../docs/USER-MANUAL.md)** | the complete TinkerQuarry guide for non-technical users, technical users, and support |
+| **[Architecture reference](../../docs/ARCHITECTURE.md)** | product architecture, technologies, trust boundaries, and release proof |
 | [FAQ](docs/FAQ.md) | quick answers — SmartScreen, the model download, printers, privacy, recovery |
 | [Part-library catalog](docs/templates.md) | every one of the 86 template families, grouped by theme, with its honesty tier |
 | [Install guide](docs/install-guide.md) | install the Windows beta (double-click, no terminal) |

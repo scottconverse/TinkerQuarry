@@ -18,8 +18,8 @@ install Ollama yourself from [ollama.com](https://ollama.com/) as a fallback and
 
 ## "requirements.lock not found" / "no such file" during setup
 
-**Cause:** your terminal isn't in the KimCad folder — usually because GitHub's ZIP
-unpacked into a nested folder (`KimCadClaude-main` inside the folder you unzipped to).
+**Cause:** your terminal isn't in the TinkerQuarry checkout — usually because GitHub's ZIP
+unpacked into a nested folder (`TinkerQuarry-main` inside the folder you unzipped to).
 
 **Fix:** `cd` into the folder that contains `pyproject.toml` and `requirements.lock`
 (check with `dir`), then re-run the command. See Step 3 of the
