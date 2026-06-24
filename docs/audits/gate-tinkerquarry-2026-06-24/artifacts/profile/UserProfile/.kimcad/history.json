@@ -1,0 +1,12 @@
+[
+  {
+    "object_type": "box",
+    "score": 92,
+    "gate_status": "pass",
+    "material": "",
+    "max_dim_mm": 80.0,
+    "created_at": "2026-06-24T05:51:08.575657+00:00",
+    "print_outcome": "clean",
+    "print_outcome_simulated": true
+  }
+]

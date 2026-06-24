@@ -4,7 +4,7 @@
 
 Use this thread for feature requests, beta feedback, and workflow ideas.
 
-## v1.3.0 baseline
+## v1.3.1 baseline
 
 The Windows beta now has a release-gated core path: prompt, design, inspect, validate, slice, mock
 send, and outcome recording.

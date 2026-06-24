@@ -9,7 +9,7 @@ if (process.platform !== "win32") {
 }
 
 const installer = resolve(
-  "apps/ui/src-tauri/target/release/bundle/nsis/TinkerQuarry_1.3.0_x64-setup.exe",
+  "apps/ui/src-tauri/target/release/bundle/nsis/TinkerQuarry_1.3.1_x64-setup.exe",
 );
 if (!existsSync(installer)) {
   console.error(`NSIS installer not found: ${installer}`);

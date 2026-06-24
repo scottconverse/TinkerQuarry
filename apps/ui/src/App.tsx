@@ -279,6 +279,12 @@ interface IterationLogEntry {
   stepUrl?: string | null;
 }
 
+interface VisualDiffEvidence {
+  before: string;
+  after: string;
+  summary: string;
+}
+
 const ITERATION_LOG_KEY = "tq-iteration-log";
 
 function useMacDownloadUrl() {
@@ -793,6 +799,9 @@ function App() {
   // The current manufacturing readiness (verdict + score + warnings), kept live as the user tunes
   // Customizer sliders so they see printability BEFORE committing to "Make it real" (§6.6/§6.7).
   const [liveReadiness, setLiveReadiness] = useState<string | null>(null);
+  const [currentDesignHeadline, setCurrentDesignHeadline] = useState<
+    string | null
+  >(null);
   const [currentStepUrl, setCurrentStepUrl] = useState<string | null>(null);
   const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(
     null,
@@ -804,6 +813,8 @@ function App() {
     string | null
   >(null);
   const [visualReviewLog, setVisualReviewLog] = useState<string[]>([]);
+  const [visualDiffEvidence, setVisualDiffEvidence] =
+    useState<VisualDiffEvidence | null>(null);
   const [visualCorrectionRounds, setVisualCorrectionRounds] = useState(0);
   const [isApplyingVisualCorrection, setIsApplyingVisualCorrection] =
     useState(false);
@@ -811,7 +822,9 @@ function App() {
     useState<ModelStatusResult | null>(null);
   const [iterationLog, setIterationLog] = useState<IterationLogEntry[]>(() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(ITERATION_LOG_KEY) || "[]");
+      const parsed = JSON.parse(
+        localStorage.getItem(ITERATION_LOG_KEY) || "[]",
+      );
       return Array.isArray(parsed) ? parsed.slice(0, 40) : [];
     } catch {
       return [];
@@ -877,6 +890,7 @@ function App() {
       lastGateRef.current = result.gate || null;
       lastStepUrlRef.current = result.result?.step_url ?? null;
       setCurrentStepUrl(result.result?.step_url ?? null);
+      setCurrentDesignHeadline(result.headline ?? null);
       setHasEngineDesign(true);
       setLiveReadiness(result.gate || null);
       appendIterationLog({
@@ -891,6 +905,7 @@ function App() {
       if (opts.clearVisual !== false) {
         setVisualReviewSummary(null);
         setVisualDiffSummary(null);
+        setVisualDiffEvidence(null);
         setVisualCorrectionPrompt(null);
         setVisualReviewLog([]);
       }
@@ -915,16 +930,20 @@ function App() {
     };
   }, []);
   const visualLoopModeLabel = useMemo(() => {
-    if (isApplyingVisualCorrection) return "VCL: installing correction into the loop";
+    if (isApplyingVisualCorrection)
+      return "VCL: installing correction into the loop";
     if (visualReviewSummary) return `VCL: ${visualReviewSummary}`;
     if (!hasEngineDesign) return "VCL: off until a design exists";
     if (!workspaceModelStatus) return "VCL: model status unknown";
-    if (workspaceModelStatus.model_loading) return "VCL: vision model installing";
-    if (workspaceModelStatus.backend === "cloud") return "VCL: cloud vision available by chooser";
+    if (workspaceModelStatus.model_loading)
+      return "VCL: vision model installing";
+    if (workspaceModelStatus.backend === "cloud")
+      return "VCL: cloud vision available by chooser";
     if (!workspaceModelStatus.running || !workspaceModelStatus.model_present) {
       return "VCL: text model missing or offline";
     }
-    if (workspaceModelStatus.vision_present === false) return "VCL: vision model missing";
+    if (workspaceModelStatus.vision_present === false)
+      return "VCL: vision model missing";
     return "VCL: local probe advisory, used by correction loop";
   }, [
     hasEngineDesign,
@@ -985,6 +1004,7 @@ function App() {
         setVisualReviewSummary(summary);
         addVisualReviewLog(summary);
         setVisualDiffSummary(null);
+        setVisualDiffEvidence(null);
         visualDiffBeforeRef.current = null;
         setVisualCorrectionPrompt(null);
         return null;
@@ -999,6 +1019,11 @@ function App() {
         if (lastEngineRidRef.current !== rid) return null;
         const diffSummary = formatVisualDifference(diff);
         setVisualDiffSummary(diffSummary);
+        setVisualDiffEvidence({
+          before: beforeDiffImage,
+          after: images[0].image,
+          summary: diffSummary ?? "Visual diff: unavailable",
+        });
         if (diffSummary) {
           addVisualReviewLog(diffSummary);
         }
@@ -1113,7 +1138,10 @@ function App() {
             { role: "user", content: prompt },
             { role: "assistant", content: corrected.gate },
           ];
-          commitEngineOutcome(corrected, { pushUndo: true, clearVisual: false });
+          commitEngineOutcome(corrected, {
+            pushUndo: true,
+            clearVisual: false,
+          });
           setVisualCorrectionRounds((rounds) => rounds + 1);
 
           const candidate = {
@@ -1206,6 +1234,7 @@ function App() {
       } else {
         setVisualReviewSummary(null);
         setVisualDiffSummary(null);
+        setVisualDiffEvidence(null);
         setVisualCorrectionPrompt(null);
         setVisualReviewLog([]);
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
@@ -1235,6 +1264,7 @@ function App() {
     )
       return;
     setVisualDiffSummary(null);
+    setVisualDiffEvidence(null);
     visualDiffBeforeRef.current = await captureCurrentPreview({
       viewerId: MAIN_PREVIEW_VIEWER_ID,
       svgSourceUrl: activePreviewKind === "svg" ? activePreviewSrc : null,
@@ -1360,7 +1390,8 @@ function App() {
         appendIterationLog({
           kind: "slice",
           title: "Ready to print",
-          detail: `${data.estimate ?? ""}${data.printer ? ` - ${data.printer}` : ""}`.trim(),
+          detail:
+            `${data.estimate ?? ""}${data.printer ? ` - ${data.printer}` : ""}`.trim(),
           rid,
           scad: lastEngineScadRef.current,
           gate: lastGateRef.current,
@@ -1462,6 +1493,7 @@ function App() {
         setLastSlicedRid(null);
         setVisualReviewSummary(null);
         setVisualDiffSummary(null);
+        setVisualDiffEvidence(null);
         setVisualCorrectionPrompt(null);
         setVisualReviewLog([]);
       } finally {
@@ -3667,6 +3699,25 @@ function App() {
   );
   const manufacturingSliceState = manufacturingWorkflowState.sliceState;
   const manufacturingSendState = manufacturingWorkflowState.sendState;
+  const readinessHeadline =
+    liveReadiness?.split("\n").find(Boolean) ?? "No readiness check yet";
+  const explainGateChecks = [
+    hasEngineDesign ? "Design generated" : "Waiting for design",
+    readinessHeadline,
+    visualReviewSummary ?? "Visual review advisory has not run yet",
+    lastSlicedRid === lastEngineRidRef.current
+      ? "Successful slice proved this candidate"
+      : sliceProfileReady
+        ? "Slice is required before Ready to print"
+        : "Choose a printable slice profile",
+  ];
+  const explainActionState = canSendCurrentSlice
+    ? connectorName
+      ? `Send is enabled for ${connectorName}`
+      : "Choose a printer connection to send"
+    : hasEngineDesign
+      ? "Send stays disabled until this candidate is sliced"
+      : "Build a design before slicing or sending";
 
   const content = shouldShowShareError ? (
     <div
@@ -4127,29 +4178,31 @@ function App() {
             }}
           />
 
-          {!capabilities.hasNativeMenu && !isMobile && (REPOSITORY_URL || macDownloadUrl) && (
-            <>
-              {REPOSITORY_URL && (
-                <HeaderIconLink
-                  href={REPOSITORY_URL}
-                  title="View GitHub Repository"
-                  ariaLabel="View GitHub Repository"
-                  openInNewTab
-                >
-                  <TbBrandGithub size={15} />
-                </HeaderIconLink>
-              )}
-              {macDownloadUrl && (
-                <HeaderIconLink
-                  href={macDownloadUrl}
-                  title="Download for Mac"
-                  ariaLabel="Download for Mac"
-                >
-                  <TbDownload size={15} />
-                </HeaderIconLink>
-              )}
-            </>
-          )}
+          {!capabilities.hasNativeMenu &&
+            !isMobile &&
+            (REPOSITORY_URL || macDownloadUrl) && (
+              <>
+                {REPOSITORY_URL && (
+                  <HeaderIconLink
+                    href={REPOSITORY_URL}
+                    title="View GitHub Repository"
+                    ariaLabel="View GitHub Repository"
+                    openInNewTab
+                  >
+                    <TbBrandGithub size={15} />
+                  </HeaderIconLink>
+                )}
+                {macDownloadUrl && (
+                  <HeaderIconLink
+                    href={macDownloadUrl}
+                    title="Download for Mac"
+                    ariaLabel="Download for Mac"
+                  >
+                    <TbDownload size={15} />
+                  </HeaderIconLink>
+                )}
+              </>
+            )}
 
           <IconButton
             data-testid="settings-button"
@@ -4194,6 +4247,38 @@ function App() {
             >
               {visualDiffSummary}
             </span>
+          )}
+          {visualDiffEvidence && (
+            <div
+              data-testid="visual-diff-panel"
+              className="flex items-center gap-2 rounded-md border px-2 py-1"
+              style={{
+                borderColor: "var(--border-primary)",
+                backgroundColor: "var(--bg-primary)",
+              }}
+            >
+              <span
+                className="font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Before/after
+              </span>
+              <img
+                data-testid="visual-diff-before"
+                src={visualDiffEvidence.before}
+                alt="Before visual correction"
+                className="h-10 w-14 rounded object-cover"
+              />
+              <img
+                data-testid="visual-diff-after"
+                src={visualDiffEvidence.after}
+                alt="After visual correction"
+                className="h-10 w-14 rounded object-cover"
+              />
+              <span style={{ color: "var(--text-tertiary)" }}>
+                {visualDiffEvidence.summary}
+              </span>
+            </div>
           )}
           {visualCorrectionRounds > 0 && (
             <span
@@ -4307,8 +4392,13 @@ function App() {
               >
                 Customize
               </div>
-              <div className="mt-1 text-sm" style={{ color: "var(--text-primary)" }}>
-                {liveReadiness ? liveReadiness.split("\n")[0] : "No engine design yet"}
+              <div
+                className="mt-1 text-sm"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {liveReadiness
+                  ? liveReadiness.split("\n")[0]
+                  : "No engine design yet"}
               </div>
             </div>
             <div
@@ -4339,6 +4429,47 @@ function App() {
               >
                 Undo design
               </Button>
+            </div>
+          </section>
+
+          <section data-testid="explain-trust-panel" className="space-y-3">
+            <div
+              className="text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Explain
+            </div>
+            <div
+              className="rounded-md border px-3 py-2 text-xs"
+              style={{
+                borderColor: "var(--border-primary)",
+                color: "var(--text-secondary)",
+                backgroundColor: "var(--bg-primary)",
+              }}
+            >
+              <div
+                data-testid="explain-design-summary"
+                className="font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {currentDesignHeadline ?? "No generated design yet"}
+              </div>
+              <ul
+                data-testid="explain-gate-checks"
+                className="mt-2 space-y-1"
+                style={{ paddingLeft: "1rem" }}
+              >
+                {explainGateChecks.map((check) => (
+                  <li key={check}>{check}</li>
+                ))}
+              </ul>
+              <div
+                data-testid="explain-action-state"
+                className="mt-2"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                {explainActionState}
+              </div>
             </div>
           </section>
 
@@ -4389,7 +4520,11 @@ function App() {
                   }}
                 >
                   {enginePrinters.map((p) => (
-                    <option key={p.key} value={p.key} disabled={p.sliceable === false}>
+                    <option
+                      key={p.key}
+                      value={p.key}
+                      disabled={p.sliceable === false}
+                    >
                       {p.name}
                     </option>
                   ))}
@@ -4408,7 +4543,10 @@ function App() {
                     borderColor: "var(--border-primary)",
                   }}
                 >
-                  {(enginePrinters.find((p) => p.key === printerKey)?.materials ?? []).map((m) => (
+                  {(
+                    enginePrinters.find((p) => p.key === printerKey)
+                      ?.materials ?? []
+                  ).map((m) => (
                     <option key={m} value={m}>
                       {m.toUpperCase()}
                     </option>
@@ -4417,7 +4555,10 @@ function App() {
               </div>
             )}
             {selectedLayerHeight && (
-              <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              <div
+                className="text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Layer height: {selectedLayerHeight}
               </div>
             )}
@@ -4457,7 +4598,10 @@ function App() {
               Iteration log
             </div>
             {iterationLog.length === 0 ? (
-              <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              <div
+                className="text-xs"
+                style={{ color: "var(--text-tertiary)" }}
+              >
                 No iterations yet.
               </div>
             ) : (
@@ -4470,11 +4614,17 @@ function App() {
                     backgroundColor: "var(--bg-primary)",
                   }}
                 >
-                  <div className="font-medium" style={{ color: "var(--text-primary)" }}>
+                  <div
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {entry.title}
                   </div>
                   {entry.detail && (
-                    <div className="mt-1 line-clamp-2" style={{ color: "var(--text-secondary)" }}>
+                    <div
+                      className="mt-1 line-clamp-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       {entry.detail}
                     </div>
                   )}

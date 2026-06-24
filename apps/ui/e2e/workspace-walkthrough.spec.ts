@@ -67,7 +67,15 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
 
   await page.getByTestId("settings-button").click();
   await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-  const settingsTabs = ["appearance", "viewer", "editor", "project", "privacy", "ai", "about"];
+  const settingsTabs = [
+    "appearance",
+    "viewer",
+    "editor",
+    "project",
+    "privacy",
+    "ai",
+    "about",
+  ];
   for (const tab of settingsTabs) {
     await page.getByTestId(`settings-nav-${tab}`).click();
     await expect(page.getByTestId(`settings-nav-${tab}`)).toHaveAttribute(
@@ -99,11 +107,15 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
     await expect(page.getByTestId(control)).toBeEnabled({ timeout: 30_000 });
     await page.getByTestId(control).click();
   }
-  await expect(page.getByTestId("workflow-orient")).toContainText(/Manual|Auto|ready/i);
+  await expect(page.getByTestId("workflow-orient")).toContainText(
+    /Manual|Auto|ready/i,
+  );
 
   await page.getByTestId("export-button").click();
   await expect(page.getByTestId("export-dialog")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: /export model/i })).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: /export model/i }),
+  ).toBeVisible();
   await page.getByTestId("export-format-select").click();
   await expect(page.getByTestId("format-option-scad")).toBeVisible();
   await expect(page.getByTestId("format-option-stl")).toBeVisible();
@@ -113,8 +125,18 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
   await expect(page.getByTestId("export-dialog")).toBeHidden();
 
   await expect(page.getByTestId("make-it-real-panel")).toBeVisible();
-  await expect(page.getByTestId("customize-section")).toContainText(/Customize/i);
-  await expect(page.getByTestId("make-it-real-section")).toContainText(/Make it real/i);
+  await expect(page.getByTestId("customize-section")).toContainText(
+    /Customize/i,
+  );
+  await expect(page.getByTestId("explain-trust-panel")).toContainText(
+    /Explain/i,
+  );
+  await expect(page.getByTestId("explain-gate-checks")).toContainText(
+    /Design generated/i,
+  );
+  await expect(page.getByTestId("make-it-real-section")).toContainText(
+    /Make it real/i,
+  );
   await page.getByLabel("Rail printer").selectOption("bambu_a1");
   await page.getByLabel("Rail material").selectOption("pla");
   await expect(page.getByTestId("rail-make-it-real-button")).toBeEnabled({
@@ -125,20 +147,60 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
   expect(responseErrors).toEqual([]);
 });
 
+test("stale manual code edits are refused before slicing", async ({ page }) => {
+  const { responseErrors } = collectPageErrors(page);
+
+  await buildDemoDesign(page);
+  await page.waitForFunction(() => Boolean(window.__TEST_EDITOR__));
+  await page.evaluate(() => {
+    const editor = window.__TEST_EDITOR__;
+    if (!editor) {
+      throw new Error("Editor test hook missing");
+    }
+    editor.setValue(`${editor.getValue()}\n// unsynced manual edit`);
+  });
+
+  await page.getByTestId("make-it-real-button").click();
+  const firstReal = page.getByTestId("first-real-print-dialog");
+  if (await firstReal.isVisible().catch(() => false)) {
+    await firstReal.getByTestId("first-real-print-confirm").click();
+  }
+
+  await expect(
+    page
+      .getByLabel("Notifications alt+T")
+      .getByText(/code edits are not in the engine geometry/i),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("workflow-slice")).toContainText(
+    /Ready to slice/i,
+  );
+  await expect(page.getByTestId("explain-action-state")).toContainText(
+    /disabled until this candidate is sliced/i,
+  );
+
+  expect(responseErrors).toEqual([]);
+});
+
 test.describe("mobile viewport", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("boots the first screen without horizontal overflow", async ({ page }) => {
+  test("boots the first screen without horizontal overflow", async ({
+    page,
+  }) => {
     const { responseErrors } = collectPageErrors(page);
 
     await page.goto("/");
     await skipSetupIfPresent(page);
     await expect(page.getByTestId("welcome-screen")).toBeVisible();
     await expect(
-      page.locator('textarea[placeholder="Describe what you want to build..."]'),
+      page.locator(
+        'textarea[placeholder="Describe what you want to build..."]',
+      ),
     ).toBeVisible();
 
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
     expect(overflow).toBeLessThanOrEqual(2);
 
     expect(responseErrors).toEqual([]);

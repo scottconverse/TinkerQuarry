@@ -14,7 +14,7 @@ How to know the file is genuine: every release publishes the installer's **SHA-2
 checksum** beside it. To check yours, in PowerShell:
 
 ```
-Get-FileHash .\TinkerQuarry_1.3.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\TinkerQuarry_<version>_x64-setup.exe -Algorithm SHA256
 ```
 
 The hash must match the `.sha256` file from the same release page exactly.
@@ -50,10 +50,10 @@ These two files are the release's integrity story; there is no signed attestatio
 
 - **The app** (Python runtime, the design engine, OpenSCAD, OrcaSlicer, the PrintProof3D
   validation engine): the folder you choose — Program Files by default, or a per-user
-  folder if you install without administrator rights. *Per-user installs trade away the
+  folder if you install without administrator rights. _Per-user installs trade away the
   read-only protection of Program Files (any program running as you could modify the
   app's files) — the same tradeoff per-user editors like VS Code make. Pick Program
-  Files if unsure.*
+  Files if unsure._
 - **Your designs and settings:** your user profile (`.kimcad`) — never Program Files,
   and never removed by the uninstaller.
 - **App working data** (design output, the app window's browser profile):
@@ -94,8 +94,8 @@ spare), 16 GB+ RAM recommended. No graphics card needed.
 The double-click installer is Windows-only for the beta. On **macOS and Linux**, KimCad runs
 **from a source install** — `pip install`, then `kimcad web` opens the same UI in your browser.
 See the [README Setup section](../README.md#setup) for the steps (you install OpenSCAD/OrcaSlicer
-yourself and point `config/local.yaml` at them). *This cross-platform path is code-verified but
-not yet exercised on real mac/Linux hardware.* Zero-terminal installers for macOS/Linux are scoped
+yourself and point `config/local.yaml` at them). _This cross-platform path is code-verified but
+not yet exercised on real mac/Linux hardware._ Zero-terminal installers for macOS/Linux are scoped
 and deferred — see [cross-platform packaging](dev/cross-platform-packaging.md).
 
 ## If something goes wrong

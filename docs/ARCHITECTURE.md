@@ -1,6 +1,6 @@
 # TinkerQuarry Architecture And Technologies
 
-**Release:** v1.3.0 beta
+**Release:** v1.3.1 beta
 **Status:** release-gated Windows beta
 
 This document describes the production architecture, key technologies, trust boundaries, and release
@@ -35,16 +35,16 @@ flowchart TB
 
 ## 3. Runtime Layers
 
-| Layer | Location | Technology | Responsibility |
-|---|---|---|---|
-| Native shell | `apps/ui/src-tauri` | Tauri 2, Rust, WebView2 | desktop app, sidecar launch, native packaging |
-| Studio UI | `apps/ui/src` | React, TypeScript, Monaco, Three.js | prompt, code, viewer, controls, dialogs, workflow state |
-| Local API | `packages/engine/src/kimcad/webapp.py` | Python 3.13 | local HTTP API, session token, state orchestration |
-| Pipeline | `packages/engine/src/kimcad` | Python | prompt planning, source generation, render, validate, slice, send |
-| Geometry | bundled tool | OpenSCAD 2026.03.16 | SCAD to mesh/3MF/STL, Manifold backend by default |
-| Validation | bundled tool | PrintProof3D 0.6.2 | mesh/readiness report |
-| Slicing | bundled tool | OrcaSlicer | G-code generation from validated mesh |
-| Models | local or configured | OpenAI-compatible providers | design planning and advisory VCL probes |
+| Layer        | Location                               | Technology                          | Responsibility                                                    |
+| ------------ | -------------------------------------- | ----------------------------------- | ----------------------------------------------------------------- |
+| Native shell | `apps/ui/src-tauri`                    | Tauri 2, Rust, WebView2             | desktop app, sidecar launch, native packaging                     |
+| Studio UI    | `apps/ui/src`                          | React, TypeScript, Monaco, Three.js | prompt, code, viewer, controls, dialogs, workflow state           |
+| Local API    | `packages/engine/src/kimcad/webapp.py` | Python 3.13                         | local HTTP API, session token, state orchestration                |
+| Pipeline     | `packages/engine/src/kimcad`           | Python                              | prompt planning, source generation, render, validate, slice, send |
+| Geometry     | bundled tool                           | OpenSCAD 2026.03.16                 | SCAD to mesh/3MF/STL, Manifold backend by default                 |
+| Validation   | bundled tool                           | PrintProof3D 0.6.2                  | mesh/readiness report                                             |
+| Slicing      | bundled tool                           | OrcaSlicer                          | G-code generation from validated mesh                             |
+| Models       | local or configured                    | OpenAI-compatible providers         | design planning and advisory VCL probes                           |
 
 ## 4. Data Flow
 
@@ -73,14 +73,14 @@ sequenceDiagram
 
 ## 5. Trust Boundaries
 
-| Boundary | Risk | Control |
-|---|---|---|
-| UI -> local engine | unintended remote use | loopback default, session token, explicit dev token in local dev |
-| Engine -> subprocess tools | environment/secret leakage | scrubbed subprocess environment for tool calls |
-| SCAD source includes | path traversal or unsafe local leakage | sanitizer and admitted library sandbox |
-| Optional cloud models | prompt disclosure | user-configured provider/key only |
-| Printer connectors | physical action | explicit send confirmation and connector configuration |
-| Saved design import | stale or untrusted source | re-render and re-gate before manufacturing |
+| Boundary                   | Risk                                   | Control                                                          |
+| -------------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| UI -> local engine         | unintended remote use                  | loopback default, session token, explicit dev token in local dev |
+| Engine -> subprocess tools | environment/secret leakage             | scrubbed subprocess environment for tool calls                   |
+| SCAD source includes       | path traversal or unsafe local leakage | sanitizer and admitted library sandbox                           |
+| Optional cloud models      | prompt disclosure                      | user-configured provider/key only                                |
+| Printer connectors         | physical action                        | explicit send confirmation and connector configuration           |
+| Saved design import        | stale or untrusted source              | re-render and re-gate before manufacturing                       |
 
 ## 6. Manufacturing Gate
 
@@ -107,7 +107,7 @@ The current beta bar is local probe accuracy, not measurement-grade vision.
 ## 8. Packaging
 
 The Windows package is built by Tauri and includes the staged KimCad engine/tooling needed by the
-desktop app. Release proof for v1.3.0 includes:
+desktop app. Release proof for v1.3.1 includes:
 
 - native build;
 - MSI/NSIS artifact production;
@@ -116,22 +116,22 @@ desktop app. Release proof for v1.3.0 includes:
 
 ## 9. Technology Inventory
 
-| Technology | Use |
-|---|---|
-| React | workspace UI |
-| TypeScript | front-end type safety |
-| Monaco | OpenSCAD source editor |
-| Three.js | 3D preview and visual capture |
-| Tauri 2 | native desktop shell |
-| Rust | Tauri command layer |
-| Python 3.13 | KimCad engine |
-| OpenSCAD 2026.03.16 | geometry kernel |
-| PrintProof3D 0.6.2 | printability validation |
-| OrcaSlicer | slicing |
-| Playwright | browser e2e release proof |
-| Jest | UI/web unit tests |
-| pytest | engine test suite |
-| GitHub Actions | CI and manual self-hosted release gate workflow |
+| Technology          | Use                                             |
+| ------------------- | ----------------------------------------------- |
+| React               | workspace UI                                    |
+| TypeScript          | front-end type safety                           |
+| Monaco              | OpenSCAD source editor                          |
+| Three.js            | 3D preview and visual capture                   |
+| Tauri 2             | native desktop shell                            |
+| Rust                | Tauri command layer                             |
+| Python 3.13         | KimCad engine                                   |
+| OpenSCAD 2026.03.16 | geometry kernel                                 |
+| PrintProof3D 0.6.2  | printability validation                         |
+| OrcaSlicer          | slicing                                         |
+| Playwright          | browser e2e release proof                       |
+| Jest                | UI/web unit tests                               |
+| pytest              | engine test suite                               |
+| GitHub Actions      | CI and manual self-hosted release gate workflow |
 
 ## 10. Release Proof
 
@@ -141,10 +141,10 @@ The release command:
 pnpm test:release
 ```
 
-v1.3.0 passed this command on commit `0cf99a0`. The local tag is `v1.3.0`.
+v1.3.1 is tagged only after this command and the GauntletGate ALL pass are clean.
 
 See:
 
 - [Status Matrix](STATUS.md)
-- [GauntletGate Report](audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md)
+- [GauntletGate Report](audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md)
 - [Evaluation Guide](EVALUATE.md)

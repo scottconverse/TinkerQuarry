@@ -7,10 +7,11 @@ and tune the generated OpenSCAD, validate it against your printer, slice it, the
 the job through a configured connector. The product is private by default: no account, no telemetry,
 and no cloud model unless you explicitly configure one.
 
-[![Release](https://img.shields.io/badge/release-v1.3.0-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.0)
+[![Release](https://img.shields.io/badge/release-v1.3.1-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1)
+[![Engine](https://img.shields.io/badge/beta-0.9.3-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Status](https://img.shields.io/badge/gate-0%2F0%2F0%2F0%2F0-1d7a4e)](docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md)
+[![Status](https://img.shields.io/badge/gate-0%2F0%2F0%2F0%2F0-1d7a4e)](docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md)
 
 ## What It Does
 
@@ -27,7 +28,7 @@ TinkerQuarry is built for functional 3D-printing work:
 
 ## Current Release Truth
 
-Version `v1.3.0` is a Windows beta release. The core product path is implemented and release-gated:
+Version `v1.3.1` is a Windows beta release. The core product path is implemented and release-gated:
 
 - Prompt -> local KimCad engine -> OpenSCAD model -> Studio viewer.
 - Customize / Make it real rail with readiness, manual orientation, slice, send, and iteration log.
@@ -102,7 +103,7 @@ The local release command is:
 pnpm test:release
 ```
 
-For `v1.3.0`, this passed on commit `0cf99a0` and covered:
+For `v1.3.1`, this is run before tagging and covers:
 
 - lint and type-check;
 - UI Jest suite;
@@ -115,7 +116,7 @@ For `v1.3.0`, this passed on commit `0cf99a0` and covered:
 - installed NSIS workflow smoke.
 
 The final GauntletGate report is
-[docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md](docs/audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md).
+[docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md](docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md).
 
 ## Documentation
 

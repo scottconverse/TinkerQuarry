@@ -1,6 +1,6 @@
 # TinkerQuarry User Manual
 
-**Release:** v1.3.0 beta
+**Release:** v1.3.1 beta
 **Audience:** makers, beta testers, technical users, contributors, and support teams
 **Last updated:** 2026-06-23
 
@@ -19,9 +19,9 @@ constraints, slice it, and download or send the proven output.
 - **Part 3: Architecture And Technologies** explains how the product is built and where each
   technology fits.
 
-## Product Truth For v1.3.0
+## Product Truth For v1.3.1
 
-TinkerQuarry v1.3.0 is a Windows beta whose core path is implemented and release-tested:
+TinkerQuarry v1.3.1 is a Windows beta whose core path is implemented and release-tested:
 
 - describe -> design -> preview -> validate -> slice -> mock send/outcome;
 - native Windows build and installed-app smoke;
@@ -83,12 +83,12 @@ For source builds, see [Part 2](#part-2-technical-reference).
 
 ### First-Run States You May See
 
-| State | What It Means | What To Do |
-|---|---|---|
-| Engine unavailable | The local KimCad engine is not reachable | Restart the app or run the engine manually in dev mode |
-| AI missing | No local model is detected | Use Settings to configure or fetch a local model |
-| Tool missing | OpenSCAD, OrcaSlicer, or PrintProof3D is unavailable | Use the bundled installer path or check tool settings |
-| Printer not selected | The app cannot validate against a build volume | Choose a printer and material |
+| State                | What It Means                                        | What To Do                                             |
+| -------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| Engine unavailable   | The local KimCad engine is not reachable             | Restart the app or run the engine manually in dev mode |
+| AI missing           | No local model is detected                           | Use Settings to configure or fetch a local model       |
+| Tool missing         | OpenSCAD, OrcaSlicer, or PrintProof3D is unavailable | Use the bundled installer path or check tool settings  |
+| Printer not selected | The app cannot validate against a build volume       | Choose a printer and material                          |
 
 ## 4. The Main Workflow
 
@@ -159,7 +159,7 @@ confirmation.
 The Visual Correction Loop is an advisory local review path. It captures rendered views and asks a
 local vision-capable model decomposed yes/no questions about visible features.
 
-In v1.3.0:
+In v1.3.1:
 
 - the loop can flag likely visual issues;
 - empty, unparseable, or conflicting model answers become **needs review**, not pass;
@@ -195,14 +195,14 @@ prefix. Local source paths are redacted from public API responses.
 
 ## 8. Troubleshooting For Non-Technical Users
 
-| Problem | Likely Cause | What To Try |
-|---|---|---|
-| Build button is disabled | Engine or AI provider unavailable | Open Settings, confirm engine/model status, then click Check again |
-| Design takes a long time | Local model is cold-loading | Wait for the first run; later runs are usually faster |
-| Part will not slice | Readiness gate failed or source is stale | Read the named checks, adjust the part, re-render, then slice again |
-| Send is disabled | No successful current slice | Slice the current design first |
-| Dimensions are wrong | Prompt was ambiguous or edit was not re-gated | Add exact dimensions, re-render, then re-check |
-| Cloud option is unavailable | No provider/key configured | Add provider settings only if you want cloud use |
+| Problem                     | Likely Cause                                  | What To Try                                                         |
+| --------------------------- | --------------------------------------------- | ------------------------------------------------------------------- |
+| Build button is disabled    | Engine or AI provider unavailable             | Open Settings, confirm engine/model status, then click Check again  |
+| Design takes a long time    | Local model is cold-loading                   | Wait for the first run; later runs are usually faster               |
+| Part will not slice         | Readiness gate failed or source is stale      | Read the named checks, adjust the part, re-render, then slice again |
+| Send is disabled            | No successful current slice                   | Slice the current design first                                      |
+| Dimensions are wrong        | Prompt was ambiguous or edit was not re-gated | Add exact dimensions, re-render, then re-check                      |
+| Cloud option is unavailable | No provider/key configured                    | Add provider settings only if you want cloud use                    |
 
 ---
 
@@ -221,15 +221,15 @@ scripts/          native release and smoke-test helpers
 
 ## 10. Versions
 
-| Surface | Version | Meaning |
-|---|---:|---|
-| Product release | v1.3.0 | GitHub tag and desktop app release |
-| `apps/ui` | 1.3.0 | TinkerQuarry Studio/Tauri package |
-| KimCad engine | 0.9.3 | Internal engine and CLI version |
-| `apps/web` | 0.6.0 | Share/web package |
-| `packages/shared` | 0.4.0 | Shared helper package |
-| OpenSCAD | 2026.03.16 | Bundled Windows snapshot, Manifold default |
-| PrintProof3D | 0.6.2 | Arm's-length validation binary |
+| Surface           |    Version | Meaning                                    |
+| ----------------- | ---------: | ------------------------------------------ |
+| Product release   |     v1.3.1 | GitHub tag and desktop app release         |
+| `apps/ui`         |      1.3.1 | TinkerQuarry Studio/Tauri package          |
+| KimCad engine     |      0.9.3 | Internal engine and CLI version            |
+| `apps/web`        |      0.6.0 | Share/web package                          |
+| `packages/shared` |      0.4.0 | Shared helper package                      |
+| OpenSCAD          | 2026.03.16 | Bundled Windows snapshot, Manifold default |
+| PrintProof3D      |      0.6.2 | Arm's-length validation binary             |
 
 These are intentionally not all the same number because they describe different packages.
 
@@ -326,7 +326,7 @@ The release command is:
 pnpm test:release
 ```
 
-For v1.3.0, it passed on commit `0cf99a0` and includes:
+For v1.3.1, it is run before tagging and includes:
 
 - lint;
 - type-check;
@@ -340,7 +340,7 @@ For v1.3.0, it passed on commit `0cf99a0` and includes:
 - installed NSIS workflow smoke.
 
 Final report:
-[GAUNTLETGATE-ALL.md](audits/gate-tinkerquarry-2026-06-23-gauntlet-all/GAUNTLETGATE-ALL.md).
+[GAUNTLETGATE-ALL-v1.3.1.md](audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md).
 
 ---
 
@@ -350,16 +350,16 @@ Final report:
 
 ## 16. Component Summary
 
-| Layer | Technology | Responsibility |
-|---|---|---|
-| Desktop shell | Tauri 2, WebView2 | Native Windows app, engine startup, packaging |
-| UI | React, TypeScript, Monaco, Three.js | Workspace, editor, viewer, controls, dialogs |
-| Engine | Python 3.13 | Design pipeline, local API, validation orchestration |
-| Geometry | OpenSCAD 2026.03.16 | SCAD rendering, Manifold backend by default |
-| Validation | PrintProof3D 0.6.2, mesh checks | Readiness report and printability findings |
-| Slicing | OrcaSlicer | Printer-ready G-code generation |
-| Models | local OpenAI-compatible providers, optional cloud | design planning and advisory visual review |
-| Storage | local filesystem | settings, saved designs, admitted libraries, exports |
+| Layer         | Technology                                        | Responsibility                                       |
+| ------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| Desktop shell | Tauri 2, WebView2                                 | Native Windows app, engine startup, packaging        |
+| UI            | React, TypeScript, Monaco, Three.js               | Workspace, editor, viewer, controls, dialogs         |
+| Engine        | Python 3.13                                       | Design pipeline, local API, validation orchestration |
+| Geometry      | OpenSCAD 2026.03.16                               | SCAD rendering, Manifold backend by default          |
+| Validation    | PrintProof3D 0.6.2, mesh checks                   | Readiness report and printability findings           |
+| Slicing       | OrcaSlicer                                        | Printer-ready G-code generation                      |
+| Models        | local OpenAI-compatible providers, optional cloud | design planning and advisory visual review           |
+| Storage       | local filesystem                                  | settings, saved designs, admitted libraries, exports |
 
 ## 17. Data Flow
 

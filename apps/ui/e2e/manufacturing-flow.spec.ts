@@ -54,6 +54,19 @@ test("demo engine flow reaches ready-to-print and records mock printer outcome",
     /Make it real/i,
   );
   await expect(page.getByTestId("visual-loop-mode")).toContainText(/VCL:/i);
+  await expect(page.getByTestId("explain-trust-panel")).toBeVisible();
+  await expect(page.getByTestId("explain-design-summary")).not.toContainText(
+    /No generated design/i,
+  );
+  await expect(page.getByTestId("explain-gate-checks")).toContainText(
+    /Design generated/i,
+  );
+  await expect(page.getByTestId("explain-gate-checks")).toContainText(
+    /Slice is required before Ready to print/i,
+  );
+  await expect(page.getByTestId("explain-action-state")).toContainText(
+    /disabled until this candidate is sliced/i,
+  );
   await expect(page.getByTestId("iteration-log")).toContainText(
     /Design|Visual/i,
   );
@@ -79,6 +92,9 @@ test("demo engine flow reaches ready-to-print and records mock printer outcome",
   await expect(page.getByTestId("workflow-send")).toContainText(
     /Choose printer|Ready for/i,
     { timeout: 30_000 },
+  );
+  await expect(page.getByTestId("explain-gate-checks")).toContainText(
+    /Successful slice proved this candidate/i,
   );
   await expect(
     page.getByLabel("Notifications alt+T").getByText(/Ready to print/i),
