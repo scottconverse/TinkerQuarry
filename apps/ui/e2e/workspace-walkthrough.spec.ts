@@ -134,6 +134,12 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
   await expect(page.getByTestId("explain-gate-checks")).toContainText(
     /Design generated/i,
   );
+  await expect(page.getByTestId("explain-agent-loop")).toContainText(
+    /Plan:|Generate:|Gate:|Look:|Prove:/i,
+  );
+  await expect(page.getByTestId("explain-evidence-sources")).toContainText(
+    /Design:|Readiness:|Profile:|Connector:/i,
+  );
   await expect(page.getByTestId("make-it-real-section")).toContainText(
     /Make it real/i,
   );
@@ -143,6 +149,14 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
     timeout: 30_000,
   });
   await expect(page.getByTestId("iteration-log")).toBeVisible();
+  await expect(page.getByTestId("iteration-branch-summary")).toContainText(
+    /Branch: Main/i,
+  );
+  await page.getByTestId("branch-iteration-button").first().click();
+  await expect(page.getByTestId("iteration-branch-summary")).toContainText(
+    /Branch from/i,
+  );
+  await expect(page.getByTestId("make-it-real-button")).toBeDisabled();
 
   expect(responseErrors).toEqual([]);
 });

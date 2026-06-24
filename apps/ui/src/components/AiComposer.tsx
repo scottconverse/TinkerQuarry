@@ -7,11 +7,11 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from 'react';
-import { TbPaperclip, TbX } from 'react-icons/tb';
-import { Button, IconButton } from './ui';
-import type { ModelSelectionSurface } from '../analytics/runtime';
-import type { AiDraft, AttachmentStore } from '../types/aiChat';
+} from "react";
+import { TbPaperclip, TbX } from "react-icons/tb";
+import { Button, IconButton } from "./ui";
+import type { ModelSelectionSurface } from "../analytics/runtime";
+import type { AiDraft, AttachmentStore } from "../types/aiChat";
 
 interface AiComposerProps {
   draft: AiDraft;
@@ -25,14 +25,20 @@ interface AiComposerProps {
   placeholder: string;
   rows?: number;
   maxRows?: number;
-  variant?: 'panel' | 'welcome';
+  variant?: "panel" | "welcome";
   submitLabel?: string;
   submitTitle?: string;
   helperText?: ReactNode;
   trailingControls?: ReactNode;
   onTextChange: (text: string) => void;
-  onFilesSelected: (files: File[], sourceSurface?: ModelSelectionSurface) => void;
-  onRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
+  onFilesSelected: (
+    files: File[],
+    sourceSurface?: ModelSelectionSurface,
+  ) => void;
+  onRemoveAttachment: (
+    attachmentId: string,
+    sourceSurface?: ModelSelectionSurface,
+  ) => void;
   onSubmit: () => void;
   onCancel?: () => void;
 }
@@ -42,11 +48,13 @@ export interface AiComposerRef {
 }
 
 function hasFilePayload(event: React.DragEvent | DragEvent) {
-  return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 
-function getComposerSourceSurface(variant: 'panel' | 'welcome'): ModelSelectionSurface {
-  return variant === 'welcome' ? 'welcome' : 'ai_panel';
+function getComposerSourceSurface(
+  variant: "panel" | "welcome",
+): ModelSelectionSurface {
+  return variant === "welcome" ? "welcome" : "ai_panel";
 }
 
 export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
@@ -63,8 +71,8 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
       placeholder,
       rows = 2,
       maxRows = rows,
-      variant = 'panel',
-      submitLabel = 'Send',
+      variant = "panel",
+      submitLabel = "Send",
       submitTitle,
       helperText,
       trailingControls,
@@ -74,7 +82,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
       onSubmit,
       onCancel,
     },
-    ref
+    ref,
   ) => {
     const [isDragActive, setIsDragActive] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -94,38 +102,58 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
     }, [disabled]);
 
     useLayoutEffect(() => {
-      if (variant !== 'panel' || !textareaRef.current) return;
+      if (variant !== "panel" || !textareaRef.current) return;
 
       const textarea = textareaRef.current;
-      textarea.style.height = '0px';
+      textarea.style.height = "0px";
 
       const computedStyle = window.getComputedStyle(textarea);
       const lineHeight = Number.parseFloat(computedStyle.lineHeight) || 20;
       const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0;
       const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0;
       const borderTop = Number.parseFloat(computedStyle.borderTopWidth) || 0;
-      const borderBottom = Number.parseFloat(computedStyle.borderBottomWidth) || 0;
-      const minHeight = lineHeight * rows + paddingTop + paddingBottom + borderTop + borderBottom;
+      const borderBottom =
+        Number.parseFloat(computedStyle.borderBottomWidth) || 0;
+      const minHeight =
+        lineHeight * rows +
+        paddingTop +
+        paddingBottom +
+        borderTop +
+        borderBottom;
       const maxHeight =
-        lineHeight * maxRows + paddingTop + paddingBottom + borderTop + borderBottom;
-      const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+        lineHeight * maxRows +
+        paddingTop +
+        paddingBottom +
+        borderTop +
+        borderBottom;
+      const nextHeight = Math.min(
+        Math.max(textarea.scrollHeight, minHeight),
+        maxHeight,
+      );
 
       textarea.style.height = `${nextHeight}px`;
-      textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+      textarea.style.overflowY =
+        textarea.scrollHeight > maxHeight ? "auto" : "hidden";
     }, [draft.text, maxRows, rows, variant]);
 
     const draftAttachments = useMemo(
       () =>
         draft.attachmentIds
           .map((id) => attachments[id])
-          .filter((attachment): attachment is NonNullable<(typeof attachments)[string]> =>
-            Boolean(attachment)
+          .filter(
+            (
+              attachment,
+            ): attachment is NonNullable<(typeof attachments)[string]> =>
+              Boolean(attachment),
           ),
-      [attachments, draft.attachmentIds]
+      [attachments, draft.attachmentIds],
     );
 
     const submitDisabled =
-      disabled || isProcessingAttachments || !canSubmit || Boolean(blockedMessage);
+      disabled ||
+      isProcessingAttachments ||
+      !canSubmit ||
+      Boolean(blockedMessage);
 
     const handleFiles = (files: FileList | File[] | null) => {
       if (disabled || !files?.length) return;
@@ -133,14 +161,14 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
+      if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         if (!submitDisabled) {
           onSubmit();
         }
       }
 
-      if (event.key === 'Escape' && onCancel && disabled) {
+      if (event.key === "Escape" && onCancel && disabled) {
         event.preventDefault();
         onCancel();
       }
@@ -161,7 +189,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
     const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
       if (disabled || !hasFilePayload(event)) return;
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
+      event.dataTransfer.dropEffect = "copy";
 
       if (!isDragActive) {
         setIsDragActive(true);
@@ -185,10 +213,10 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
     };
 
     const rootBorderColor = isDragActive
-      ? 'var(--accent-primary)'
-      : variant === 'welcome'
-        ? 'var(--border-secondary)'
-        : 'var(--border-primary)';
+      ? "var(--accent-primary)"
+      : variant === "welcome"
+        ? "var(--border-secondary)"
+        : "var(--border-primary)";
 
     return (
       <div
@@ -200,37 +228,55 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
         onDrop={handleDrop}
         style={{
           borderColor: rootBorderColor,
-          backgroundColor: variant === 'welcome' ? 'var(--bg-elevated)' : 'var(--bg-primary)',
-          boxShadow: isDragActive ? '0 0 0 1px var(--accent-primary)' : 'none',
+          backgroundColor:
+            variant === "welcome" ? "var(--bg-elevated)" : "var(--bg-primary)",
+          boxShadow: isDragActive ? "0 0 0 1px var(--accent-primary)" : "none",
         }}
       >
-        <div className={variant === 'welcome' ? 'p-4' : 'p-2'}>
+        <div className={variant === "welcome" ? "p-4" : "p-2"}>
           <textarea
             ref={textareaRef}
             value={draft.text}
             onChange={(event) => onTextChange(event.target.value)}
             onKeyDown={handleKeyDown}
+            aria-label={
+              variant === "welcome"
+                ? "Describe what you want to build"
+                : "AI assistant prompt"
+            }
             placeholder={placeholder}
             className="w-full resize-none focus:outline-none text-sm"
             style={{
-              backgroundColor: 'transparent',
-              color: 'var(--text-primary)',
-              minHeight: variant === 'welcome' ? (rows >= 4 ? '84px' : undefined) : undefined,
-              fontFamily: 'inherit',
-              padding: variant === 'welcome' ? undefined : '0.25rem 0.25rem 0.125rem 0.25rem',
-              lineHeight: variant === 'welcome' ? undefined : '1.45',
+              backgroundColor: "transparent",
+              color: "var(--text-primary)",
+              minHeight:
+                variant === "welcome"
+                  ? rows >= 4
+                    ? "84px"
+                    : undefined
+                  : undefined,
+              fontFamily: "inherit",
+              padding:
+                variant === "welcome"
+                  ? undefined
+                  : "0.25rem 0.25rem 0.125rem 0.25rem",
+              lineHeight: variant === "welcome" ? undefined : "1.45",
             }}
             rows={rows}
             disabled={disabled}
-            title={variant === 'panel' ? 'Enter submits. Shift+Enter adds a newline.' : undefined}
+            title={
+              variant === "panel"
+                ? "Enter submits. Shift+Enter adds a newline."
+                : undefined
+            }
           />
 
           {draftAttachments.length > 0 && (
             <div
               className={
-                variant === 'welcome'
-                  ? 'mt-3 flex flex-wrap gap-2'
-                  : 'mt-2 flex gap-2 overflow-x-auto pb-1'
+                variant === "welcome"
+                  ? "mt-3 flex flex-wrap gap-2"
+                  : "mt-2 flex gap-2 overflow-x-auto pb-1"
               }
             >
               {draftAttachments.map((attachment) => (
@@ -238,27 +284,30 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                   key={attachment.id}
                   className="group relative rounded-md border p-1.5"
                   style={{
-                    width: variant === 'welcome' ? '112px' : '84px',
-                    flex: variant === 'welcome' ? undefined : '0 0 auto',
-                    backgroundColor: 'var(--bg-secondary)',
+                    width: variant === "welcome" ? "112px" : "84px",
+                    flex: variant === "welcome" ? undefined : "0 0 auto",
+                    backgroundColor: "var(--bg-secondary)",
                     borderColor:
-                      attachment.status === 'error'
-                        ? 'var(--color-error)'
-                        : attachment.status === 'pending'
-                          ? 'var(--color-warning)'
-                          : 'var(--border-secondary)',
+                      attachment.status === "error"
+                        ? "var(--color-error)"
+                        : attachment.status === "pending"
+                          ? "var(--color-warning)"
+                          : "var(--border-secondary)",
                   }}
                 >
                   {/* eslint-disable-next-line no-restricted-syntax -- absolute overlay X button on an image thumbnail (h-5 w-5 rounded-full); neither <Button> nor <IconButton> supports this 20px pill-dismiss size without className fights */}
                   <button
                     type="button"
                     onClick={() =>
-                      onRemoveAttachment(attachment.id, getComposerSourceSurface(variant))
+                      onRemoveAttachment(
+                        attachment.id,
+                        getComposerSourceSurface(variant),
+                      )
                     }
                     className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100"
                     style={{
-                      color: 'var(--text-primary)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                      color: "var(--text-primary)",
+                      backgroundColor: "rgba(0, 0, 0, 0.55)",
                     }}
                     title={`Remove ${attachment.filename}`}
                     aria-label={`Remove ${attachment.filename}`}
@@ -272,17 +321,17 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                       alt={attachment.filename}
                       className="w-full rounded object-cover"
                       style={{
-                        height: variant === 'welcome' ? '60px' : '52px',
-                        backgroundColor: 'var(--bg-tertiary)',
+                        height: variant === "welcome" ? "60px" : "52px",
+                        backgroundColor: "var(--bg-tertiary)",
                       }}
                     />
                   ) : (
                     <div
                       className="w-full rounded flex items-center justify-center text-xs"
                       style={{
-                        height: variant === 'welcome' ? '60px' : '52px',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--text-tertiary)',
+                        height: variant === "welcome" ? "60px" : "52px",
+                        backgroundColor: "var(--bg-tertiary)",
+                        color: "var(--text-tertiary)",
                       }}
                     >
                       No preview
@@ -293,26 +342,29 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                     <div className="min-w-0">
                       <div
                         className="text-[11px] font-medium truncate"
-                        style={{ color: 'var(--text-primary)' }}
+                        style={{ color: "var(--text-primary)" }}
                         title={attachment.filename}
                       >
                         {attachment.filename}
                       </div>
                       <div
                         className="text-[10px] truncate"
-                        style={{ color: 'var(--text-tertiary)' }}
+                        style={{ color: "var(--text-tertiary)" }}
                       >
-                        {attachment.status === 'ready'
+                        {attachment.status === "ready"
                           ? `${Math.round(attachment.sizeBytes / 1024)} KB`
-                          : attachment.status === 'pending'
-                            ? 'Processing...'
-                            : 'Not attached'}
+                          : attachment.status === "pending"
+                            ? "Processing..."
+                            : "Not attached"}
                       </div>
                     </div>
                   </div>
 
                   {attachment.errorMessage && (
-                    <div className="mt-1 text-[10px]" style={{ color: 'var(--color-error)' }}>
+                    <div
+                      className="mt-1 text-[10px]"
+                      style={{ color: "var(--color-error)" }}
+                    >
                       {attachment.errorMessage}
                     </div>
                   )}
@@ -321,25 +373,45 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
             </div>
           )}
 
-          {(errors.length > 0 || blockedMessage || warningMessage || isDragActive) && (
-            <div className={variant === 'welcome' ? 'mt-3 space-y-1' : 'mt-1.5 space-y-1'}>
+          {(errors.length > 0 ||
+            blockedMessage ||
+            warningMessage ||
+            isDragActive) && (
+            <div
+              className={
+                variant === "welcome" ? "mt-3 space-y-1" : "mt-1.5 space-y-1"
+              }
+            >
               {isDragActive && (
-                <div className="text-xs" style={{ color: 'var(--accent-primary)' }}>
+                <div
+                  className="text-xs"
+                  style={{ color: "var(--accent-primary)" }}
+                >
                   Drop PNG, JPEG, or WebP images to attach them.
                 </div>
               )}
               {blockedMessage && (
-                <div className="text-xs" style={{ color: 'var(--color-error)' }}>
+                <div
+                  className="text-xs"
+                  style={{ color: "var(--color-error)" }}
+                >
                   {blockedMessage}
                 </div>
               )}
               {warningMessage && !blockedMessage && (
-                <div className="text-xs" style={{ color: 'var(--color-warning)' }}>
+                <div
+                  className="text-xs"
+                  style={{ color: "var(--color-warning)" }}
+                >
                   {warningMessage}
                 </div>
               )}
               {errors.map((error) => (
-                <div key={error} className="text-xs" style={{ color: 'var(--color-error)' }}>
+                <div
+                  key={error}
+                  className="text-xs"
+                  style={{ color: "var(--color-error)" }}
+                >
                   {error}
                 </div>
               ))}
@@ -349,7 +421,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
           <div
             className="mt-2 flex items-center justify-between gap-2"
             style={{
-              flexWrap: variant === 'welcome' ? 'nowrap' : 'wrap',
+              flexWrap: variant === "welcome" ? "nowrap" : "wrap",
             }}
           >
             <div className="flex min-w-0 items-center gap-2">
@@ -362,7 +434,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                 className="hidden"
                 onChange={(event) => {
                   handleFiles(event.target.files);
-                  event.currentTarget.value = '';
+                  event.currentTarget.value = "";
                 }}
               />
               <IconButton
@@ -375,25 +447,30 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
               >
                 <TbPaperclip size={14} />
               </IconButton>
-              <div className="text-xs whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
-                {variant === 'welcome' ? 'Drop up to 4 images' : 'Attach images'}
+              <div
+                className="text-xs whitespace-nowrap"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                {variant === "welcome"
+                  ? "Drop up to 4 images"
+                  : "Attach images"}
               </div>
             </div>
 
             <div
               className="flex items-center gap-2"
               style={{
-                marginLeft: variant === 'welcome' ? undefined : 'auto',
-                flexWrap: variant === 'welcome' ? 'nowrap' : 'wrap',
-                justifyContent: 'flex-end',
+                marginLeft: variant === "welcome" ? undefined : "auto",
+                flexWrap: variant === "welcome" ? "nowrap" : "wrap",
+                justifyContent: "flex-end",
               }}
             >
               {helperText ? (
                 <div
                   className="text-xs text-right"
                   style={{
-                    color: 'var(--text-tertiary)',
-                    display: variant === 'welcome' ? 'block' : 'none',
+                    color: "var(--text-tertiary)",
+                    display: variant === "welcome" ? "block" : "none",
                   }}
                 >
                   {helperText}
@@ -403,22 +480,30 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
               {disabled && onCancel ? (
                 <Button
                   variant="danger"
-                  size={variant === 'panel' ? 'sm' : 'md'}
+                  size={variant === "panel" ? "sm" : "md"}
                   onClick={() => onCancel()}
                   data-testid="ai-cancel-button"
-                  style={variant === 'panel' ? { height: '32px', minWidth: '88px' } : undefined}
+                  style={
+                    variant === "panel"
+                      ? { height: "32px", minWidth: "88px" }
+                      : undefined
+                  }
                 >
                   Cancel
                 </Button>
               ) : (
                 <Button
                   variant="primary"
-                  size={variant === 'panel' ? 'sm' : 'md'}
+                  size={variant === "panel" ? "sm" : "md"}
                   onClick={() => onSubmit()}
                   disabled={submitDisabled}
                   title={submitTitle}
                   data-testid="ai-submit-button"
-                  style={variant === 'panel' ? { height: '32px', minWidth: '88px' } : undefined}
+                  style={
+                    variant === "panel"
+                      ? { height: "32px", minWidth: "88px" }
+                      : undefined
+                  }
                 >
                   {submitLabel}
                 </Button>
@@ -428,7 +513,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
-AiComposer.displayName = 'AiComposer';
+AiComposer.displayName = "AiComposer";

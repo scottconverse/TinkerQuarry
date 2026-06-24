@@ -29,9 +29,9 @@ package build, release executable smoke, and installed-app smoke.
 
 ## Is it finished?
 
-It is a beta. The core path is real and release-gated. Hardware connector certification, richer/full
-Explain, deeper visual diff workflows, metrology-grade vision, and broader browser matrix coverage
-remain future work.
+It is a beta. The core path is real and release-gated. Explain, structural visual diff, branch
+history, browser accessibility scans, and mock send/outcome are included. Hardware connector
+certification and metrology-grade vision remain beta field work.
 
 ## What license is it?
 

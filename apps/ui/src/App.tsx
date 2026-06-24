@@ -126,8 +126,10 @@ import {
   visualCorrectionApplyingSummary,
 } from "./utils/visualCorrection";
 import {
+  analyzePreviewDifference,
   estimatePreviewDifferencePercent,
   formatVisualDifference,
+  type VisualDiffAnalysis,
 } from "./utils/visualDiff";
 import { getManufacturingWorkflowState } from "./utils/manufacturingWorkflow";
 import {
@@ -277,12 +279,17 @@ interface IterationLogEntry {
   scad?: string | null;
   gate?: string | null;
   stepUrl?: string | null;
+  parentId?: string | null;
+  branchId?: string | null;
+  branchName?: string | null;
+  visualDiff?: VisualDiffAnalysis | null;
 }
 
 interface VisualDiffEvidence {
   before: string;
   after: string;
   summary: string;
+  analysis?: VisualDiffAnalysis | null;
 }
 
 const ITERATION_LOG_KEY = "tq-iteration-log";
@@ -830,17 +837,25 @@ function App() {
       return [];
     }
   });
+  const [activeIterationBranch, setActiveIterationBranch] = useState<{
+    id: string;
+    name: string;
+  }>({ id: "main", name: "Main" });
   const visualDiffBeforeRef = useRef<string | null>(null);
   const visualLoopRunRef = useRef(0);
   const printOutcomeCleanRef = useRef<HTMLButtonElement | null>(null);
   const appendIterationLog = useCallback(
     (entry: Omit<IterationLogEntry, "id" | "createdAt">) => {
       setIterationLog((items) => {
+        const parent = items[0] ?? null;
         const next = [
           {
             ...entry,
             id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             createdAt: Date.now(),
+            parentId: entry.parentId ?? parent?.id ?? null,
+            branchId: entry.branchId ?? activeIterationBranch.id,
+            branchName: entry.branchName ?? activeIterationBranch.name,
           },
           ...items,
         ].slice(0, 40);
@@ -848,7 +863,7 @@ function App() {
         return next;
       });
     },
-    [],
+    [activeIterationBranch],
   );
   const addVisualReviewLog = useCallback(
     (entry: string) => {
@@ -1012,20 +1027,38 @@ function App() {
       const beforeDiffImage = visualDiffBeforeRef.current;
       if (beforeDiffImage) {
         visualDiffBeforeRef.current = null;
-        const diff = await estimatePreviewDifferencePercent(
+        const diffAnalysis = await analyzePreviewDifference(
           beforeDiffImage,
           images[0].image,
         );
+        const diff =
+          diffAnalysis?.changedPercent ??
+          (await estimatePreviewDifferencePercent(
+            beforeDiffImage,
+            images[0].image,
+          ));
         if (lastEngineRidRef.current !== rid) return null;
-        const diffSummary = formatVisualDifference(diff);
+        const diffSummary =
+          diffAnalysis?.structuralSummary ?? formatVisualDifference(diff);
         setVisualDiffSummary(diffSummary);
         setVisualDiffEvidence({
           before: beforeDiffImage,
           after: images[0].image,
           summary: diffSummary ?? "Visual diff: unavailable",
+          analysis: diffAnalysis,
         });
         if (diffSummary) {
           addVisualReviewLog(diffSummary);
+          appendIterationLog({
+            kind: "visual",
+            title: "Feature-level visual diff",
+            detail: diffSummary,
+            rid,
+            scad: lastEngineScadRef.current,
+            gate: lastGateRef.current,
+            stepUrl: lastStepUrlRef.current,
+            visualDiff: diffAnalysis,
+          });
         }
       }
       const { data } = await engine.visualReview(rid, images);
@@ -1078,7 +1111,12 @@ function App() {
       setVisualCorrectionPrompt(null);
       return data;
     },
-    [activePreviewKind, activePreviewSrc, addVisualReviewLog],
+    [
+      activePreviewKind,
+      activePreviewSrc,
+      addVisualReviewLog,
+      appendIterationLog,
+    ],
   );
   const runAutonomousVisualLoop = useCallback(
     async (initial: EngineDocOutcome) => {
@@ -1710,6 +1748,47 @@ function App() {
       });
     },
     [renderCodeDirect],
+  );
+
+  const handleBranchIteration = useCallback(
+    (entry: IterationLogEntry) => {
+      if (!entry.scad) return;
+      const branch = {
+        id: `branch-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: `Branch from ${entry.title.slice(0, 24)}`,
+      };
+      setActiveIterationBranch(branch);
+      setEngineDocument(entry.scad);
+      renderCodeDirect(entry.scad);
+      lastEngineScadRef.current = entry.scad;
+      lastEngineRidRef.current = null;
+      lastGateRef.current = entry.gate ?? null;
+      lastStepUrlRef.current = null;
+      setCurrentStepUrl(null);
+      setLiveReadiness(entry.gate ?? null);
+      setVisualReviewSummary(null);
+      setVisualDiffSummary(null);
+      setVisualCorrectionPrompt(null);
+      setVisualReviewLog([]);
+      setHasEngineDesign(false);
+      setLastSlicedRid(null);
+      appendIterationLog({
+        kind: "design",
+        title: `Branched: ${entry.title}`,
+        detail:
+          "Snapshot restored into a new branch; re-render before Make it real.",
+        scad: entry.scad,
+        gate: entry.gate ?? null,
+        parentId: entry.id,
+        branchId: branch.id,
+        branchName: branch.name,
+      });
+      notifySuccess("Created design branch", {
+        toastId: "engine-design",
+        description: "Re-render this branch before slicing or sending.",
+      });
+    },
+    [appendIterationLog, renderCodeDirect],
   );
 
   // The workspace AI panel's submit (decision C's refine layer): send the prompt to the LOCAL ENGINE
@@ -3720,6 +3799,38 @@ function App() {
     : hasEngineDesign
       ? "Send stays disabled until this candidate is sliced"
       : "Build a design before slicing or sending";
+  const explainAgentSteps = [
+    "Plan: prompt and prior turns are sent to the local engine",
+    hasEngineDesign
+      ? "Generate: SCAD source and mesh were produced"
+      : "Generate: waiting for a completed design",
+    liveReadiness
+      ? "Gate: readiness checks are visible before slicing"
+      : "Gate: waiting for readiness evidence",
+    visualReviewSummary
+      ? `Look: ${visualReviewSummary}`
+      : "Look: visual correction will inspect rendered views when available",
+    lastSlicedRid === lastEngineRidRef.current && lastSlicedRid != null
+      ? "Prove: current candidate has a fresh slice"
+      : "Prove: slice proof is still required",
+  ];
+  const explainEvidenceSources = [
+    currentDesignHeadline
+      ? `Design: ${currentDesignHeadline}`
+      : "Design: none yet",
+    liveReadiness
+      ? `Readiness: ${readinessHeadline}`
+      : "Readiness: not available",
+    selectedEnginePrinter
+      ? `Profile: ${selectedEnginePrinter.name} / ${material.toUpperCase()}${selectedLayerHeight ? ` / ${selectedLayerHeight}` : ""}`
+      : "Profile: not selected",
+    selectedConnector
+      ? `Connector: ${selectedConnector.name}${selectedConnector.simulated ? " (simulated)" : ""}`
+      : "Connector: not selected",
+  ];
+  const currentBranchEntries = iterationLog.filter(
+    (entry) => (entry.branchId ?? "main") === activeIterationBranch.id,
+  );
 
   const content = shouldShowShareError ? (
     <div
@@ -4232,6 +4343,8 @@ function App() {
         visualCorrectionRounds > 0) && (
         <div
           data-testid="visual-evidence-rail"
+          role="region"
+          aria-label="Visual correction evidence"
           className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs"
           style={{
             backgroundColor: "var(--bg-secondary)",
@@ -4280,6 +4393,19 @@ function App() {
               <span style={{ color: "var(--text-tertiary)" }}>
                 {visualDiffEvidence.summary}
               </span>
+              {visualDiffEvidence.analysis?.hotspots?.length ? (
+                <span
+                  data-testid="visual-diff-hotspots"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  {visualDiffEvidence.analysis.hotspots
+                    .map(
+                      (hotspot) =>
+                        `${hotspot.region} ${hotspot.changedPercent.toFixed(1)}%`,
+                    )
+                    .join(" · ")}
+                </span>
+              ) : null}
             </div>
           )}
           {visualCorrectionRounds > 0 && (
@@ -4306,6 +4432,8 @@ function App() {
       {hasEngineDesign && (
         <div
           data-testid="manufacturing-workflow-rail"
+          role="region"
+          aria-label="Manufacturing workflow"
           className="hidden md:flex items-stretch gap-2 px-3 py-2 text-xs"
           style={{
             backgroundColor: "var(--bg-primary)",
@@ -4513,7 +4641,11 @@ function App() {
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden flex">
+      <main
+        data-testid="workspace-main"
+        className="flex-1 overflow-hidden flex"
+      >
+        <h1 className="sr-only">TinkerQuarry workspace</h1>
         {!isMobile && (
           <FileTreePanel
             activeFilePath={activeTab.projectPath}
@@ -4543,8 +4675,10 @@ function App() {
             />
           </WorkspaceProvider>
         </div>
-        <aside
+        <div
           data-testid="make-it-real-panel"
+          role="region"
+          aria-label="Customize and make it real"
           className="hidden xl:flex w-80 shrink-0 flex-col gap-4 overflow-y-auto px-4 py-3"
           style={{
             borderLeft: "1px solid var(--border-subtle)",
@@ -4636,6 +4770,46 @@ function App() {
                 style={{ color: "var(--text-tertiary)" }}
               >
                 {explainActionState}
+              </div>
+              <div
+                className="mt-3 border-t pt-2"
+                style={{ borderColor: "var(--border-primary)" }}
+              >
+                <div
+                  className="font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Agent loop
+                </div>
+                <ol
+                  data-testid="explain-agent-loop"
+                  className="mt-1 space-y-1"
+                  style={{ paddingLeft: "1rem" }}
+                >
+                  {explainAgentSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+              <div
+                className="mt-3 border-t pt-2"
+                style={{ borderColor: "var(--border-primary)" }}
+              >
+                <div
+                  className="font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Evidence used
+                </div>
+                <ul
+                  data-testid="explain-evidence-sources"
+                  className="mt-1 space-y-1"
+                  style={{ paddingLeft: "1rem" }}
+                >
+                  {explainEvidenceSources.map((source) => (
+                    <li key={source}>{source}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           </section>
@@ -4764,6 +4938,18 @@ function App() {
             >
               Iteration log
             </div>
+            <div
+              data-testid="iteration-branch-summary"
+              className="rounded-md border px-3 py-2 text-xs"
+              style={{
+                borderColor: "var(--border-primary)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Branch: {activeIterationBranch.name} ·{" "}
+              {currentBranchEntries.length} entries
+            </div>
             {iterationLog.length === 0 ? (
               <div
                 className="text-xs"
@@ -4795,22 +4981,57 @@ function App() {
                       {entry.detail}
                     </div>
                   )}
-                  {entry.scad && entry.rid != null && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 text-xs px-0 py-0"
-                      onClick={() => handleRestoreIteration(entry)}
+                  <div
+                    data-testid="iteration-branch"
+                    className="mt-1"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    {entry.branchName ?? "Main"}
+                    {entry.parentId ? " · has parent" : " · root"}
+                  </div>
+                  {entry.visualDiff?.hotspots?.length ? (
+                    <div
+                      data-testid="iteration-visual-hotspots"
+                      className="mt-1"
+                      style={{ color: "var(--text-tertiary)" }}
                     >
-                      Restore
-                    </Button>
+                      Hotspots:{" "}
+                      {entry.visualDiff.hotspots
+                        .map(
+                          (hotspot) =>
+                            `${hotspot.region} ${hotspot.changedPercent.toFixed(1)}%`,
+                        )
+                        .join(", ")}
+                    </div>
+                  ) : null}
+                  {entry.scad && entry.rid != null && (
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        data-testid="restore-iteration-button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs px-0 py-0"
+                        onClick={() => handleRestoreIteration(entry)}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        data-testid="branch-iteration-button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs px-0 py-0"
+                        onClick={() => handleBranchIteration(entry)}
+                      >
+                        Branch
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))
             )}
           </section>
-        </aside>
-      </div>
+        </div>
+      </main>
 
       <ExportDialog
         isOpen={showExportDialog}

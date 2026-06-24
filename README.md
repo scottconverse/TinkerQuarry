@@ -43,10 +43,11 @@ Known beta boundaries are documented, not hidden:
 
 - Hardware connector proof beyond mock send remains a validation lane.
 - Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
-- Lightweight visual diff evidence and a current Explain panel are implemented; richer/full Explain
-  and deeper visual diff workflows remain future work.
-- Browser coverage includes the core flow, workspace controls, menu/dialog keyboard checks, and
-  mobile smoke; it is not yet every error/export/accessibility permutation.
+- Explain, structural visual diff evidence, restore/branch history, and release accessibility scans
+  are implemented and covered by browser tests.
+- Browser coverage includes the core flow, workspace controls, menu/dialog keyboard checks, export
+  dialog, branch history, accessibility scans, mobile, and tablet. It intentionally does not claim
+  hardware connector validation.
 
 See [docs/STATUS.md](docs/STATUS.md) for the evidence-backed status matrix.
 

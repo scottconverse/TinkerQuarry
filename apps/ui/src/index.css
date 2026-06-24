@@ -41,21 +41,21 @@
   --text-primary: #839496;
   --text-secondary: #93a1a1;
   --text-tertiary: #586e75;
-  --text-inverse: #fdf6e3;
+  --text-inverse: #ffffff;
 
   --border-primary: #073642;
   --border-secondary: #586e75;
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-focus: #268bd2;
+  --border-focus: #006aa6;
 
-  --accent-primary: #268bd2;
+  --accent-primary: #006aa6;
   --accent-secondary: #2aa198;
-  --accent-hover: #6c71c4;
+  --accent-hover: #00547f;
 
   --color-error: #dc322f;
   --color-warning: #b58900;
   --color-success: #859900;
-  --color-info: #268bd2;
+  --color-info: #006aa6;
 
   --editor-bg: #002b36;
   --editor-fg: #839496;
@@ -96,7 +96,10 @@
   --dv-sash-size: 6px;
 }
 
-.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):hover,
+.dockview-theme-openscad
+  .dv-split-view-container
+  .dv-sash-container
+  .dv-sash:not(.disabled):hover,
 .dockview-theme-openscad
   .dv-split-view-container
   .dv-sash-container

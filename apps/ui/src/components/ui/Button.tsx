@@ -1,65 +1,68 @@
-import { ButtonHTMLAttributes, CSSProperties, forwardRef } from 'react';
-import { CONTROL_RADIUS_CLASS, CONTROL_SIZE_CLASSES } from './controlStyles';
+import { ButtonHTMLAttributes, CSSProperties, forwardRef } from "react";
+import { CONTROL_RADIUS_CLASS, CONTROL_SIZE_CLASSES } from "./controlStyles";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "success" | "danger" | "ghost";
+  size?: "sm" | "md" | "lg";
   isActive?: boolean;
 }
 
 const DISABLED_STYLE: CSSProperties = {
-  backgroundColor: 'var(--bg-secondary)',
-  color: 'var(--text-secondary)',
-  cursor: 'not-allowed',
-  border: '1px solid var(--border-primary)',
+  backgroundColor: "var(--bg-secondary)",
+  color: "var(--text-secondary)",
+  cursor: "not-allowed",
+  border: "1px solid var(--border-primary)",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
-      variant = 'secondary',
-      size = 'md',
+      variant = "secondary",
+      size = "md",
       isActive,
-      className = '',
+      className = "",
       disabled,
       style,
       onMouseEnter: userMouseEnter,
       onMouseLeave: userMouseLeave,
       ...props
     },
-    ref
+    ref,
   ) => {
     const getBaseStyle = (): CSSProperties => {
       if (disabled) return DISABLED_STYLE;
       switch (variant) {
-        case 'primary':
+        case "primary":
           return {
-            backgroundColor: 'var(--accent-primary)',
-            color: 'var(--text-inverse)',
-            border: '1px solid var(--accent-primary)',
-            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+            backgroundColor: "var(--accent-primary)",
+            color: "var(--text-inverse)",
+            border: "1px solid var(--accent-primary)",
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
           };
-        case 'secondary':
+        case "secondary":
           return {
             backgroundColor: isActive
-              ? 'color-mix(in srgb, var(--accent-primary) 15%, var(--bg-secondary))'
-              : 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            border: `1px solid ${isActive ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+              ? "var(--bg-tertiary)"
+              : "var(--bg-secondary)",
+            color: "var(--text-primary)",
+            border: `1px solid ${isActive ? "var(--accent-primary)" : "var(--border-primary)"}`,
           };
-        case 'ghost':
-          return { backgroundColor: 'transparent', color: 'var(--text-secondary)' };
-        case 'success':
+        case "ghost":
           return {
-            backgroundColor: 'var(--color-success)',
-            color: 'var(--text-inverse)',
-            border: 'none',
+            backgroundColor: "transparent",
+            color: "var(--text-secondary)",
           };
-        case 'danger':
+        case "success":
           return {
-            backgroundColor: 'var(--color-error)',
-            color: 'var(--text-inverse)',
-            border: 'none',
+            backgroundColor: "var(--color-success)",
+            color: "var(--text-inverse)",
+            border: "none",
+          };
+        case "danger":
+          return {
+            backgroundColor: "var(--color-error)",
+            color: "var(--text-inverse)",
+            border: "none",
           };
       }
     };
@@ -68,18 +71,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       if (!disabled) {
         const el = e.currentTarget;
         switch (variant) {
-          case 'primary':
-            el.style.backgroundColor = 'var(--accent-hover)';
-            el.style.borderColor = 'var(--accent-hover)';
+          case "primary":
+            el.style.backgroundColor = "var(--accent-hover)";
+            el.style.borderColor = "var(--accent-hover)";
             break;
-          case 'secondary':
+          case "secondary":
             el.style.backgroundColor = isActive
-              ? 'color-mix(in srgb, var(--accent-primary) 22%, var(--bg-secondary))'
-              : 'color-mix(in srgb, var(--accent-primary) 12%, var(--bg-secondary))';
+              ? "var(--bg-tertiary)"
+              : "var(--bg-tertiary)";
             break;
-          case 'ghost':
-            el.style.backgroundColor = 'var(--bg-secondary)';
-            el.style.color = 'var(--text-primary)';
+          case "ghost":
+            el.style.backgroundColor = "var(--bg-secondary)";
+            el.style.color = "var(--text-primary)";
             break;
         }
       }
@@ -90,18 +93,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       if (!disabled) {
         const el = e.currentTarget;
         switch (variant) {
-          case 'primary':
-            el.style.backgroundColor = 'var(--accent-primary)';
-            el.style.borderColor = 'var(--accent-primary)';
+          case "primary":
+            el.style.backgroundColor = "var(--accent-primary)";
+            el.style.borderColor = "var(--accent-primary)";
             break;
-          case 'secondary':
+          case "secondary":
             el.style.backgroundColor = isActive
-              ? 'color-mix(in srgb, var(--accent-primary) 15%, var(--bg-secondary))'
-              : 'var(--bg-secondary)';
+              ? "var(--bg-tertiary)"
+              : "var(--bg-secondary)";
             break;
-          case 'ghost':
-            el.style.backgroundColor = 'transparent';
-            el.style.color = 'var(--text-secondary)';
+          case "ghost":
+            el.style.backgroundColor = "transparent";
+            el.style.color = "var(--text-secondary)";
             break;
         }
       }
@@ -121,7 +124,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       />
     );
-  }
+  },
 );
 
-Button.displayName = 'Button';
+Button.displayName = "Button";

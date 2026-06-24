@@ -21,9 +21,10 @@ The v1.3.1 Windows beta is now public and release-gated.
 
 - Hardware connector proof beyond the mock connector is still a validation lane.
 - Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
-- Lightweight visual diff evidence and the current Explain panel are included; richer/full Explain
-  and deeper visual diff workflows are future work.
-- Browser coverage is meaningful but not every error/export/accessibility permutation.
+- Explain, structural visual diff evidence, restore/branch history, and release accessibility scans
+  are included and browser-tested.
+- Browser coverage is meaningful and covers the release path; hardware connector validation remains
+  beta field work.
 
 ## Start here
 

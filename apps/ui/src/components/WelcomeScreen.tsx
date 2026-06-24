@@ -351,6 +351,7 @@ export function WelcomeScreen({
   return (
     <div
       data-testid="welcome-screen"
+      role="main"
       className="h-full flex flex-col items-center justify-center px-8"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
@@ -358,8 +359,8 @@ export function WelcomeScreen({
         <div className="space-y-2 text-center">
           <Text variant="page-heading">TinkerQuarry</Text>
           <Text variant="body" color="secondary">
-            Describe a printable part, turn it into local CAD, then slice it
-            for the printer you choose.
+            Describe a printable part, turn it into local CAD, then slice it for
+            the printer you choose.
           </Text>
         </div>
 
@@ -421,10 +422,9 @@ export function WelcomeScreen({
                   </span>
                 ) : modelStatusError ? (
                   <span>
-                    {modelStatusError} The Windows app starts the bundled
-                    engine automatically. In a source checkout, start it from
-                    PowerShell with{" "}
-                    <code>cd packages\engine</code> then{" "}
+                    {modelStatusError} The Windows app starts the bundled engine
+                    automatically. In a source checkout, start it from
+                    PowerShell with <code>cd packages\engine</code> then{" "}
                     <code>.venv\Scripts\kimcad.exe web --port 8765 --demo</code>
                     .
                   </span>
@@ -529,7 +529,7 @@ export function WelcomeScreen({
                         ? "Configure an AI provider in Settings to use AI"
                         : !modelReady
                           ? "Set up local AI before starting an example"
-                        : example
+                          : example
                     }
                   >
                     {example}
@@ -588,92 +588,92 @@ export function WelcomeScreen({
                 Built parts you save or import will appear here.
               </Text>
             ) : (
-            <div className="flex flex-wrap gap-2">
-              {savedDesigns.slice(0, 12).map((d) =>
-                confirmDeleteId === d.id ? (
-                  <div
-                    key={d.id}
-                    className="inline-flex items-center gap-2 px-3 rounded-md border text-xs"
-                    style={{ borderColor: "var(--border-primary)" }}
-                  >
-                    <span style={{ color: "var(--text-secondary)" }}>
-                      Delete &ldquo;{d.name}&rdquo;?
-                    </span>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      data-testid={`confirm-delete-${d.id}`}
-                      onClick={() => void handleDeleteDesign(d.id)}
-                      className="font-medium"
+              <div className="flex flex-wrap gap-2">
+                {savedDesigns.slice(0, 12).map((d) =>
+                  confirmDeleteId === d.id ? (
+                    <div
+                      key={d.id}
+                      className="inline-flex items-center gap-2 px-3 rounded-md border text-xs"
+                      style={{ borderColor: "var(--border-primary)" }}
                     >
-                      Delete
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div key={d.id} className="inline-flex items-stretch">
-                    <Button
-                      variant="secondary"
-                      onClick={() => onReopenDesign(d.id)}
-                      title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ""}`}
-                      className="rounded-r-none"
-                    >
-                      {d.name}
-                    </Button>
-                    <IconButton
-                      size="sm"
-                      variant="toolbar"
-                      data-testid={`rename-design-${d.id}`}
-                      onClick={() => void handleRenameDesign(d)}
-                      aria-label={`Rename ${d.name}`}
-                      title={`Rename "${d.name}"`}
-                      className="rounded-none border-l-0"
-                    >
-                      <TbPencil size={14} aria-hidden="true" />
-                    </IconButton>
-                    <IconButton
-                      size="sm"
-                      variant="toolbar"
-                      data-testid={`duplicate-design-${d.id}`}
-                      onClick={() => void handleDuplicateDesign(d)}
-                      aria-label={`Duplicate ${d.name}`}
-                      title={`Duplicate "${d.name}"`}
-                      className="rounded-none border-l-0"
-                    >
-                      <TbCopy size={14} aria-hidden="true" />
-                    </IconButton>
-                    <IconButton
-                      size="sm"
-                      variant="toolbar"
-                      data-testid={`export-design-${d.id}`}
-                      onClick={() => void handleExportPortableDesign(d)}
-                      aria-label={`Export ${d.name}`}
-                      title={`Export "${d.name}" as .kimcad`}
-                      className="rounded-none border-l-0"
-                    >
-                      <TbDownload size={14} aria-hidden="true" />
-                    </IconButton>
-                    <IconButton
-                      size="sm"
-                      variant="toolbar"
-                      data-testid={`delete-design-${d.id}`}
-                      onClick={() => setConfirmDeleteId(d.id)}
-                      aria-label={`Delete ${d.name}`}
-                      title={`Delete "${d.name}"`}
-                      className="rounded-l-none border-l-0"
-                    >
-                      ×
-                    </IconButton>
-                  </div>
-                ),
-              )}
-            </div>
+                      <span style={{ color: "var(--text-secondary)" }}>
+                        Delete &ldquo;{d.name}&rdquo;?
+                      </span>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        data-testid={`confirm-delete-${d.id}`}
+                        onClick={() => void handleDeleteDesign(d.id)}
+                        className="font-medium"
+                      >
+                        Delete
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div key={d.id} className="inline-flex items-stretch">
+                      <Button
+                        variant="secondary"
+                        onClick={() => onReopenDesign(d.id)}
+                        title={`Reopen "${d.name}"${d.object_type ? ` · ${d.object_type}` : ""}`}
+                        className="rounded-r-none"
+                      >
+                        {d.name}
+                      </Button>
+                      <IconButton
+                        size="sm"
+                        variant="toolbar"
+                        data-testid={`rename-design-${d.id}`}
+                        onClick={() => void handleRenameDesign(d)}
+                        aria-label={`Rename ${d.name}`}
+                        title={`Rename "${d.name}"`}
+                        className="rounded-none border-l-0"
+                      >
+                        <TbPencil size={14} aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
+                        variant="toolbar"
+                        data-testid={`duplicate-design-${d.id}`}
+                        onClick={() => void handleDuplicateDesign(d)}
+                        aria-label={`Duplicate ${d.name}`}
+                        title={`Duplicate "${d.name}"`}
+                        className="rounded-none border-l-0"
+                      >
+                        <TbCopy size={14} aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
+                        variant="toolbar"
+                        data-testid={`export-design-${d.id}`}
+                        onClick={() => void handleExportPortableDesign(d)}
+                        aria-label={`Export ${d.name}`}
+                        title={`Export "${d.name}" as .kimcad`}
+                        className="rounded-none border-l-0"
+                      >
+                        <TbDownload size={14} aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
+                        variant="toolbar"
+                        data-testid={`delete-design-${d.id}`}
+                        onClick={() => setConfirmDeleteId(d.id)}
+                        aria-label={`Delete ${d.name}`}
+                        title={`Delete "${d.name}"`}
+                        className="rounded-l-none border-l-0"
+                      >
+                        ×
+                      </IconButton>
+                    </div>
+                  ),
+                )}
+              </div>
             )}
           </div>
         )}

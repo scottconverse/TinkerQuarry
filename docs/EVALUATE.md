@@ -7,10 +7,11 @@ short smoke is a few minutes; the full proof commands are a release-gate run.
 > durable Playwright coverage. The checked-in browser tests cover app boot against the demo engine,
 > prompt/build, rendered design-ready state, the right-side Customize / Make it real rail, Make it
 > real, first-real caution, slice, Ready-to-print state, mock Send, post-send outcome recording,
-> desktop workspace controls, menu/dialog keyboard wiring, and a mobile/narrow smoke. This is not a
-> full UI matrix: every error path, every export format, real hardware connector outcomes, and
-> comprehensive accessibility traversal still need broader coverage. Browser e2e and native smoke now
-> support isolated temp profile roots so proof does not depend on Scott's existing app data.
+> desktop workspace controls, Explain/agent/evidence panels, branch history, menu/dialog keyboard
+> wiring, export dialog, release accessibility scans, mobile, and tablet. This is not hardware
+> certification: real hardware connector outcomes remain a beta validation lane. Browser e2e and
+> native smoke now support isolated temp profile roots so proof does not depend on Scott's existing
+> app data.
 
 ## Run It
 
@@ -62,7 +63,7 @@ Then open `http://localhost:1420`.
     The app should ask for consent, copy it into the sandbox, and show an `external/<slug>/` include
     prefix.
 
-## What Is Not Here Yet
+## Honest Beta Boundaries
 
 - **Visual Correction Loop**: advisory local probe-mode v1 exists. It can inspect rendered images
   with local probe models and report likely visual issues, and the UI now runs a bounded autonomous
@@ -73,24 +74,24 @@ Then open `http://localhost:1420`.
   as `needs review`, not pass. The beta acceptance bar is 90% probe accuracy. The 3D viewer now
   supplies labeled `front` / `right` / `top` captures when ready and falls back to `current`; the API
   returns a bounded no-image
-  `review_log`. Agreed issues can now generate a bounded user-triggered correction/refine loop with
-  Undo as the prior-candidate fallback; the wrong-face handoff path is covered by a deterministic
-  probe fixture. Browser proof against the real app captured labeled `front` / `right` / `top` PNGs
-  with no console/HTTP errors (`docs/handoff/proof/vcl-multiview-browser-2026-06-22.txt`).
-  A lightweight visual-change percentage exists after correction; a full before/after visual-diff
-  viewer still needs to be built.
+  `review_log`. Agreed issues can generate a bounded correction/refine loop with Undo and
+  best-candidate restore. Visual evidence now includes before/after images, structural change
+  percentage, changed-region hotspots, and iteration-log entries. The remaining boundary is quality:
+  this is advisory inspection, not metrology-grade vision.
 - **Bundled SCAD libraries**: BOSL2, Round-Anything, YAPP_Box, and gridfinity-rebuilt are vendored
   with pinned attribution and smoke-render proof. Printable thread support comes from first-party
   `library/threads.scad`, which wraps BOSL2's thread modules. Dan Kirshner `threads.scad` remains
   excluded.
 - **External-library admission**: consent -> sandbox-copy -> include-path -> sanitization is wired.
   Admitted libraries are user-provided and are not redistributed by TinkerQuarry.
-- **Explain/diff/iteration history**: current Explain is still mostly readiness/design summary.
-  Persistent iteration history exists; full visual/structural diff remains incomplete.
+- **Explain/diff/iteration history**: release surfaces are implemented. Explain shows the agent loop,
+  evidence sources, readiness, VCL state, slice proof, and send decision. Iteration history supports
+  restore and branch/fork from snapshots. Visual diff includes structural percentage, bounding box,
+  and hotspots.
 - **Browser-level coverage breadth**: the committed Playwright tests cover the core path through mock
-  send/outcome, desktop workspace controls, menu/dialog keyboard wiring, and a mobile/narrow smoke.
-  They do not yet cover hardware connectors, every export format, every profile, every error path, or
-  comprehensive accessibility traversal.
+  send/outcome, desktop workspace controls, Explain/agent/evidence panels, branch history,
+  menu/dialog keyboard wiring, export dialog, release accessibility scans, mobile, and tablet. They
+  intentionally do not claim hardware connector validation.
 
 ## Automated Proof Commands
 
