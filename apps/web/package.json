@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "share:build": "set \"VITE_ENABLE_PROD_SHARE_DEV=true\" && set \"VITE_SHARE_API_URL=http://localhost:8788\" && pnpm build",
     "share:dev": "pnpm share:build && npx -y wrangler@3 pages dev dist --port 8788 --kv SHARE_KV --r2 SHARE_R2 --do SHARE_RATE_LIMITER=ShareRateLimiter@tinkerquarry-share-rate-limiter --persist-to .wrangler/state/share-dev",
-    "share:functions:build": "if not exist .wrangler-functions-build mkdir .wrangler-functions-build && npx -y wrangler@3 pages functions build functions --outdir .wrangler-functions-build --output-config-path .wrangler-functions-build\\config.json --compatibility-date 2026-03-24",
+    "share:functions:build": "if exist .wrangler-functions-build rmdir /s /q .wrangler-functions-build & mkdir .wrangler-functions-build & npx -y wrangler@3 pages functions build functions --outdir .wrangler-functions-build --output-config-path .wrangler-functions-build\\config.json --compatibility-date 2026-03-24",
     "share:rate-limiter:check": "npx -y wrangler@3 deploy --dry-run --config rate-limiter-worker/wrangler.toml",
     "share:rate-limiter:deploy": "npx -y wrangler@3 deploy --config rate-limiter-worker/wrangler.toml",
     "preview": "vite preview",

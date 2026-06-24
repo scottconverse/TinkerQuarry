@@ -4348,10 +4348,10 @@ function App() {
         </div>
       )}
 
-      {hasEngineDesign && isMobile && (
+      {hasEngineDesign && (
         <div
           data-testid="mobile-make-it-real-panel"
-          className="md:hidden space-y-2 px-3 py-2 text-xs"
+          className="lg:hidden space-y-2 px-3 py-2 text-xs"
           style={{
             backgroundColor: "var(--bg-primary)",
             borderBottom: "1px solid var(--border-secondary)",

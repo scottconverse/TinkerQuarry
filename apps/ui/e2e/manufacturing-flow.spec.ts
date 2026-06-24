@@ -219,3 +219,80 @@ test.describe("mobile manufacturing flow", () => {
     expect(responseErrors).toEqual([]);
   });
 });
+
+test.describe("tablet manufacturing flow", () => {
+  test.use({ viewport: { width: 820, height: 1180 } });
+
+  test("keeps compact orientation controls reachable below desktop lg", async ({
+    page,
+  }) => {
+    const consoleErrors: string[] = [];
+    const responseErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+    page.on("pageerror", (error) => {
+      consoleErrors.push(error.message);
+    });
+    page.on("response", (response) => {
+      const status = response.status();
+      if (status >= 400 && /\/api\//.test(response.url())) {
+        responseErrors.push(`${status} ${response.url()}`);
+      }
+    });
+
+    await page.goto("/");
+    const skipSetup = page.getByRole("button", { name: /skip setup/i });
+    if (await skipSetup.isVisible().catch(() => false)) {
+      await skipSetup.click();
+    }
+
+    await page
+      .locator('textarea[placeholder="Describe what you want to build..."]')
+      .fill("a small tablet-width test bracket");
+    await page.getByRole("button", { name: /^Build$/i }).click();
+
+    await expect(page.getByTestId("mobile-make-it-real-panel")).toBeVisible({
+      timeout: 120_000,
+    });
+    await expect(page.getByTestId("mobile-orient-x")).toBeEnabled({
+      timeout: 30_000,
+    });
+    await page.getByTestId("mobile-orient-x").click();
+    await expect(page.getByTestId("mobile-workflow-slice")).toContainText(
+      /Ready to slice/i,
+      { timeout: 120_000 },
+    );
+
+    await expect(page.getByTestId("mobile-make-it-real-button")).toBeEnabled({
+      timeout: 120_000,
+    });
+    await page.getByTestId("mobile-make-it-real-button").click();
+    const firstReal = page.getByTestId("first-real-print-dialog");
+    if (await firstReal.isVisible().catch(() => false)) {
+      await firstReal.getByTestId("first-real-print-confirm").click();
+    }
+
+    await expect(page.getByTestId("mobile-workflow-slice")).toContainText(
+      /Sliced/i,
+      { timeout: 180_000 },
+    );
+    await page.getByTestId("mobile-connector-select").selectOption("mock");
+    await expect(page.getByTestId("mobile-send-to-printer-button")).toBeEnabled(
+      { timeout: 30_000 },
+    );
+    await page.getByTestId("mobile-send-to-printer-button").click();
+    await expect(page.getByTestId("print-outcome-dialog")).toBeVisible({
+      timeout: 60_000,
+    });
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(2);
+    expect(consoleErrors).toEqual([]);
+    expect(responseErrors).toEqual([]);
+  });
+});

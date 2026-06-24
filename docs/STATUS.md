@@ -2,6 +2,7 @@
 
 **As of:** 2026-06-24
 **Product release:** v1.3.1
+**Current clean-gate HEAD:** fb8dff8583af6450f1ed61c8a854b1bd4be51876
 
 This is the current source of truth for the canonical `tinkerquarry` product repo. It supersedes prior
 "done", "clear to advance", and manual-only verification claims.
@@ -16,8 +17,9 @@ it real slices it to printable G-code -> mock Send records a simulated outcome.
 The native Windows app now also builds and smoke-tests from both the release executable and the
 installed NSIS copy. The packaged executable is `tinkerquarry.exe`.
 
-This is the beta release baseline. The shipped release gate uses the built-in simulated connector for
-repeatable send/outcome proof.
+The published v1.3.1 release remains the shipped beta artifact. The current `main` branch has an
+additional post-release GauntletGate clean pass that closes follow-up audit findings. The gate uses
+the built-in simulated connector for repeatable send/outcome proof.
 
 ## Verification Honesty
 
@@ -62,10 +64,10 @@ the product promises that gate this beta.
 
 | Area                  | Status  | Notes                                                                                                                                                                                                     |
 | --------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Full Explain mode     | working | The right rail now explains the generated design, readiness gate, VCL state, slice proof, and why Send is enabled or disabled.                                                                            |
+| Explain panel         | working | The right rail explains the generated design, readiness gate, VCL state, slice proof, and why Send is enabled or disabled. A richer/full Explain workflow remains future work.                            |
 | Agent loop            | partial | Refine-in-context exists; a true multi-tool agent loop remains unfinished.                                                                                                                                |
 | Iteration log/history | working | Save/reopen, rename, duplicate, delete, Undo, and a persistent session iteration transcript exist. Snapshot entries can restore prior candidates. Server-side branching/version tree remains future work. |
-| Visual diff           | working | Lightweight pixel-change percentage and before/after preview evidence are shown after visual correction.                                                                                                  |
+| Visual diff           | working | Lightweight pixel-change percentage and before/after preview evidence are shown after visual correction. Deeper/full visual diff workflows remain future work.                                            |
 | Export coverage       | working | `.scad`, STL, OBJ, AMF, 3MF, SVG, DXF, PNG preview, STEP when the engine offers it, and portable `.kimcad` import/export are available.                                                                   |
 | Accessibility         | partial | Several surfaces have automated a11y checks and fixes. Full workspace keyboard/focus/contrast/SR pass remains unfinished.                                                                                 |
 | Browser test breadth  | working | Desktop core-flow e2e, Explain panel checks, stale-edit refusal, workspace-control traversal, menu/dialog keyboard checks, export dialog coverage, and mobile boot/no-horizontal-overflow smoke exist.    |
@@ -74,25 +76,25 @@ the product promises that gate this beta.
 
 Run from `C:\Users\Scott\Desktop\CODE\tinkerquarry` unless noted.
 
-| Command                                                                                                            | Result                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `pnpm -r lint`                                                                                                     | passed                                                                                             |
-| `pnpm -r type-check`                                                                                               | passed                                                                                             |
-| `node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand` from `apps\ui`            | 94 suites passed, 1 skipped; 662 tests passed, 2 skipped; existing React `act(...)` warnings       |
-| `pnpm test:web:unit`                                                                                               | 4 suites passed; 16 tests passed                                                                   |
-| `.\.venv\Scripts\python.exe -m pytest tests\test_external_libraries.py -q` from `packages\engine`                  | 6 passed; includes real OpenSCAD render through an admitted external library                       |
-| `pnpm test:e2e:web`                                                                                                | covers core manufacturing flow, workspace walkthrough, stale edit refusal, and mobile/narrow smoke |
-| `cmd /c "call ...\LaunchDevCmd.bat -arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && pnpm.cmd tauri:build"` | passed; MSI and NSIS artifacts produced                                                            |
-| `node scripts/smoke-tauri-runtime.mjs`                                                                             | passed against release executable                                                                  |
-| `pnpm test:e2e:tauri:installed`                                                                                    | passed against installed NSIS copy with isolated profile and native build/slice/send workflow      |
-| `cargo test --manifest-path apps\ui\src-tauri\Cargo.toml`                                                          | 10 passed                                                                                          |
-| `.\.venv\Scripts\python.exe -m pytest tests -q` from `packages\engine`                                             | 1627 passed, 111 skipped                                                                           |
-| OpenSCAD 2026 Manifold render smoke                                                                                | 5/5 passed: 3MF cube, threaded rod, threaded hole, Gridfinity base, VCL fixture                    |
-| Boolean-heavy threaded part render comparison                                                                      | OpenSCAD 2021.01: 4.08s; OpenSCAD 2026.03.16 Manifold: 0.41s                                       |
-| `.\.venv\Scripts\python.exe scripts\build_installer.py --stage-only --skip-pip` from `packages\engine`             | passed; staged checksum-pinned OpenSCAD, OrcaSlicer, and PrintProof3D                              |
-| `dist\staging\tools\openscad\openscad.exe --version` from `packages\engine`                                        | `OpenSCAD version 2026.03.16`                                                                      |
-| `.\.venv\Scripts\python.exe scripts\verify_install.py dist\staging --port 8743` from `packages\engine`             | `VERIFY-INSTALL: ALL GREEN`                                                                        |
-| First-party BOSL2-backed thread wrapper + kept Gridfinity render proof                                             | 4/4 passed                                                                                         |
+| Command                                                                                                            | Result                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `pnpm -r lint`                                                                                                     | passed                                                                                                         |
+| `pnpm -r type-check`                                                                                               | passed                                                                                                         |
+| `node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand` from `apps\ui`            | 94 suites passed, 1 skipped; 662 tests passed, 2 skipped; existing React `act(...)` warnings                   |
+| `pnpm test:web:unit`                                                                                               | 4 suites passed; 16 tests passed                                                                               |
+| `.\.venv\Scripts\python.exe -m pytest tests\test_external_libraries.py -q` from `packages\engine`                  | 6 passed; includes real OpenSCAD render through an admitted external library                                   |
+| `pnpm test:e2e:web`                                                                                                | covers core manufacturing flow, workspace walkthrough, stale edit refusal, and mobile/narrow smoke             |
+| `cmd /c "call ...\LaunchDevCmd.bat -arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && pnpm.cmd tauri:build"` | passed; MSI and NSIS artifacts produced                                                                        |
+| `node scripts/smoke-tauri-runtime.mjs`                                                                             | passed against release executable                                                                              |
+| `pnpm test:e2e:tauri:installed`                                                                                    | passed against installed NSIS copy with isolated profile and native build/slice/send workflow                  |
+| `cargo test --manifest-path apps\ui\src-tauri\Cargo.toml`                                                          | 10 passed                                                                                                      |
+| `.\.venv\Scripts\python.exe -m pytest tests -q` from `packages\engine`                                             | 1627 passed, 111 skipped                                                                                       |
+| OpenSCAD 2026 Manifold render smoke                                                                                | 5/5 passed: 3MF cube, threaded rod, threaded hole, Gridfinity base, VCL fixture                                |
+| Boolean-heavy threaded part render comparison                                                                      | OpenSCAD 2021.01: 4.08s; OpenSCAD 2026.03.16 Manifold: 0.41s                                                   |
+| `.\.venv\Scripts\python.exe scripts\build_installer.py --stage-only --skip-pip` from `packages\engine`             | passed; staged checksum-pinned OpenSCAD, OrcaSlicer, and PrintProof3D                                          |
+| `dist\staging\tools\openscad\openscad.exe --version` from `packages\engine`                                        | `OpenSCAD version 2026.03.16`                                                                                  |
+| `.\.venv\Scripts\python.exe scripts\verify_install.py dist\staging --port 8743` from `packages\engine`             | `VERIFY-INSTALL: ALL GREEN`                                                                                    |
+| First-party BOSL2-backed thread wrapper + kept Gridfinity render proof                                             | 4/4 passed                                                                                                     |
 | `pnpm test:release` from repo root                                                                                 | passed before v1.3.1 publication; includes gate, browser e2e, native build, release smoke, installed-app smoke |
 
 ## Run

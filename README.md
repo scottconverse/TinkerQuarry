@@ -11,7 +11,7 @@ and no cloud model unless you explicitly configure one.
 [![Engine](https://img.shields.io/badge/beta-0.9.3-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Status](https://img.shields.io/badge/gate-v1.3.1%20published-1d7a4e)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1)
+[![Status](https://img.shields.io/badge/gate-post--release%20clean-1d7a4e)](docs/audits/gate-tinkerquarry-2026-06-24-fresh/GAUNTLETGATE-ALL-FIXED-v1.3.1-working-tree.md)
 
 ## What It Does
 
@@ -35,13 +35,16 @@ Version `v1.3.1` is a Windows beta release. The core product path is implemented
 - Printability gate blocks stale or unsafe manufacturing output.
 - Mock send/outcome path is browser-tested.
 - Native Tauri Windows package builds and installed-app smoke passes.
-- GitHub release gate passed locally with `0 Blocker / 0 Critical / 0 Major / 0 Minor / 0 Nit`.
+- The published `v1.3.1` release gate passed before publication. A later post-release
+  GauntletGate pass on `main` also closed the follow-up audit findings at
+  `0 Blocker / 0 Critical / 0 Major / 0 Minor / 0 Nit`.
 
 Known beta boundaries are documented, not hidden:
 
 - Hardware connector proof beyond mock send remains a validation lane.
 - Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
-- Full visual diff and richer Explain surfaces remain future work.
+- Lightweight visual diff evidence and a current Explain panel are implemented; richer/full Explain
+  and deeper visual diff workflows remain future work.
 - Browser coverage includes the core flow, workspace controls, menu/dialog keyboard checks, and
   mobile smoke; it is not yet every error/export/accessibility permutation.
 
@@ -116,8 +119,11 @@ The local release command is:
 pnpm test:release
 ```
 
-For `v1.3.1`, this passed on commit `4e159c2a189e4b388204baf636acd46ac430a1c0`
-before the public tag and release assets were published. It covers:
+For published `v1.3.1`, this passed on commit
+`4e159c2a189e4b388204baf636acd46ac430a1c0` before the public tag and release assets
+were published. The post-release clean gate is recorded separately at
+`gauntletgate-2026-06-24-clean` / `fb8dff8583af6450f1ed61c8a854b1bd4be51876`.
+It covers:
 
 - lint and type-check;
 - UI Jest suite;
