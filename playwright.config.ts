@@ -13,6 +13,7 @@ const engineOut = path.join(profileRoot, "engine-output");
 export default defineConfig({
   testDir: "./apps/ui/e2e",
   timeout: 180_000,
+  workers: 1,
   expect: {
     timeout: 30_000,
   },
