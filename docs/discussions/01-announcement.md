@@ -15,7 +15,7 @@ The v1.3.1 Windows beta is now public and release-gated.
 - Printability gate that blocks stale or unsafe manufacturing output.
 - Mock send and print-outcome recording.
 - Native Windows package build, release-executable smoke, and installed-app workflow smoke.
-- Full local release proof: `pnpm test:release` and GauntletGate ALL pass before tagging.
+- Full local release proof: `pnpm test:release` and GauntletGate ALL passed before publication.
 
 ## What is still beta
 
@@ -29,7 +29,7 @@ The v1.3.1 Windows beta is now public and release-gated.
 - Manual: `docs/USER-MANUAL.md`
 - Architecture: `docs/ARCHITECTURE.md`
 - Status matrix: `docs/STATUS.md`
-- Release gate: `docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md`
+- Release: https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1
 
 If you print something, please post it in Show and Tell. Real parts and failure cases are the best
 signal for the next stage.

@@ -435,10 +435,10 @@ export function CustomizerPanel({
           </div>
           <div className="space-y-1.5">
             <Text variant="section-heading" as="h2" className="leading-snug">
-              No parameters yet
+              No custom controls yet
             </Text>
             <Text variant="caption" className="leading-relaxed">
-              Ask the AI to add customizer parameters with sliders and labels.
+              Ask AI to expose dimensions, clearances, or counts as sliders before slicing.
             </Text>
           </div>
         </div>

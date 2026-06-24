@@ -1,16 +1,20 @@
-name = "openscad-studio"
+name = "tinkerquarry"
 compatibility_date = "2026-03-24"
 pages_build_output_dir = "./dist"
 
 # Cloudflare Pages projects must bind:
 # - `SHARE_KV`
 # - `SHARE_R2`
+# - `SHARE_RATE_LIMITER` (Durable Object; atomic per-IP share limit)
 #
 # Production and staging bindings are configured in the Cloudflare Pages UI.
 # For local share testing, use:
 #   pnpm share:dev
 # which runs `wrangler pages dev` with local `SHARE_KV` and `SHARE_R2`
-# emulation plus persistent state in `.wrangler/state/share-dev`.
+# emulation, a local Durable Object binding, and persistent state in
+# `.wrangler/state/share-dev`. Deploy the Durable Object worker before
+# deploying Pages:
+#   pnpm share:rate-limiter:deploy
 
 [[kv_namespaces]]
 binding = "SHARE_KV"
@@ -20,6 +24,11 @@ id = "7a5296abd7b44f11a331dc0cf2c42b55"
 binding = "SHARE_R2"
 bucket_name = "share-thumbnails-production"
 
+[[durable_objects.bindings]]
+name = "SHARE_RATE_LIMITER"
+class_name = "ShareRateLimiter"
+script_name = "tinkerquarry-share-rate-limiter"
+
 [[env.preview.kv_namespaces]]
 binding = "SHARE_KV"
 id = "55463463091d414fa35d361a91ba019d"
@@ -27,3 +36,8 @@ id = "55463463091d414fa35d361a91ba019d"
 [[env.preview.r2_buckets]]
 binding = "SHARE_R2"
 bucket_name = "share-thumbnails-staging"
+
+[[env.preview.durable_objects.bindings]]
+name = "SHARE_RATE_LIMITER"
+class_name = "ShareRateLimiter"
+script_name = "tinkerquarry-share-rate-limiter"

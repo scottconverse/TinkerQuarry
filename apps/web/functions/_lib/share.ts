@@ -1,6 +1,12 @@
 export interface Env {
   SHARE_KV: KVNamespace;
   SHARE_R2: R2Bucket;
+  SHARE_RATE_LIMITER: {
+    idFromName(name: string): unknown;
+    get(id: unknown): {
+      fetch(request: Request): Promise<Response>;
+    };
+  };
 }
 
 export interface ShareRecord {
@@ -89,17 +95,33 @@ export async function enforceShareRateLimit(
   const ip = extractClientIp(request);
   const now = new Date();
   const hourKey = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}-${now.getUTCHours()}`;
-  const key = `ratelimit:${ip}:${hourKey}`;
-  const current = Number((await env.SHARE_KV.get(key)) || "0");
-  if (current >= 30) {
+
+  if (!env.SHARE_RATE_LIMITER) {
+    return json(
+      { error: "Share service is missing its atomic rate limiter binding." },
+      { status: 503 },
+    );
+  }
+
+  const id = env.SHARE_RATE_LIMITER.idFromName(`${ip}:${hourKey}`);
+  const limiter = env.SHARE_RATE_LIMITER.get(id);
+  const response = await limiter.fetch(
+    new Request("https://rate-limit.local/check", {
+      method: "POST",
+      body: JSON.stringify({ limit: 30, ttlSeconds: 3600 }),
+    }),
+  );
+
+  if (response.status === 204) {
+    return null;
+  }
+  if (response.status === 429) {
     return json(
       { error: "Too many shares. Try again in a few minutes." },
       { status: 429 },
     );
   }
-
-  await env.SHARE_KV.put(key, String(current + 1), { expirationTtl: 3600 });
-  return null;
+  return json({ error: "Share rate limiter failed." }, { status: 503 });
 }
 
 export function randomShareId(length: number = 8): string {
@@ -172,7 +194,11 @@ export async function parseShareRecord(
     return null;
   }
 
-  return JSON.parse(value) as ShareRecord;
+  try {
+    return JSON.parse(value) as ShareRecord;
+  } catch {
+    return null;
+  }
 }
 
 export async function readShare(

@@ -22,6 +22,7 @@ module.exports = {
   maxWorkers: 1,
   cache: true,
   cacheDirectory: '<rootDir>/.jest-cache',
+  coverageDirectory: '<rootDir>/../../coverage/web',
   watchman: false,
   collectCoverageFrom: [
     'functions/**/*.{ts,tsx}',

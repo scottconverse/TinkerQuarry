@@ -11,7 +11,7 @@ and no cloud model unless you explicitly configure one.
 [![Engine](https://img.shields.io/badge/beta-0.9.3-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Status](https://img.shields.io/badge/gate-0%2F0%2F0%2F0%2F0-1d7a4e)](docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md)
+[![Status](https://img.shields.io/badge/gate-v1.3.1%20published-1d7a4e)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1)
 
 ## What It Does
 
@@ -68,7 +68,9 @@ intentional because KimCad remains the reusable engine layer inside this product
 
 The supported beta target is Windows.
 
-1. Download the release installer when published, or build from source with the commands below.
+1. Download `TinkerQuarry_1.3.1_x64-setup.exe` from the
+   [v1.3.1 release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1), or
+   build from source with the commands below.
 2. Open TinkerQuarry.
 3. Choose or confirm printer/material settings.
 4. Describe a part and build it.
@@ -78,7 +80,18 @@ Full instructions are in the [User Manual](docs/USER-MANUAL.md).
 
 ## Developer Quick Start
 
-Use two PowerShell terminals:
+Fresh source setup:
+
+```powershell
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+corepack enable
+pnpm install
+cd packages\engine
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+```
+
+Then use two PowerShell terminals:
 
 ```powershell
 # Terminal 1: engine
@@ -103,7 +116,8 @@ The local release command is:
 pnpm test:release
 ```
 
-For `v1.3.1`, this is run before tagging and covers:
+For `v1.3.1`, this passed on commit `4e159c2a189e4b388204baf636acd46ac430a1c0`
+before the public tag and release assets were published. It covers:
 
 - lint and type-check;
 - UI Jest suite;
@@ -115,8 +129,26 @@ For `v1.3.1`, this is run before tagging and covers:
 - release executable smoke;
 - installed NSIS workflow smoke.
 
-The final GauntletGate report is
-[docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md](docs/audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md).
+The public release and checksums are at
+[github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
+
+## Share Web Deployment
+
+The optional public/share surface in `apps/web` deploys to Cloudflare Pages with three bindings:
+
+- `SHARE_KV` for share metadata;
+- `SHARE_R2` for thumbnails;
+- `SHARE_RATE_LIMITER`, a separate Durable Object worker named `tinkerquarry-share-rate-limiter`.
+
+Deploy the Durable Object worker before deploying Pages:
+
+```powershell
+pnpm --filter web share:rate-limiter:deploy
+```
+
+The gate verifies this packaging path with `pnpm test:web:share-deploy`, which builds the share web
+app, compiles Pages Functions, and dry-runs the Durable Object worker. Local share testing uses
+`pnpm web:share:dev`.
 
 ## Documentation
 

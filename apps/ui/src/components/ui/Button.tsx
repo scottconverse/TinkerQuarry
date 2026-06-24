@@ -11,7 +11,6 @@ const DISABLED_STYLE: CSSProperties = {
   backgroundColor: 'var(--bg-secondary)',
   color: 'var(--text-secondary)',
   cursor: 'not-allowed',
-  opacity: 0.65,
   border: '1px solid var(--border-primary)',
 };
 

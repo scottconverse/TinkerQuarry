@@ -7,6 +7,7 @@ import { jest } from '@jest/globals';
 import {
   clearApiKey,
   clearOpenAiCompatibleConfig,
+  clearSessionApiKeysForTests,
   setStoredModelSelection,
   storeApiKey,
   storeOpenAiCompatibleConfig,
@@ -106,6 +107,7 @@ describe('ModelSelector provider refresh', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    clearSessionApiKeysForTests();
     clearApiKey('anthropic');
     clearApiKey('openai');
     clearOpenAiCompatibleConfig();
@@ -150,7 +152,7 @@ describe('ModelSelector provider refresh', () => {
   it('refreshes a mounted selector when an OpenAI key is added after mount', async () => {
     renderWithProviders(<ModelSelectorHarness />);
 
-    expect(screen.getByText('No AI provider configured')).toBeTruthy();
+    expect(screen.getByText('Local or cloud AI not connected')).toBeTruthy();
 
     act(() => {
       storeApiKey('openai', 'openai-test-key');
@@ -162,7 +164,7 @@ describe('ModelSelector provider refresh', () => {
       expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
     });
     await waitFor(() => {
-      expect(screen.queryByText('No AI provider configured')).toBeNull();
+      expect(screen.queryByText('Local or cloud AI not connected')).toBeNull();
     });
   });
 

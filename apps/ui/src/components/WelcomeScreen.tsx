@@ -355,9 +355,13 @@ export function WelcomeScreen({
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <div className="w-full max-w-3xl space-y-8">
-        <Text variant="page-heading" className="text-center mb-8">
-          What do you want to create?
-        </Text>
+        <div className="space-y-2 text-center">
+          <Text variant="page-heading">TinkerQuarry</Text>
+          <Text variant="body" color="secondary">
+            Describe a printable part, turn it into local CAD, then slice it
+            for the printer you choose.
+          </Text>
+        </div>
 
         {hasApiKey ? (
           <div
@@ -416,7 +420,14 @@ export function WelcomeScreen({
                       : ""}
                   </span>
                 ) : modelStatusError ? (
-                  <span>{modelStatusError}</span>
+                  <span>
+                    {modelStatusError} The Windows app starts the bundled
+                    engine automatically. In a source checkout, start it from
+                    PowerShell with{" "}
+                    <code>cd packages\engine</code> then{" "}
+                    <code>.venv\Scripts\kimcad.exe web --port 8765 --demo</code>
+                    .
+                  </span>
                 ) : modelNeedsSetup ? (
                   <span>
                     Local AI setup needed for {modelStatus.model}
@@ -574,7 +585,7 @@ export function WelcomeScreen({
             </div>
             {savedDesigns.length === 0 ? (
               <Text variant="caption" color="tertiary">
-                No saved designs yet.
+                Built parts you save or import will appear here.
               </Text>
             ) : (
             <div className="flex flex-wrap gap-2">
@@ -765,7 +776,7 @@ export function WelcomeScreen({
           >
             {hasCustomProjectDirectory
               ? "Start in folder →"
-              : "Start with empty project →"}
+              : "Start from code →"}
           </Button>
         </div>
       </div>

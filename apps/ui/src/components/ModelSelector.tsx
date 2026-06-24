@@ -90,8 +90,8 @@ export function ModelSelector({
 
   if (!hasModels && !isLoading) {
     return (
-      <span className="text-xs" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
-        No AI provider configured
+      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        Local or cloud AI not connected
       </span>
     );
   }

@@ -151,7 +151,7 @@ describe("POST /api/share", () => {
     await expect(decompressSource(stored.code)).resolves.toBe(
       "cube([10, 10, 10]);",
     );
-    expect(kvStore.get("ratelimit:198.51.100.7:2026-3-29-18")).toBe("1");
+    expect(kvStore.get("ratelimit:198.51.100.7:2026-3-29-18")).toBeUndefined();
   });
 
   it("accepts .h files in multi-file project shares but requires a .scad render target", async () => {
@@ -209,6 +209,79 @@ describe("POST /api/share", () => {
     await expect(invalidRenderTarget.json()).resolves.toEqual({
       error: "renderTarget must be a renderable .scad file in the project.",
     });
+  });
+
+  it("rejects malformed multi-file project shares before persistence", async () => {
+    const { env, kvStore } = createMockEnv();
+
+    async function post(body: unknown) {
+      return onRequestPost(
+        createPagesContext({
+          request: new Request("https://studio.test/api/share", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+          env: env as never,
+        }) as never,
+      );
+    }
+
+    const invalidFiles = await post({ files: ["main.scad"], renderTarget: "main.scad" });
+    expect(invalidFiles.status).toBe(400);
+    await expect(invalidFiles.json()).resolves.toEqual({
+      error: "Invalid files format.",
+    });
+
+    const missingTarget = await post({ files: { "main.scad": "cube(10);" } });
+    expect(missingTarget.status).toBe(400);
+    await expect(missingTarget.json()).resolves.toEqual({
+      error: "Missing or invalid renderTarget.",
+    });
+
+    const emptyProject = await post({ files: {}, renderTarget: "main.scad" });
+    expect(emptyProject.status).toBe(400);
+    await expect(emptyProject.json()).resolves.toEqual({
+      error: "Project must contain at least one file.",
+    });
+
+    const pathTraversal = await post({
+      files: { "../escape.scad": "cube(10);" },
+      renderTarget: "../escape.scad",
+    });
+    expect(pathTraversal.status).toBe(400);
+    await expect(pathTraversal.json()).resolves.toEqual({
+      error: "Invalid file path: ../escape.scad",
+    });
+
+    const missingFile = await post({
+      files: { "main.scad": "cube(10);" },
+      renderTarget: "missing.scad",
+    });
+    expect(missingFile.status).toBe(400);
+    await expect(missingFile.json()).resolves.toEqual({
+      error: "renderTarget must be a file in the project.",
+    });
+
+    const tooManyFiles = Object.fromEntries(
+      Array.from({ length: 51 }, (_, index) => [`part${index}.scad`, "cube(1);"]),
+    );
+    const tooMany = await post({ files: tooManyFiles, renderTarget: "part0.scad" });
+    expect(tooMany.status).toBe(400);
+    await expect(tooMany.json()).resolves.toEqual({
+      error: "Too many files (50 max).",
+    });
+
+    const oversized = await post({
+      files: { "main.scad": "x".repeat(51_201) },
+      renderTarget: "main.scad",
+    });
+    expect(oversized.status).toBe(413);
+    await expect(oversized.json()).resolves.toEqual({
+      error: "Project is too large (50KB max across all files).",
+    });
+
+    expect([...kvStore.keys()].filter((key) => key.startsWith("share:"))).toEqual([]);
   });
 
   it("rejects invalid stored project payloads on public read", async () => {

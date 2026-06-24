@@ -42,14 +42,14 @@ const API_KEY_STORAGE_KEYS: Record<AiProvider, string> = {
 };
 
 // ============================================================================
-// API Key Storage (localStorage-based, obfuscated)
+// API Key Storage
+//
+// Cloud provider keys live only in process memory. Legacy localStorage values
+// are read once for migration, then removed.
 // ============================================================================
 
 const OBF_PREFIX = 'obf1:';
-
-function obfuscate(key: string): string {
-  return OBF_PREFIX + btoa(key.split('').reverse().join(''));
-}
+const sessionKeys: Partial<Record<AiProvider, string>> = {};
 
 function deobfuscate(stored: string): string | null {
   if (!stored.startsWith(OBF_PREFIX)) return null; // Legacy plaintext value
@@ -61,24 +61,41 @@ function deobfuscate(stored: string): string | null {
 }
 
 export function storeApiKey(provider: AiProvider, key: string): void {
-  localStorage.setItem(API_KEY_STORAGE_KEYS[provider], obfuscate(key));
-  notify();
-}
-
-export function clearApiKey(provider: AiProvider): void {
+  sessionKeys[provider] = key;
   localStorage.removeItem(API_KEY_STORAGE_KEYS[provider]);
   notify();
 }
 
+export function clearApiKey(provider: AiProvider): void {
+  delete sessionKeys[provider];
+  localStorage.removeItem(API_KEY_STORAGE_KEYS[provider]);
+  notify();
+}
+
+export function clearSessionApiKeysForTests(): void {
+  delete sessionKeys.anthropic;
+  delete sessionKeys.openai;
+  delete sessionKeys['openai-compatible'];
+  notify();
+}
+
 export function getApiKey(provider: AiProvider): string | null {
+  const sessionKey = sessionKeys[provider];
+  if (sessionKey) return sessionKey;
+
   const stored = localStorage.getItem(API_KEY_STORAGE_KEYS[provider]);
   if (stored === null) return null;
 
   const decoded = deobfuscate(stored);
-  if (decoded !== null) return decoded;
+  if (decoded !== null) {
+    sessionKeys[provider] = decoded;
+    localStorage.removeItem(API_KEY_STORAGE_KEYS[provider]);
+    return decoded;
+  }
 
   // Legacy plaintext value — re-encode so storage is clean going forward
-  localStorage.setItem(API_KEY_STORAGE_KEYS[provider], obfuscate(stored));
+  sessionKeys[provider] = stored;
+  localStorage.removeItem(API_KEY_STORAGE_KEYS[provider]);
   return stored;
 }
 
@@ -124,8 +141,10 @@ export function storeOpenAiCompatibleConfig(config: OpenAiCompatibleConfig): voi
   }
 
   if (config.apiKey?.trim()) {
-    localStorage.setItem(STORAGE_KEYS.openaiCompatibleApiKey, obfuscate(config.apiKey.trim()));
+    sessionKeys['openai-compatible'] = config.apiKey.trim();
+    localStorage.removeItem(STORAGE_KEYS.openaiCompatibleApiKey);
   } else {
+    delete sessionKeys['openai-compatible'];
     localStorage.removeItem(STORAGE_KEYS.openaiCompatibleApiKey);
   }
 
@@ -133,6 +152,7 @@ export function storeOpenAiCompatibleConfig(config: OpenAiCompatibleConfig): voi
 }
 
 export function clearOpenAiCompatibleConfig(): void {
+  delete sessionKeys['openai-compatible'];
   localStorage.removeItem(STORAGE_KEYS.openaiCompatibleBaseUrl);
   localStorage.removeItem(STORAGE_KEYS.openaiCompatibleModel);
   localStorage.removeItem(STORAGE_KEYS.openaiCompatibleApiKey);

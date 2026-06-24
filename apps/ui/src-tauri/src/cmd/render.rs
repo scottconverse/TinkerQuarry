@@ -253,6 +253,7 @@ fn get_binary_version(binary_path: &Path) -> Option<String> {
 // Workspace helpers
 // ============================================================================
 
+#[derive(Debug)]
 struct RenderWorkspace {
     /// Temp directory to clean up after render
     temp_dir: PathBuf,
@@ -478,8 +479,9 @@ fn create_render_workspace(
         let input_dir = temp_dir.join("input_dir");
         fs::create_dir_all(&input_dir).map_err(|e| format!("Failed to create input_dir: {}", e))?;
 
-        let relative_input = input_path.as_deref().unwrap_or("input.scad");
-        let input_file = input_dir.join(relative_input);
+        let relative_input =
+            normalize_relative_project_path(input_path.as_deref().unwrap_or("input.scad"))?;
+        let input_file = input_dir.join(&relative_input);
 
         if let Some(parent) = input_file.parent() {
             fs::create_dir_all(parent)
@@ -493,7 +495,8 @@ fn create_render_workspace(
         // Write auxiliary files to temp dir
         if let Some(aux_files) = auxiliary_files {
             for (rel_path, content) in aux_files {
-                let aux_path = input_dir.join(rel_path);
+                let normalized_rel_path = normalize_relative_project_path(rel_path)?;
+                let aux_path = input_dir.join(&normalized_rel_path);
                 if let Some(parent) = aux_path.parent() {
                     fs::create_dir_all(parent).ok();
                 }
@@ -690,31 +693,28 @@ pub async fn render_cancel() -> Result<(), String> {
 // ============================================================================
 
 fn tokio_timeout_wait(
-    child: std::process::Child,
+    mut child: std::process::Child,
     timeout: Duration,
 ) -> Result<std::process::Output, String> {
-    // Use a thread to wait, with a timeout via channel
-    let (tx, rx) = std::sync::mpsc::channel();
-
-    let handle = std::thread::spawn(move || {
-        let result = child.wait_with_output();
-        let _ = tx.send(result);
-    });
-
-    match rx.recv_timeout(timeout) {
-        Ok(result) => {
-            let _ = handle.join();
-            result.map_err(|e| format!("OpenSCAD process error: {}", e))
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_status)) => {
+                return child
+                    .wait_with_output()
+                    .map_err(|e| format!("OpenSCAD process error: {}", e));
+            }
+            Ok(None) if started.elapsed() >= timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "OpenSCAD render timed out after {}s and was killed",
+                    timeout.as_secs()
+                ));
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(100)),
+            Err(e) => return Err(format!("OpenSCAD process error: {}", e)),
         }
-        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-            // Process timed out — we can't easily kill it from here since
-            // ownership moved to the thread, but we return an error
-            Err(format!(
-                "OpenSCAD render timed out after {}s",
-                timeout.as_secs()
-            ))
-        }
-        Err(e) => Err(format!("Channel error waiting for OpenSCAD: {}", e)),
     }
 }
 
@@ -799,5 +799,23 @@ mod tests {
         }
         let _ = fs::remove_dir_all(workspace.temp_dir);
         let _ = fs::remove_dir_all(project_root);
+    }
+
+    #[test]
+    fn create_render_workspace_rejects_unsaved_auxiliary_escape() {
+        let mut auxiliary = std::collections::HashMap::new();
+        auxiliary.insert("../escape.scad".to_string(), "cube(1);".to_string());
+
+        let error = create_render_workspace(
+            "include <../escape.scad>;",
+            "output.off",
+            &Some(auxiliary),
+            &Some("input.scad".into()),
+            &None,
+            &None,
+        )
+        .unwrap_err();
+
+        assert!(error.contains("escapes the workspace root"));
     }
 }

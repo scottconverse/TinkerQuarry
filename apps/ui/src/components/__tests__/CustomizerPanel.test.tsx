@@ -182,7 +182,7 @@ describe('CustomizerPanel', () => {
       />
     );
 
-    expect(screen.getByText('No parameters yet')).toBeTruthy();
+    expect(screen.getByText('No custom controls yet')).toBeTruthy();
     fireEvent.click(screen.getByTestId('customizer-refine-button'));
 
     expect(handleRefine).toHaveBeenCalled();

@@ -50,8 +50,8 @@ describe("share helper utilities", () => {
     expect(validateForkedFrom(123)).toBeNull();
   });
 
-  it("extracts client IP from Cloudflare or forwarded headers and rate-limits per hour", async () => {
-    const { env, kvStore } = createMockEnv();
+  it("extracts client IP from Cloudflare or forwarded headers and rate-limits per hour atomically", async () => {
+    const { env, limiterStore } = createMockEnv();
     const request = new Request("https://studio.test/api/share", {
       headers: {
         "x-forwarded-for": "203.0.113.9, 10.0.0.1",
@@ -62,13 +62,26 @@ describe("share helper utilities", () => {
 
     const first = await enforceShareRateLimit(request, env as never);
     expect(first).toBeNull();
-    expect(kvStore.get("ratelimit:203.0.113.9:2026-3-29-15")).toBe("1");
+    expect(limiterStore.get("203.0.113.9:2026-3-29-15")).toBe(1);
 
-    kvStore.set("ratelimit:203.0.113.9:2026-3-29-15", "30");
+    limiterStore.set("203.0.113.9:2026-3-29-15", 30);
     const limited = await enforceShareRateLimit(request, env as never);
     expect(limited?.status).toBe(429);
     await expect(limited?.json()).resolves.toEqual({
       error: "Too many shares. Try again in a few minutes.",
+    });
+  });
+
+  it("fails closed when the atomic rate limiter binding is absent", async () => {
+    const { env } = createMockEnv();
+    const request = new Request("https://studio.test/api/share");
+    const missingLimiterEnv = { ...env, SHARE_RATE_LIMITER: undefined };
+
+    const response = await enforceShareRateLimit(request, missingLimiterEnv as never);
+
+    expect(response?.status).toBe(503);
+    await expect(response?.json()).resolves.toEqual({
+      error: "Share service is missing its atomic rate limiter binding.",
     });
   });
 
@@ -101,6 +114,7 @@ describe("share helper utilities", () => {
       parseShareRecord(JSON.stringify(shareRecord)),
     ).resolves.toEqual(shareRecord);
     await expect(parseShareRecord(null)).resolves.toBeNull();
+    await expect(parseShareRecord("{not-json")).resolves.toBeNull();
   });
 
   it("bounds decompressed source and rejects invalid stored share records", async () => {

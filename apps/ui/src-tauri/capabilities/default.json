@@ -21,7 +21,12 @@
     "fs:allow-watch",
     {
       "identifier": "fs:scope",
-      "allow": ["$HOME/**", "$APPCACHE/**"],
+      "allow": [
+        "$HOME/Documents/TinkerQuarry/**",
+        "$APPDATA/**",
+        "$APPCACHE/**",
+        "$LOCALDATA/**"
+      ],
       "deny": [
         "$HOME/.ssh/**",
         "$HOME/.gnupg/**",

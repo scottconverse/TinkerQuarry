@@ -5,6 +5,7 @@ import { render, screen } from '@testing-library/react';
 import {
   clearOpenAiCompatibleConfig,
   clearApiKey,
+  clearSessionApiKeysForTests,
   getOpenAiCompatibleConfig,
   getApiKey,
   getProviderFromModel,
@@ -34,23 +35,23 @@ function StoreHarness() {
 describe('apiKeyStore', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearSessionApiKeysForTests();
     invalidateApiKeyStatus();
   });
 
-  it('stores obfuscated keys and reads them back', () => {
+  it('keeps cloud keys in session memory and does not persist them', () => {
     storeApiKey('anthropic', 'secret-key');
 
     const stored = localStorage.getItem('openscad_studio_anthropic_api_key');
-    expect(stored).toMatch(/^obf1:/);
-    expect(stored).not.toContain('secret-key');
+    expect(stored).toBeNull();
     expect(getApiKey('anthropic')).toBe('secret-key');
   });
 
-  it('migrates legacy plaintext values when reading them', () => {
+  it('migrates legacy plaintext values into session memory and removes storage', () => {
     localStorage.setItem('openscad_studio_openai_api_key', 'plain-text');
 
     expect(getApiKey('openai')).toBe('plain-text');
-    expect(localStorage.getItem('openscad_studio_openai_api_key')).toMatch(/^obf1:/);
+    expect(localStorage.getItem('openscad_studio_openai_api_key')).toBeNull();
   });
 
   it('persists the selected model and infers providers from known model prefixes', () => {

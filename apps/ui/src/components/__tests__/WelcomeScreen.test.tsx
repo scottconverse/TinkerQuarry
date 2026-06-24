@@ -266,7 +266,9 @@ describe("WelcomeScreen", () => {
     );
 
     expect(await screen.findByText("exists.scad")).toBeTruthy();
-    expect(screen.queryByText("missing.scad")).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByText("missing.scad")).toBeNull();
+    });
     expect(
       JSON.parse(localStorage.getItem("openscad-studio-recent-files") || "[]"),
     ).toEqual([

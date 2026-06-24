@@ -141,10 +141,32 @@ The release command:
 pnpm test:release
 ```
 
-v1.3.1 is tagged only after this command and the GauntletGate ALL pass are clean.
+v1.3.1 was tagged and published from commit `4e159c2a189e4b388204baf636acd46ac430a1c0`
+after the release command, installed-app smoke, and GauntletGate pass were clean.
 
 See:
 
 - [Status Matrix](STATUS.md)
-- [GauntletGate Report](audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md)
+- [GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1)
 - [Evaluation Guide](EVALUATE.md)
+
+## 11. Share Web Deployment
+
+The share web surface is optional and separate from the local desktop workflow. It deploys as a
+Cloudflare Pages app with:
+
+| Binding              | Purpose                                               |
+| -------------------- | ----------------------------------------------------- |
+| `SHARE_KV`           | Stores compressed share metadata                      |
+| `SHARE_R2`           | Stores generated share thumbnails                     |
+| `SHARE_RATE_LIMITER` | Durable Object binding for atomic per-IP share limits |
+
+The Durable Object lives in `apps/web/rate-limiter-worker` and is deployed as
+`tinkerquarry-share-rate-limiter`. Pages binds to it by `script_name` in `apps/web/wrangler.toml`.
+Deploy order:
+
+1. `pnpm --filter web share:rate-limiter:deploy`
+2. Deploy the Cloudflare Pages project from `apps/web/dist`
+
+For local verification, `pnpm test:web:share-deploy` runs the web share build, the Pages Functions
+compile, and a dry-run deployment of the Durable Object worker.

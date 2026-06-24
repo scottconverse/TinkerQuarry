@@ -73,7 +73,8 @@ remains a local/advisory workflow in the beta model.
 
 The supported beta target is Windows.
 
-1. Install TinkerQuarry from the Windows installer when available.
+1. Install `TinkerQuarry_1.3.1_x64-setup.exe` from the
+   [v1.3.1 release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
 2. Launch **TinkerQuarry**.
 3. Confirm printer and material choices.
 4. Choose or configure a local AI provider if prompted.
@@ -235,7 +236,18 @@ These are intentionally not all the same number because they describe different 
 
 ## 11. Development Setup
 
-Use two PowerShell terminals:
+Fresh source setup:
+
+```powershell
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+corepack enable
+pnpm install
+cd packages\engine
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+```
+
+Then use two PowerShell terminals:
 
 ```powershell
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
@@ -318,6 +330,12 @@ TinkerQuarry's release posture is local-first and fail-closed:
 OpenSCAD, PrintProof3D, and OrcaSlicer are run as arm's-length subprocess tools. This keeps their
 licensing and execution boundary explicit.
 
+The optional share web surface is deployed separately on Cloudflare Pages. It requires `SHARE_KV`,
+`SHARE_R2`, and a `SHARE_RATE_LIMITER` Durable Object worker named
+`tinkerquarry-share-rate-limiter`. Maintainers deploy the Durable Object first with
+`pnpm --filter web share:rate-limiter:deploy`, then deploy Pages; `pnpm test:web:share-deploy`
+verifies the build, Pages Functions compile, and Durable Object dry-run path.
+
 ## 15. Release Gate
 
 The release command is:
@@ -326,7 +344,8 @@ The release command is:
 pnpm test:release
 ```
 
-For v1.3.1, it is run before tagging and includes:
+For v1.3.1, it passed on commit `4e159c2a189e4b388204baf636acd46ac430a1c0`
+before the public tag and release assets were published. It includes:
 
 - lint;
 - type-check;
@@ -339,8 +358,8 @@ For v1.3.1, it is run before tagging and includes:
 - release executable smoke;
 - installed NSIS workflow smoke.
 
-Final report:
-[GAUNTLETGATE-ALL-v1.3.1.md](audits/gate-tinkerquarry-2026-06-24/GAUNTLETGATE-ALL-v1.3.1.md).
+Release assets, manifest, and checksums:
+[github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
 
 ---
 

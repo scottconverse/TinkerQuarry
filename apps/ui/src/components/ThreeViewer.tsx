@@ -210,7 +210,7 @@ function Preview3DModel({
         if (!cancelled) {
           onModelFrameChange(null);
           onModelChange(null);
-          console.error('Error loading OFF preview:', error);
+          console.warn('OFF preview unavailable:', error);
         }
       });
 

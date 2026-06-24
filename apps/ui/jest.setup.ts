@@ -3,6 +3,33 @@ import '@testing-library/jest-dom';
 import { jest } from '@jest/globals';
 import { ReadableStream, TransformStream, WritableStream } from 'node:stream/web';
 
+const allowedConsoleNoise = [/not wrapped in act/i];
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+beforeEach(() => {
+  jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    const message = args.map(String).join(' ');
+    if (allowedConsoleNoise.some((pattern) => pattern.test(message))) {
+      return;
+    }
+    originalConsoleError(...args);
+    throw new Error(`Unexpected console.error during test: ${message}`);
+  });
+  jest.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+    const message = args.map(String).join(' ');
+    if (allowedConsoleNoise.some((pattern) => pattern.test(message))) {
+      return;
+    }
+    originalConsoleWarn(...args);
+    throw new Error(`Unexpected console.warn during test: ${message}`);
+  });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 if (typeof globalThis.ReadableStream === 'undefined') {
   globalThis.ReadableStream = ReadableStream;
 }

@@ -1,0 +1,11 @@
+name = "tinkerquarry-share-rate-limiter"
+main = "src/index.js"
+compatibility_date = "2026-03-24"
+
+[[durable_objects.bindings]]
+name = "SHARE_RATE_LIMITER"
+class_name = "ShareRateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ShareRateLimiter"]

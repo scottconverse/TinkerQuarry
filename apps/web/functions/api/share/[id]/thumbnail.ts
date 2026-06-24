@@ -8,6 +8,13 @@ import {
 } from '../../../_lib/share';
 
 const MAX_THUMBNAIL_BYTES = 512 * 1024;
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+function isPng(bytes: ArrayBuffer): boolean {
+  if (bytes.byteLength < PNG_SIGNATURE.length) return false;
+  const view = new Uint8Array(bytes, 0, PNG_SIGNATURE.length);
+  return PNG_SIGNATURE.every((byte, index) => view[index] === byte);
+}
 
 function getBearerToken(request: Request): string | null {
   const header = request.headers.get('Authorization') || '';
@@ -96,6 +103,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   const arrayBuffer = await context.request.arrayBuffer();
   if (arrayBuffer.byteLength > MAX_THUMBNAIL_BYTES) {
     return json({ error: 'Thumbnail is too large.' }, { status: 413 });
+  }
+  if (!isPng(arrayBuffer)) {
+    return json({ error: 'Thumbnail bytes are not a valid PNG.' }, { status: 400 });
   }
 
   const thumbnailKey = `thumbnails/${shareId}.png`;

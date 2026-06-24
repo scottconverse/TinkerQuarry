@@ -3705,6 +3705,8 @@ function App() {
     hasEngineDesign ? "Design generated" : "Waiting for design",
     readinessHeadline,
     visualReviewSummary ?? "Visual review advisory has not run yet",
+    hasEngineDesign &&
+    lastSlicedRid != null &&
     lastSlicedRid === lastEngineRidRef.current
       ? "Successful slice proved this candidate"
       : sliceProfileReady
@@ -4342,6 +4344,171 @@ function App() {
           >
             <span style={{ color: "var(--text-tertiary)" }}>Send</span>
             <span className="truncate">{manufacturingSendState}</span>
+          </div>
+        </div>
+      )}
+
+      {hasEngineDesign && isMobile && (
+        <div
+          data-testid="mobile-make-it-real-panel"
+          className="md:hidden space-y-2 px-3 py-2 text-xs"
+          style={{
+            backgroundColor: "var(--bg-primary)",
+            borderBottom: "1px solid var(--border-secondary)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {enginePrinters.length > 0 && (
+              <>
+                <select
+                  data-testid="mobile-printer-select"
+                  aria-label="Mobile printer"
+                  value={printerKey}
+                  onChange={(e) => {
+                    const k = e.target.value;
+                    setPrinterKey(k);
+                    localStorage.setItem("tq-printer", k);
+                    const p = enginePrinters.find((x) => x.key === k);
+                    if (p && !p.materials?.includes(material)) {
+                      const m = p.materials?.[0] ?? "";
+                      setMaterial(m);
+                      localStorage.setItem("tq-material", m);
+                    }
+                  }}
+                  className="min-w-0 rounded border px-2 py-1"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    color: "var(--text-primary)",
+                    borderColor: "var(--border-primary)",
+                  }}
+                >
+                  {enginePrinters.map((p) => (
+                    <option
+                      key={p.key}
+                      value={p.key}
+                      disabled={p.sliceable === false}
+                    >
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  data-testid="mobile-material-select"
+                  aria-label="Mobile material"
+                  value={material}
+                  onChange={(e) => {
+                    setMaterial(e.target.value);
+                    localStorage.setItem("tq-material", e.target.value);
+                  }}
+                  className="min-w-0 rounded border px-2 py-1"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    color: "var(--text-primary)",
+                    borderColor: "var(--border-primary)",
+                  }}
+                >
+                  {(
+                    enginePrinters.find((p) => p.key === printerKey)
+                      ?.materials ?? []
+                  ).map((m) => (
+                    <option key={m} value={m}>
+                      {m.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {(["x", "y", "z"] as const).map((axis) => (
+              <Button
+                key={axis}
+                data-testid={`mobile-orient-${axis}`}
+                variant="ghost"
+                size="sm"
+                disabled={isRendering || isOrienting}
+                onClick={() => void handleManualOrient(axis, 90)}
+                title={`Rotate ${axis.toUpperCase()} +90 degrees`}
+              >
+                {axis.toUpperCase()}+90
+              </Button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {engineConnectors.length > 0 && (
+              <select
+                data-testid="mobile-connector-select"
+                aria-label="Mobile printer connection"
+                value={connectorName}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setConnectorName(name);
+                  localStorage.setItem("tq-connector", name);
+                }}
+                className="min-w-0 rounded border px-2 py-1"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  color: "var(--text-primary)",
+                  borderColor: "var(--border-primary)",
+                }}
+              >
+                {engineConnectors.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                    {c.simulated
+                      ? " (simulated)"
+                      : c.configured === false
+                        ? " (setup)"
+                        : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+            <div
+              data-testid="mobile-layer-height"
+              className="flex items-center rounded border px-2 py-1"
+              style={{
+                borderColor: "var(--border-primary)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              {selectedLayerHeight ?? "Layer pending"}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              data-testid="mobile-make-it-real-button"
+              variant="primary"
+              size="sm"
+              disabled={makeItRealDisabled}
+              onClick={() => {
+                if (!localStorage.getItem("tq-printed-real")) {
+                  setShowFirstRealDialog(true);
+                  return;
+                }
+                void handleMakeItReal();
+              }}
+            >
+              Slice
+            </Button>
+            <Button
+              data-testid="mobile-send-to-printer-button"
+              variant="secondary"
+              size="sm"
+              disabled={!canSendCurrentSlice || !connectorName}
+              onClick={() => void handleSendToPrinter()}
+            >
+              Send
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div data-testid="mobile-workflow-slice">
+              Slice: {manufacturingSliceState}
+            </div>
+            <div data-testid="mobile-workflow-send">
+              Send: {manufacturingSendState}
+            </div>
           </div>
         </div>
       )}

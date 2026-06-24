@@ -190,6 +190,11 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+interface EngineErrorPayload {
+  error?: string;
+  reason?: string;
+}
+
 interface DesktopEngineInfo {
   apiBaseUrl: string;
   sessionToken: string;
@@ -197,6 +202,7 @@ interface DesktopEngineInfo {
 
 const DEFAULT_API_BASE = "/api";
 let desktopEnginePromise: Promise<DesktopEngineInfo | null> | null = null;
+let desktopEngineStartupError: string | null = null;
 
 /** The per-boot CSRF token the engine injects when it serves the page shell (or a dev token). */
 function sessionToken(): string | null {
@@ -216,16 +222,29 @@ async function desktopEngineInfo(): Promise<DesktopEngineInfo | null> {
     .then(({ invoke }) => invoke<DesktopEngineInfo>("ensure_engine"))
     .then((info) =>
       info?.apiBaseUrl && info?.sessionToken
-        ? info
+        ? ((desktopEngineStartupError = null), info)
         : Promise.reject(
             new Error("Tauri returned an incomplete engine configuration."),
           ),
     )
-    .catch(() => {
+    .catch((error: unknown) => {
+      desktopEngineStartupError =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "The bundled local engine could not start.";
       desktopEnginePromise = null;
       return null;
     });
   return desktopEnginePromise;
+}
+
+function localEngineUnavailableMessage(): string {
+  if (desktopEngineStartupError) {
+    return `The bundled local engine could not start: ${desktopEngineStartupError}`;
+  }
+  return "Could not reach the local engine. Open the Windows app, or run the local engine from this checkout with: cd packages\\engine; .venv\\Scripts\\kimcad.exe web --port 8765 --demo";
 }
 
 export interface SavedDesignEntry {
@@ -270,6 +289,15 @@ export class EngineClient {
       if (desktop) {
         base = desktop.apiBaseUrl;
         tok ??= desktop.sessionToken;
+      } else if (desktopEngineStartupError) {
+        return {
+          status: 0,
+          ok: false,
+          data: {
+            error: localEngineUnavailableMessage(),
+            reason: "engine-startup",
+          } as T,
+        };
       }
     }
     if (tok) headers["X-KimCad-Session"] = tok; // engine CSRF gate (no-op for GETs / when absent)
@@ -287,7 +315,8 @@ export class EngineClient {
         status: 0,
         ok: false,
         data: {
-          error: "Could not reach the local engine. Is it running?",
+          error: localEngineUnavailableMessage(),
+          reason: desktopEngineStartupError ? "engine-startup" : "engine-unreachable",
         } as T,
       };
     }
@@ -298,7 +327,8 @@ export class EngineClient {
     // clear message instead of a confusing generic one.
     if (!res.ok && !(data as { error?: unknown })?.error) {
       (data as { error?: string }).error =
-        "Could not reach the local engine. Is it running?";
+        localEngineUnavailableMessage();
+      (data as { reason?: string }).reason = "engine-unreachable";
     }
     return { status: res.status, ok: res.ok, data };
   }
@@ -308,7 +338,7 @@ export class EngineClient {
     path: string,
     body?: Uint8Array,
     contentType?: string,
-  ): Promise<ApiResponse<Uint8Array | { error?: string }>> {
+  ): Promise<ApiResponse<Uint8Array | EngineErrorPayload>> {
     const headers: Record<string, string> = {};
     if (contentType) headers["Content-Type"] = contentType;
     let base = this.base;
@@ -318,6 +348,15 @@ export class EngineClient {
       if (desktop) {
         base = desktop.apiBaseUrl;
         tok ??= desktop.sessionToken;
+      } else if (desktopEngineStartupError) {
+        return {
+          status: 0,
+          ok: false,
+          data: {
+            error: localEngineUnavailableMessage(),
+            reason: "engine-startup",
+          },
+        };
       }
     }
     if (tok) headers["X-KimCad-Session"] = tok;
@@ -332,13 +371,16 @@ export class EngineClient {
       return {
         status: 0,
         ok: false,
-        data: { error: "Could not reach the local engine. Is it running?" },
+        data: {
+          error: localEngineUnavailableMessage(),
+          reason: desktopEngineStartupError ? "engine-startup" : "engine-unreachable",
+        },
       };
     }
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!data.error) {
-        data.error = "Could not reach the local engine. Is it running?";
+        data.error = localEngineUnavailableMessage();
       }
       return { status: res.status, ok: false, data };
     }
@@ -363,6 +405,15 @@ export class EngineClient {
       if (desktop) {
         base = desktop.apiBaseUrl;
         tok ??= desktop.sessionToken;
+      } else if (desktopEngineStartupError) {
+        return {
+          status: 0,
+          ok: false,
+          data: {
+            error: localEngineUnavailableMessage(),
+            reason: "engine-startup",
+          } as T,
+        };
       }
     }
     if (tok) headers["X-KimCad-Session"] = tok;
@@ -374,14 +425,16 @@ export class EngineClient {
         status: 0,
         ok: false,
         data: {
-          error: "Could not reach the local engine. Is it running?",
+          error: localEngineUnavailableMessage(),
+          reason: desktopEngineStartupError ? "engine-startup" : "engine-unreachable",
         } as T,
       };
     }
     const data = (await res.json().catch(() => ({}))) as T;
     if (!res.ok && !(data as { error?: unknown })?.error) {
       (data as { error?: string }).error =
-        "Could not reach the local engine. Is it running?";
+        localEngineUnavailableMessage();
+      (data as { reason?: string }).reason = "engine-unreachable";
     }
     return { status: res.status, ok: res.ok, data };
   }

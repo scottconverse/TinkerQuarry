@@ -23,7 +23,7 @@ installer, documentation, and GitHub repository.
 
 ## What does v1.3.1 prove?
 
-The release gate is run locally before tagging. It covers lint, type-check, UI unit tests, web
+The release gate was run locally before v1.3.1 publication. It covers lint, type-check, UI unit tests, web
 unit tests, the engine test suite, Playwright browser walkthroughs, Rust/Tauri tests, native Windows
 package build, release executable smoke, and installed-app smoke.
 

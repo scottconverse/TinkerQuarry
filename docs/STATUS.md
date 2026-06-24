@@ -1,6 +1,6 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-06-23
+**As of:** 2026-06-24
 **Product release:** v1.3.1
 
 This is the current source of truth for the canonical `tinkerquarry` product repo. It supersedes prior
@@ -86,14 +86,14 @@ Run from `C:\Users\Scott\Desktop\CODE\tinkerquarry` unless noted.
 | `node scripts/smoke-tauri-runtime.mjs`                                                                             | passed against release executable                                                                  |
 | `pnpm test:e2e:tauri:installed`                                                                                    | passed against installed NSIS copy with isolated profile and native build/slice/send workflow      |
 | `cargo test --manifest-path apps\ui\src-tauri\Cargo.toml`                                                          | 10 passed                                                                                          |
-| `.\.venv\Scripts\python.exe -m pytest tests -q` from `packages\engine`                                             | 1625 passed, 111 skipped                                                                           |
+| `.\.venv\Scripts\python.exe -m pytest tests -q` from `packages\engine`                                             | 1627 passed, 111 skipped                                                                           |
 | OpenSCAD 2026 Manifold render smoke                                                                                | 5/5 passed: 3MF cube, threaded rod, threaded hole, Gridfinity base, VCL fixture                    |
 | Boolean-heavy threaded part render comparison                                                                      | OpenSCAD 2021.01: 4.08s; OpenSCAD 2026.03.16 Manifold: 0.41s                                       |
 | `.\.venv\Scripts\python.exe scripts\build_installer.py --stage-only --skip-pip` from `packages\engine`             | passed; staged checksum-pinned OpenSCAD, OrcaSlicer, and PrintProof3D                              |
 | `dist\staging\tools\openscad\openscad.exe --version` from `packages\engine`                                        | `OpenSCAD version 2026.03.16`                                                                      |
 | `.\.venv\Scripts\python.exe scripts\verify_install.py dist\staging --port 8743` from `packages\engine`             | `VERIFY-INSTALL: ALL GREEN`                                                                        |
 | First-party BOSL2-backed thread wrapper + kept Gridfinity render proof                                             | 4/4 passed                                                                                         |
-| `pnpm test:release` from repo root                                                                                 | run before tagging; includes gate, browser e2e, native build, release smoke, installed-app smoke   |
+| `pnpm test:release` from repo root                                                                                 | passed before v1.3.1 publication; includes gate, browser e2e, native build, release smoke, installed-app smoke |
 
 ## Run
 

@@ -147,7 +147,7 @@ export const solarizedLight: Theme = {
     text: {
       primary: '#657b83', // base00
       secondary: '#586e75', // base01
-      tertiary: '#93a1a1', // base1
+      tertiary: '#657b83', // base00; readable on light surfaces
       inverse: '#002b36', // base03
     },
     border: {

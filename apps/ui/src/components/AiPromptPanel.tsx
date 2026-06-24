@@ -677,13 +677,13 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 className="text-lg font-semibold mb-2"
                 style={{ color: "var(--text-secondary)" }}
               >
-                No conversation yet
+                Ready to build or refine
               </div>
               <div
                 className="text-sm"
                 style={{ color: "var(--text-tertiary)" }}
               >
-                Describe the changes you want to make below
+                Describe the printable part or the change you want to make.
               </div>
             </div>
           </div>

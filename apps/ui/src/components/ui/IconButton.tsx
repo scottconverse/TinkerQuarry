@@ -6,7 +6,7 @@ const iconButton = cva(
   [
     'inline-flex items-center justify-center rounded-lg transition-colors',
     'focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]',
-    'disabled:opacity-65 disabled:cursor-not-allowed',
+    'disabled:cursor-not-allowed',
   ].join(' '),
   {
     variants: {

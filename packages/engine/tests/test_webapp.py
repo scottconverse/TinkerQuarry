@@ -707,18 +707,21 @@ def test_session_token_guard_blocks_state_changing_posts_without_the_token(tmp_p
     X-KimCad-Session header is refused 403 — a drive-by cross-origin POST from a malicious page can
     reach loopback but can't read the same-origin token. A wrong token is also 403 (constant-time
     compared); the correct token routes through; GETs are never gated."""
+    import json as _j
+
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     httpd = _serve_with_token(pipe, tmp_path, "s3cret-token")
     host, port = "127.0.0.1", httpd.server_address[1]
 
-    def _post_status(path, headers):
+    def _post(path, headers):
         last: Exception | None = None
         for _ in range(4):  # de-flake the Windows socket-teardown race (see _req)
             conn = http.client.HTTPConnection(host, port, timeout=10)
             try:
                 conn.request("POST", path, body=b"{}",
                              headers={"Content-Type": "application/json", **headers})
-                return conn.getresponse().status
+                resp = conn.getresponse()
+                return resp.status, resp.read()
             except (http.client.RemoteDisconnected, ConnectionError) as e:
                 last = e
             finally:
@@ -732,11 +735,16 @@ def test_session_token_guard_blocks_state_changing_posts_without_the_token(tmp_p
         # below a dispatch couldn't silently unguard most endpoints with a green suite.
         for path in ("/api/settings", "/api/design", "/api/slice/1", "/api/designs/import",
                      "/api/model-pull", "/api/connections"):
-            assert _post_status(path, {}) == 403, f"{path} not guarded without a token"
-        assert _post_status("/api/settings", {"X-KimCad-Session": "wrong"}) == 403  # wrong token
+            status, body = _post(path, {})
+            assert status == 403, f"{path} not guarded without a token"
+            assert _j.loads(body).get("reason") == "session", f"{path} body: {body!r}"
+        status, body = _post("/api/settings", {"X-KimCad-Session": "wrong"})
+        assert status == 403  # wrong token
+        assert _j.loads(body).get("reason") == "session"
         # Correct token routes THROUGH to a working handler — assert the positive 200 (an empty {}
         # settings POST is a deterministic 200), not merely "!= 403", so the good path is proven too.
-        assert _post_status("/api/settings", {"X-KimCad-Session": "s3cret-token"}) == 200
+        status, _body = _post("/api/settings", {"X-KimCad-Session": "s3cret-token"})
+        assert status == 200
         conn = http.client.HTTPConnection(host, port, timeout=10)
         try:
             conn.request("GET", "/api/options")

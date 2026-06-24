@@ -4,6 +4,7 @@ import { act, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import {
   storeApiKey,
+  clearSessionApiKeysForTests,
   invalidateApiKeyStatus,
   setStoredModel,
   storeOpenAiCompatibleConfig,
@@ -60,6 +61,7 @@ function createApplyEditOutput(checkpointId?: string) {
 describe('useAiAgent', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearSessionApiKeysForTests();
     invalidateApiKeyStatus();
     jest.clearAllMocks();
     jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -133,7 +135,7 @@ describe('useAiAgent', () => {
     });
 
     expect(createModel).toHaveBeenCalledWith('openai', 'plain-openai-key', 'gpt-4o');
-    expect(localStorage.getItem('openscad_studio_openai_api_key')).toMatch(/^obf1:/);
+    expect(localStorage.getItem('openscad_studio_openai_api_key')).toBeNull();
   });
 
   it('routes legacy bare Anthropic model storage through the Anthropic provider', async () => {
@@ -179,7 +181,7 @@ describe('useAiAgent', () => {
       'plain-anthropic-key',
       'claude-3-5-sonnet-20241022'
     );
-    expect(localStorage.getItem('openscad_studio_anthropic_api_key')).toMatch(/^obf1:/);
+    expect(localStorage.getItem('openscad_studio_anthropic_api_key')).toBeNull();
   });
 
   it('uses provider-aware selection instead of a stale legacy model when both exist', async () => {
