@@ -31,6 +31,12 @@ const COMPONENTS: OssComponent[] = [
     source: 'https://github.com/SoftFever/OrcaSlicer',
   },
   {
+    name: 'PrintProof3D',
+    role: 'Readiness validation engine',
+    license: 'MIT',
+    source: 'https://github.com/scottconverse/PrintProof3D',
+  },
+  {
     name: 'Ollama + local models',
     role: 'Local AI runtime (planner + vision)',
     license: 'MIT (Ollama)',

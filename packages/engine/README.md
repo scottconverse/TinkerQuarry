@@ -1,6 +1,9 @@
-# KimCad
+# KimCad Engine for TinkerQuarry
 
-**Describe a functional 3D-printable part in plain English — or a photo, or a sketch — and get a checked, print-ready file, entirely on your own machine. No CAD skills, no account, no cloud.**
+**Internal engine package for TinkerQuarry's local describe-to-print workflow.**
+
+KimCad remains the engine/CLI/protocol name inside the TinkerQuarry product. The user-facing app,
+installer, status, and release proof live at the repository root and under `apps/ui`.
 
 ![beta](https://img.shields.io/badge/beta-0.9.3-2563eb)
 ![platform](https://img.shields.io/badge/platform-Windows-0078D6)
@@ -11,9 +14,9 @@
 
 <div align="center">
 
-### ▶ [**Download KimCad for Windows**](../../releases/latest) &nbsp;—&nbsp; the current Windows beta
+### TinkerQuarry Beta
 
-[Install guide](docs/install-guide.md) &nbsp;·&nbsp; [User manual](docs/USER-MANUAL.md) &nbsp;·&nbsp; [FAQ](docs/FAQ.md) &nbsp;·&nbsp; [Changelog](CHANGELOG.md)
+[Product README](../../README.md) &nbsp;·&nbsp; [Status matrix](../../docs/STATUS.md) &nbsp;·&nbsp; [Evaluation guide](../../docs/EVALUATE.md)
 
 </div>
 
@@ -25,23 +28,25 @@
 - **Slice & print** — download a print-ready file or send it straight to your printer (Bambu LAN, OctoPrint, Moonraker, PrusaLink), always behind an explicit confirmation.
 - **Editable CAD out** — with the optional [CadQuery](https://cadquery.readthedocs.io/) engine, template-built parts also export an editable `.STEP` you can keep modeling in Fusion / FreeCAD / SolidWorks.
 
-### What the installer puts on your machine
+### What the TinkerQuarry installer puts on your machine
 
-The installer (`KimCad-Setup-<version>.exe`) — one double-click, **zero terminal use**:
+The product installer (`TinkerQuarry_<version>_x64-setup.exe`) packages this engine behind the
+TinkerQuarry Studio app:
 
-- The app window (WebView2) + the full KimCad app and AI wiring
-- An **embedded CPython 3.13** — KimCad never touches your system Python
-- **OpenSCAD + OrcaSlicer** (with the full **~65-brand / 1,400+ machine-profile** library) + the **PrintProof3D** validation engine, on by default
-- KimCad's **managed AI engine** (a portable Ollama) and the downloaded models — *not* in Program Files. The engine lives under your per-user data folder (`%LOCALAPPDATA%\KimCad\ollama`) and the models go in `%LOCALAPPDATA%\KimCad\models`; both are removable with the app data.
-- Per-user data under `%LOCALAPPDATA%\KimCad`; your saved designs live in `~/.kimcad` — the uninstaller never touches them
+- The TinkerQuarry WebView2 shell and bundled front end.
+- The KimCad Python engine and local HTTP API.
+- Checksum-pinned OpenSCAD, OrcaSlicer, and PrintProof3D subprocess tools.
+- Per-user writable data for settings, models, temporary tool mirrors, and saved designs.
 
 ### Beta notes — honest status
 
-- **It's a beta.** All eleven build stages are complete and gate-passed at 0/0/0/0/0, but **real-hardware print validation is the beta's own job** — connectors are proven against each printer's real software protocol with runnable mock servers, not yet on physical metal. If you have a printer, [your report](docs/beta/first-hardware-contact.md) is the most valuable thing you can give.
-- **The installer is unsigned** (no code-signing cert yet), so Windows **SmartScreen** will show a blue *"Windows protected your PC"* warning. That's expected — click **More info → Run anyway**; the [install guide](docs/install-guide.md) walks it through and shows how to verify the SHA-256 checksums (`SHA256SUMS.txt`) and the build manifest (`release-manifest.json`, which records the exact source commit and is flagged `unsigned_build`) attached to the release.
+- **It's a beta.** The product happy path is real and verified, but real-hardware print validation, broader mobile/accessibility/error-path browser coverage, and richer visual-diff/explain surfaces remain beta work. See `../../docs/STATUS.md`.
+- **The installer is unsigned** (no code-signing cert yet), so Windows SmartScreen can warn on local builds.
 - **A curated catalog of ~29 printers** across the top makers (Bambu, Creality, Prusa, Anycubic, Elegoo, Qidi, Sovol) — each build-volume-gated and **slice-proven in CI**; three of them (Bambu P2S, A1, Elegoo Neptune 4 Max) are **reference printers** also wired for native direct-send. The rest of the 1,400-profile library is on disk and promoted into the picker as each machine clears the slice bar ([supported printers](docs/supported-printers.md)).
 
-> **For beta testers — the fastest path:** [Download](../../releases/latest) → run the installer (SmartScreen → *More info* → *Run anyway*) → open KimCad → describe a part → slice it → if you have a printer, send it and [tell us what happened](../../discussions/2).
+> **For beta testers — the fastest path:** use the TinkerQuarry installer produced by the root release
+> workflow, open TinkerQuarry, describe a part, slice it, then send through mock or configured
+> hardware connector.
 
 <details>
 <summary><b>Stage-by-stage history</b> (0 → 11, each tagged)</summary>
@@ -131,18 +136,13 @@ on another machine — not a printable STL). A short walkthrough is in
 OpenSCAD and OrcaSlicer are fetched as pinned portable builds into `tools/` by the
 setup step (see below); a system install can be pointed to via `config/local.yaml`.
 
-**No Node.js is needed to *run* KimCad.** The browser UI is a React single-page app whose
-compiled output is committed and served by the Python server, so `kimcad web` works with the
-steps above alone. Node (+ `npm`) is needed only to *rebuild* that UI after changing it:
-`npm --prefix frontend ci && npm --prefix frontend run build` (see `frontend/README.md`).
+The TinkerQuarry Studio UI lives in `../../apps/ui`. Node/pnpm are needed to rebuild that app and
+to produce the native Tauri package.
 
 ## Setup
 
-> **Not a developer?** Use the **double-click installer**: download
-> `KimCad-Setup-<version>.exe` from the releases page and follow
-> **[docs/install-guide.md](docs/install-guide.md)** — no terminal at any point, with
-> **[docs/troubleshooting.md](docs/troubleshooting.md)** as the safety net. The section
-> below is the from-source developer path.
+> **Not a developer?** Use the TinkerQuarry installer and root docs. The section below is the
+> from-source engine developer path.
 
 ```
 python -m venv .venv

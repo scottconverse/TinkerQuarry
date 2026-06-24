@@ -238,6 +238,66 @@ def test_render_retries_without_backend_for_older_openscad(tmp_path, monkeypatch
     assert not any("--backend=Manifold" in cmd for cmd in calls[-1:])
 
 
+def test_render_retries_from_writable_mirror_on_openscad_canonical_path_crash(tmp_path, monkeypatch):
+    source_dir = tmp_path / "installed" / "openscad"
+    source_dir.mkdir(parents=True)
+    binary = source_dir / "openscad.exe"
+    binary.write_bytes(b"stub")
+    writable = tmp_path / "appdata"
+    calls: list[list[str]] = []
+
+    from kimcad import paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "writable_root", lambda: writable)
+
+    def _run(cmd, **kwargs):
+        calls.append(cmd)
+        if Path(cmd[0]) == binary:
+            return subprocess.CompletedProcess(
+                cmd,
+                3,
+                stdout="",
+                stderr="filesystem error: cannot make canonical path: No such file or directory",
+            )
+        Path(cmd[cmd.index("-o") + 1]).write_bytes(b"mesh")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(osr.subprocess, "run", _run)
+    result = render_scad("cube(5);", binary=binary, out_dir=tmp_path, backend="Manifold")
+    assert result.output_path.exists()
+    assert calls[0][0] == str(binary)
+    assert Path(calls[1][0]).is_relative_to(writable / "tool-cache")
+
+
+def test_render_stops_after_one_writable_mirror_canonical_path_retry(tmp_path, monkeypatch):
+    source_dir = tmp_path / "installed" / "openscad"
+    source_dir.mkdir(parents=True)
+    binary = source_dir / "openscad.exe"
+    binary.write_bytes(b"stub")
+    writable = tmp_path / "appdata"
+    calls: list[list[str]] = []
+
+    from kimcad import paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "writable_root", lambda: writable)
+
+    def _run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            3,
+            stdout="",
+            stderr="filesystem error: cannot make canonical path: No such file or directory",
+        )
+
+    monkeypatch.setattr(osr.subprocess, "run", _run)
+    with pytest.raises(RenderFailed, match="canonical path"):
+        render_scad("cube(5);", binary=binary, out_dir=tmp_path, backend="Manifold")
+    assert len(calls) == 2
+    assert calls[0][0] == str(binary)
+    assert Path(calls[1][0]).is_relative_to(writable / "tool-cache")
+
+
 def test_render_falls_back_to_stl_when_no_lib3mf(tmp_path, monkeypatch):
     calls = {"n": 0}
 

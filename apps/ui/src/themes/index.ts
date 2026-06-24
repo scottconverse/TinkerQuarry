@@ -75,10 +75,10 @@ export const solarizedDark: Theme = {
       elevated: '#073642', // base02
     },
     text: {
-      primary: '#839496', // base0
-      secondary: '#93a1a1', // base1
-      tertiary: '#586e75', // base01
-      inverse: '#fdf6e3', // base3
+      primary: '#93a1a1', // base1
+      secondary: '#b8c6c6',
+      tertiary: '#93a1a1', // action-icon/caption contrast on base02
+      inverse: '#002b36', // base03
     },
     border: {
       primary: '#1a4f5e',
@@ -86,9 +86,9 @@ export const solarizedDark: Theme = {
       focus: '#268bd2', // blue
     },
     accent: {
-      primary: '#268bd2', // blue
-      secondary: '#2aa198', // cyan
-      hover: '#6c71c4', // violet
+      primary: '#2aa198', // cyan
+      secondary: '#859900', // green
+      hover: '#31a8d5',
     },
     semantic: {
       error: '#dc322f', // red

@@ -70,9 +70,14 @@ export function Preview({
         className="w-full h-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
-        <Text variant="body" color="tertiary">
-          No preview available
-        </Text>
+        <div className="max-w-sm px-6 text-center">
+          <Text variant="body" color="secondary" weight="medium">
+            No preview yet
+          </Text>
+          <Text variant="caption" color="tertiary" className="mt-2 block">
+            Describe a part on the welcome screen, open a design, or render the current code to see it here.
+          </Text>
+        </div>
       </div>
     );
   }

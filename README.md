@@ -83,7 +83,10 @@ cd C:\Users\Scott\Desktop\CODE\tinkerquarry
 pnpm test:e2e:tauri
 
 # Native Tauri workflow smoke against the installed app, with isolated user profile
-node scripts\smoke-tauri-runtime.mjs --exe="%TEMP%\TQSmokeInstall\openscad-studio.exe" --isolated-profile="%TEMP%\TQSmokeProfile" --workflow
+pnpm test:e2e:tauri:installed
+
+# Full local release proof: gate tests, Rust tests, native build, release smoke, installed smoke
+pnpm test:release
 
 # Native Windows package build
 cd C:\Users\Scott\Desktop\CODE\tinkerquarry

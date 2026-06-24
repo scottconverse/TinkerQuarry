@@ -1,11 +1,12 @@
-# Installing KimCad (the Windows beta)
+# Installing TinkerQuarry (Windows beta)
 
-KimCad installs like any Windows app: download `KimCad-Setup-<version>.exe`, double-click
-it, and follow the wizard. No terminal, no Python, no developer tools.
+TinkerQuarry installs like any Windows app: download `TinkerQuarry_<version>_x64-setup.exe`,
+double-click it, and follow the wizard. No terminal, no Python, no developer tools. KimCad is the
+engine bundled inside the app.
 
 ## The SmartScreen warning (you will see it — here's why)
 
-KimCad is open-source and the beta installer is **not code-signed** (signing certificates
+TinkerQuarry is open-source and the beta installer is **not code-signed** (signing certificates
 are an ongoing cost the project hasn't taken on yet). Windows SmartScreen therefore shows
 **"Windows protected your PC"** on first run. To proceed: click **More info → Run anyway**.
 
@@ -13,7 +14,7 @@ How to know the file is genuine: every release publishes the installer's **SHA-2
 checksum** beside it. To check yours, in PowerShell:
 
 ```
-Get-FileHash .\KimCad-Setup-0.9.3.exe -Algorithm SHA256
+Get-FileHash .\TinkerQuarry_1.3.0_x64-setup.exe -Algorithm SHA256
 ```
 
 The hash must match the `.sha256` file from the same release page exactly.
@@ -38,7 +39,7 @@ you verify everything in one pass and confirm exactly what source the build came
   download — re-download from the release page.
 
 - **`release-manifest.json`** — records the build's metadata, including the **exact source commit**
-  the installer was built from and a `unsigned_build` flag. The flag is **expected**: KimCad's beta
+  the installer was built from and a `unsigned_build` flag. The flag is **expected**: TinkerQuarry's beta
   is honestly unsigned (there is no code-signing certificate, and therefore **no signed
   attestation**). The manifest is how you confirm provenance instead — match its commit against the
   tagged release on GitHub.
@@ -64,8 +65,8 @@ These two files are the release's integrity story; there is no signed attestatio
 
 ## First run
 
-1. The wizard's **Set up KimCad's AI** button does everything in one flow — no manual
-   Ollama install required. KimCad sets up its own local AI engine: if you already have
+1. The welcome/setup surface's **Set up local AI** button does everything in one flow — no manual
+   Ollama install required. TinkerQuarry sets up its own local AI engine: if you already have
    Ollama installed it **uses it automatically**, otherwise it downloads Ollama's official
    **portable** build (~**1.4 GB**, a one-time engine download — no separate install, no
    system tray, no admin) into KimCad's own data folder and runs it headless. Then it

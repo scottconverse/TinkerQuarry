@@ -15,12 +15,10 @@ binaries:
   # The browser UI (`kimcad web`) runs without either; only rendering and slicing need them.
   openscad: tools/openscad/openscad.exe
   orcaslicer: tools/orcaslicer/orca-slicer.exe
-  # Stage 7 validation engine (PrintProof3D, owner's MIT Rust binary, invoked at arm's length).
-  # The binary is NOT shipped with KimCad; this is just the conventional location the build/fetch
-  # step would place it. Until a binary actually exists at this path, KimCad resolves it to
-  # "not present" and Smart Mesh falls back to its own gate (honestly, at lower confidence) — so
-  # this key is inert by default, not an active dependency. Build the engine (cargo build
-  # --release) and drop it here, or set an absolute path in config/local.yaml, to wire it in.
+  # Stage 7 validation engine (PrintProof3D v0.6.2, MIT Rust binary, invoked at arm's length).
+  # Windows installer builds fetch and stage the checksum-pinned binary here; source checkouts may
+  # leave it absent, in which case KimCad resolves it to "not present" and Smart Mesh falls back to
+  # its own gate at lower confidence. Set an absolute path in config/local.yaml to override.
   # See docs/printproof3d-integration.md.
   printproof3d: tools/printproof3d/printproof3d.exe
   # Stage 8 CadQuery backend interpreter. KimCad targets Python 3.13 and CadQuery runs on

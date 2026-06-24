@@ -336,6 +336,9 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
       {/* eslint-disable-next-line no-restricted-syntax -- panel-type icon trigger is a 14px icon button embedded in a dockview tab header (height: 100%); <IconButton>'s h-7 or h-8 sizes are larger than the tab strip allows */}
       <button
         type="button"
+        aria-label="Change panel type"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
         onClick={(e) => {
           e.stopPropagation();
           setMenuOpen(!menuOpen);
@@ -373,6 +376,8 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
       {menuOpen && (
         <div
           ref={menuRef}
+          role="menu"
+          aria-label="Panel type"
           style={{
             position: 'absolute',
             top: '100%',
@@ -391,6 +396,8 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
             <button
               key={type.id}
               type="button"
+              role="menuitemradio"
+              aria-checked={type.id === currentType?.id}
               onClick={(e) => {
                 e.stopPropagation();
                 handleTypeChange(type.id);

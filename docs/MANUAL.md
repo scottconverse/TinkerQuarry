@@ -4,12 +4,7 @@
 
 # TinkerQuarry — Manual
 
-> ⚠️ **This manual describes the TARGET product (per the PRD), not the current build.** Several features
-> it covers — the Visual Correction Loop, the code drawer, the rich viewer, library management — are
-> **not yet implemented.** For what actually works today, see the canonical [STATUS matrix](STATUS.md)
-> and the [recovery plan](TinkerQuarry-Recovery-Plan-v2.md).
-
-> **2026-06-23 correction:** the beta core is now real: describe -> preview ->
+> **2026-06-23 status note:** the beta core is now real: describe -> preview ->
 > customize/orient -> slice -> download/mock-send is implemented and covered by automated proof. The
 > advisory local Visual Correction Loop v1 exists, external-library admission is wired through a
 > sandbox with render proof, and iteration history exists as a source-snapshot transcript. Full
@@ -198,8 +193,8 @@ kimcad bench        # the Phase-1 benchmark / done-gate
 
 ## The local HTTP API
 
-The web server speaks a small JSON API on loopback. Full contract:
-[`KimCadClaude/docs/api.md`](../../KimCadClaude/docs/api.md). The endpoints the app uses:
+The web server speaks a small JSON API on loopback. The engine API contract lives in this repo under
+`packages/engine/docs/`. The endpoints the app uses:
 
 | Endpoint                                                                    | Purpose                                                                    |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -263,18 +258,14 @@ shipped config so a local override can't silently widen it. Vision always runs l
 ## Tests & dev checks
 
 ```bash
-# Engine (Python):     ~1,554 pass
-cd KimCadClaude && .venv313/Scripts/python -m pytest -q
-# Front-end (Vitest):  405 pass
-cd KimCadClaude/frontend && npm test
-# Build the SPA into the engine's web dir:
-npm run build
-# Glue (mock + connector): 19 pass
-cd tinkerquarry && python backend/tests/test_connector.py && python backend/tests/test_mock_api.py
+cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+pnpm test:gate
+pnpm test:release
 ```
 
-The release bar is **GauntletGate** (`gauntletgate all`): first-run reachable, safety invariants
-intact, 0 Blocker / 0 Critical. See [the latest report](../gate-tinkerquarry-2026-06-21/gate-report.md).
+The release bar is **GauntletGate** plus the committed local release proof. See
+[STATUS.md](STATUS.md) and [EVALUATE.md](EVALUATE.md) for the current command list and latest
+results.
 
 ---
 
@@ -403,18 +394,12 @@ score** plus the named findings.
 ## Repository map
 
 ```
-TinkerQuarry (product)
-├─ KimCadClaude/                 the engine (Python) + the SPA (becomes TinkerQuarry's UI)
-│  ├─ src/kimcad/                pipeline · printability · openscad_runner · webapp · config
-│  ├─ frontend/                  React/TS SPA (rebranded + rethemed); builds → src/kimcad/web
-│  ├─ config/                    default.yaml + per-machine local.yaml
-│  └─ docs/api.md                the HTTP API contract
-└─ tinkerquarry/                 product umbrella: glue, design, docs
-   ├─ backend/connector.py       pipeline + printers as one MCP surface
-   ├─ backend/mock_api.py        dependency-free API mock (offline dev)
-   ├─ frontend/                  the original design composition + offline runner
-   ├─ docs/                      this manual, STATUS, PRD, discussions
-   └─ gate-…/                    GauntletGate reports
+TinkerQuarry (product repo)
+├─ apps/ui/                      React/TypeScript Studio app + Tauri shell
+├─ packages/engine/              KimCad engine: pipeline, HTTP API, tools, config
+├─ packages/shared/              shared file-format helpers
+├─ docs/                         this manual, STATUS, PRD, audits, evaluation guide
+└─ scripts/                      release and smoke-test helpers
 ```
 
 ## Where state lives

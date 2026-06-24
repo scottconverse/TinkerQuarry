@@ -1028,6 +1028,9 @@ class EnvironmentErrorBoundary extends Component<{ children: ReactNode }, { hasE
 }
 
 function EnvironmentWithFallback({ preset }: { preset: string }) {
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    return null;
+  }
   return (
     <EnvironmentErrorBoundary>
       <Environment preset={preset as Parameters<typeof Environment>[0]['preset']} />

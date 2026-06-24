@@ -14,10 +14,10 @@ jest.unstable_mockModule("@/platform", () => ({
 
 let WelcomeScreen: typeof import("../WelcomeScreen").WelcomeScreen;
 
-function createJsonResponse(body: unknown) {
+function createJsonResponse(body: unknown, status = 200) {
   return {
-    ok: true,
-    status: 200,
+    ok: status >= 200 && status < 300,
+    status,
     json: async () => body,
     text: async () => JSON.stringify(body),
   } as Response;
@@ -336,5 +336,87 @@ describe("WelcomeScreen", () => {
 
     fireEvent.click(buildButton);
     expect(onStartWithDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let examples bypass local AI setup when the local model is missing", async () => {
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      value: jest.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/model-status")) {
+          return createJsonResponse({
+            model: "qwen2.5:7b",
+            backend: "local",
+            running: false,
+            model_present: false,
+            vision_model: "qwen2.5vl:7b",
+            vision_present: false,
+          });
+        }
+        return createJsonResponse({ designs: [] });
+      }),
+    });
+    const onStartWithDraft = jest.fn();
+
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: "make a small gear", attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={onStartWithDraft}
+        onStartManually={() => {}}
+        onOpenRecent={async () => "opened"}
+        showRecentFiles={false}
+      />,
+    );
+
+    await screen.findByText(/Local AI setup needed/i);
+    expect(screen.getByRole("button", { name: "Build" })).toBeDisabled();
+    const example = screen.getByRole("button", {
+      name: "Create a 3D printable mini lamp",
+    });
+    expect(example).toBeDisabled();
+    fireEvent.click(example);
+    expect(onStartWithDraft).not.toHaveBeenCalled();
+  });
+
+  it("offers engine retry instead of model setup when local status cannot be reached", async () => {
+    const fetchMock = jest.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/api/model-status")) {
+        return createJsonResponse({ error: "Could not reach the local engine." }, 503);
+      }
+      return createJsonResponse({ designs: [] });
+    });
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      value: fetchMock,
+    });
+
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: "make a small gear", attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onOpenRecent={async () => "opened"}
+        showRecentFiles={false}
+      />,
+    );
+
+    await screen.findByText(/Could not reach the local engine/i);
+    expect(screen.queryByRole("button", { name: "Set up local AI" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Check again" })).toBeEnabled();
   });
 });

@@ -1,8 +1,11 @@
-# KimCad — User Manual
+# TinkerQuarry Engine User Manual
 
 **AI-assisted parametric design for functional 3D prints.**
-Describe a part in plain words — or photograph or sketch one — and KimCad turns it into a
+Describe a part in plain words — or photograph or sketch one — and TinkerQuarry turns it into a
 checked, print-ready file, entirely on your own machine.
+
+KimCad is the engine name inside TinkerQuarry. User-facing release status and native-app proof live
+in the root `docs/STATUS.md` and `docs/EVALUATE.md`.
 
 This manual has three parts, each for a different reader. Start wherever you fit:
 
@@ -12,16 +15,15 @@ This manual has three parts, each for a different reader. Start wherever you fit
 | **[2 · The technical surface](#part-2--the-technical-surface)** | CLI users, tinkerers, integrators | commands, config layering, the printer connectors, the MCP server, the CadQuery/STEP engine |
 | **[3 · Architecture](#part-3--architecture)** | developers and the curious | the pipeline, the modules, the trust boundaries, how it's built |
 
-> **Version:** this manual tracks the current Windows beta (`0.9.3`). KimCad's version shows in
-> **Settings → About** and from `kimcad --version`.
+> **Version:** this manual tracks the engine surface inside the current TinkerQuarry beta.
 
 ---
 
 # Part 1 · Everyday use
 
-## What KimCad is (and isn't)
+## What TinkerQuarry is (and isn't)
 
-KimCad turns a description of a *functional* part — a bracket, a holder, a clip, an
+TinkerQuarry turns a description of a *functional* part — a bracket, a holder, a clip, an
 enclosure — into a 3D-printable file. You don't draw anything and you never edit CAD code.
 
 It is **deterministic where it counts**: common shapes are built by a parametric template
@@ -40,12 +42,12 @@ a multi-part assembly tool.
 The easiest path is the **double-click installer** — no terminal, no Python, no developer
 tools.
 
-1. Download `KimCad-Setup-<version>.exe` from the
+1. Download `TinkerQuarry_<version>_x64-setup.exe` from the
    [releases page](../../releases/latest).
 2. Double-click it. Windows SmartScreen will warn you because the beta isn't code-signed —
    click **More info → Run anyway**. (You can verify the download first: the release
    publishes a `.sha256` checksum beside the installer.)
-3. Follow the wizard. KimCad installs to Program Files by default (or a per-user folder if
+3. Follow the wizard. TinkerQuarry installs to Program Files by default (or a per-user folder if
    you install without administrator rights).
 
 Full details, including the checksum check and exactly what goes where, are in the

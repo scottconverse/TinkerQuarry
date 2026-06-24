@@ -3178,6 +3178,29 @@ def test_settings_post_reports_unsaved_when_store_write_fails(tmp_path, monkeypa
 # --- Stage 8.5 Slice 6 MS-2: the model-status endpoint ----------------------
 
 
+def test_model_status_demo_provider_reports_ready_without_ollama(tmp_path, monkeypatch):
+    """Demo/native-smoke mode is intentionally LLM-free, so model-status must not block the
+    first-run Build button on the developer machine's real Ollama state."""
+    from kimcad import model_advisor as ma
+
+    def _boom(*a, **k):  # noqa: ANN002, ANN003
+        raise AssertionError("demo mode must not probe real Ollama")
+
+    monkeypatch.setattr(ma, "probe_ollama", _boom)
+    pipe = _pipeline(DemoProvider(), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        st, s = _jreq(host, port, "GET", "/api/model-status")
+        assert st == 200
+        assert s == {
+            "model": "demo",
+            "backend": "local",
+            "running": True,
+            "model_present": True,
+            "vision_model": "demo",
+            "vision_present": True,
+        }
+
+
 def test_model_status_local_running_with_model(tmp_path, monkeypatch):
     """The local (Ollama) backend, reachable and with the model pulled, reports running + present."""
     from kimcad import model_advisor as ma

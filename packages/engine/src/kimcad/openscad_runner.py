@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import os
 import re
+import hashlib
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -49,6 +51,7 @@ _USE_INCLUDE_RE = re.compile(r"\b(use|include)\s*<([^>]*)>")
 # stderr fingerprints that mean "this binary can't write 3MF", not "bad model".
 _NO_3MF_RE = re.compile(r"lib3mf|3mf|Unknown file|unsupported file format", re.IGNORECASE)
 _UNSUPPORTED_BACKEND_RE = re.compile(r"backend|unrecognised option|unrecognized option", re.IGNORECASE)
+_OPENSCAD_CANONICAL_PATH_RE = re.compile(r"cannot make canonical path", re.IGNORECASE)
 
 
 class RenderError(Exception):
@@ -423,6 +426,7 @@ def _render_once(
     fmt: str,
     timeout_s: int,
     backend: str | None = None,
+    canonical_retry_used: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], str, bool]:
     """Run the binary; if 3MF fails for a format reason, retry as STL once."""
     out_path = out_dir / f"{basename}.{fmt}"
@@ -432,6 +436,25 @@ def _render_once(
         proc = _run(cmd, cwd=out_dir, timeout_s=timeout_s)
     except subprocess.TimeoutExpired as e:
         raise RenderTimeout(f"openscad exceeded {timeout_s}s") from e
+    if (
+        not canonical_retry_used
+        and proc.returncode != 0
+        and _OPENSCAD_CANONICAL_PATH_RE.search(
+        (proc.stderr or "") + "\n" + (proc.stdout or "")
+        )
+    ):
+        retry_binary = _writable_openscad_mirror(binary)
+        if retry_binary != binary:
+            return _render_once(
+                retry_binary,
+                scad_path,
+                out_dir,
+                basename,
+                fmt,
+                timeout_s,
+                backend,
+                canonical_retry_used=True,
+            )
     if backend and proc.returncode != 0 and _UNSUPPORTED_BACKEND_RE.search(
         (proc.stderr or "") + "\n" + (proc.stdout or "")
     ):
@@ -447,3 +470,24 @@ def _render_once(
         return proc, "stl", True
 
     return proc, fmt, False
+
+
+def _writable_openscad_mirror(binary: Path) -> Path:
+    """Mirror portable OpenSCAD into writable app-data for a Windows canonical-path retry."""
+    if os.name != "nt":
+        return binary
+    try:
+        from kimcad.paths import writable_root
+
+        source_dir = binary.parent
+        digest = hashlib.sha256(
+            str(source_dir.resolve()).encode("utf-8", "surrogatepass")
+        ).hexdigest()[:12]
+        target_dir = writable_root() / "tool-cache" / f"openscad-{digest}"
+        target_binary = target_dir / binary.name
+        if not target_binary.is_file():
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+        return target_binary if target_binary.is_file() else binary
+    except Exception:
+        return binary

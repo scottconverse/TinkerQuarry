@@ -1,8 +1,8 @@
 {
-  "name": "openscad-studio",
+  "name": "tinkerquarry",
   "version": "1.3.0",
   "private": true,
-  "description": "Modern OpenSCAD editor with live preview and AI copilot",
+  "description": "Local-first AI CAD workflow for printable objects",
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "cd apps/ui && pnpm dev",
@@ -26,8 +26,10 @@
     "web:preview": "cd apps/web && pnpm preview",
     "test:e2e:web": "playwright test --project=system-chrome",
     "test:e2e:tauri": "node scripts/smoke-tauri-runtime.mjs",
+    "test:e2e:tauri:installed": "node scripts/smoke-installed-nsis.mjs",
     "test:scripts": "node -e \"console.log('No standalone script unit tests are currently defined; use test:gate for release validation.')\"",
     "test:gate": "pnpm -r lint && pnpm -r type-check && cd apps/ui && node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand && cd ../.. && pnpm test:web:unit && cd packages/engine && .venv\\Scripts\\python.exe -m pytest -q && cd ../.. && pnpm test:e2e:web",
+    "test:release": "pnpm test:gate && scripts\\native-release.cmd && pnpm test:e2e:tauri && pnpm test:e2e:tauri:installed",
     "validate:changes": "pnpm -r lint && pnpm -r type-check && pnpm test:scripts",
     "format:rust": "cd apps/ui/src-tauri && cargo fmt",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\" && cd apps/ui/src-tauri && cargo fmt --check"

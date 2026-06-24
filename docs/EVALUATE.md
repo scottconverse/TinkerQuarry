@@ -104,7 +104,7 @@ pnpm test:web:unit
 pnpm test:e2e:web
 cmd /c "call ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\LaunchDevCmd.bat"" -arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && pnpm.cmd tauri:build"
 node scripts/smoke-tauri-runtime.mjs
-node scripts/smoke-tauri-runtime.mjs --exe="%TEMP%\TQSmokeInstall\openscad-studio.exe" --isolated-profile="%TEMP%\TQSmokeProfile" --workflow
+pnpm test:e2e:tauri:installed
 pnpm test:gate
 ```
 

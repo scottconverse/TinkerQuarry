@@ -9,9 +9,13 @@ const isolatedProfileArg = process.argv.find((arg) =>
   arg.startsWith("--isolated-profile="),
 );
 const workflow = process.argv.includes("--workflow");
+const defaultExe = resolve("apps/ui/src-tauri/target/release/tinkerquarry.exe");
+const legacyDefaultExe = resolve(
+  "apps/ui/src-tauri/target/release/openscad-studio.exe",
+);
 const exe = resolve(
   exeArg?.slice("--exe=".length) ||
-    "apps/ui/src-tauri/target/release/openscad-studio.exe",
+    (existsSync(defaultExe) ? defaultExe : legacyDefaultExe),
 );
 const isolatedProfile = isolatedProfileArg
   ? resolve(isolatedProfileArg.slice("--isolated-profile=".length))
@@ -84,6 +88,14 @@ async function main() {
     }
     if (!page) throw new Error("No inspectable Tauri page appeared.");
 
+    const consoleErrors = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => {
+      consoleErrors.push(error.message);
+    });
+
     await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
     await page.setViewportSize({ width: 1600, height: 1000 }).catch(() => {});
     const title = await page.title();
@@ -144,7 +156,13 @@ async function main() {
     };
 
     if (workflow) {
-      await runNativeWorkflow(page);
+      await runNativeWorkflow(page, consoleErrors);
+    }
+
+    if (consoleErrors.length) {
+      throw new Error(
+        `Native runtime console/page errors: ${consoleErrors.join(" | ")}`,
+      );
     }
 
     if (isolatedProfile && !profileHasEngineState(isolatedProfile)) {
@@ -195,15 +213,7 @@ function profileHasEngineState(root) {
   return false;
 }
 
-async function runNativeWorkflow(page) {
-  const consoleErrors = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => {
-    consoleErrors.push(error.message);
-  });
-
+async function runNativeWorkflow(page, consoleErrors) {
   const welcomePrompt = page
     .getByTestId("welcome-ai-entry")
     .locator('textarea[placeholder="Describe what you want to build..."]')
@@ -250,9 +260,7 @@ async function runNativeWorkflow(page) {
     .click();
 
   if (consoleErrors.length) {
-    throw new Error(
-      `Native workflow console/page errors: ${consoleErrors.join(" | ")}`,
-    );
+    throw new Error(`Native workflow console/page errors: ${consoleErrors.join(" | ")}`);
   }
 }
 

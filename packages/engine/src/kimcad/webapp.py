@@ -1990,6 +1990,16 @@ def make_handler(
             backend: whether Ollama is reachable and the active model (gemma4:e4b) is pulled — so the
             UI can show Running / Start Ollama / Get the model. Best-effort + bounded (a short probe
             timeout); a config gap or a down model server is a STATUS, never a 500."""
+            if isinstance(getattr(pipeline, "provider", None), DemoProvider):
+                self._json(200, {
+                    "model": "demo",
+                    "backend": "local",
+                    "running": True,
+                    "model_present": True,
+                    "vision_model": "demo",
+                    "vision_present": True,
+                })
+                return
             cfg = get_config()
             # Slice 6 MS-3: if the user enabled cloud + saved a key + a model, the EFFECTIVE backend
             # is their OpenRouter model — report that, not the local default.

@@ -428,7 +428,19 @@ export function WelcomeScreen({
                 ) : (
                   <span>Checking local AI...</span>
                 )}
-                {(modelNeedsSetup || modelStatusError) && (
+                {modelStatusError ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="ml-3"
+                    onClick={() => {
+                      void refreshModelStatus();
+                    }}
+                  >
+                    Check again
+                  </Button>
+                ) : modelNeedsSetup ? (
                   <Button
                     type="button"
                     variant="secondary"
@@ -441,7 +453,7 @@ export function WelcomeScreen({
                   >
                     {modelPulling ? "Setting up..." : "Set up local AI"}
                   </Button>
-                )}
+                ) : null}
                 {modelPull && !modelReady && (
                   <span
                     className="ml-3"
@@ -497,13 +509,15 @@ export function WelcomeScreen({
                     key={example}
                     variant="secondary"
                     onClick={() => {
-                      if (!hasApiKey) return;
+                      if (!hasApiKey || !modelReady) return;
                       onStartWithDraft({ text: example, attachmentIds: [] });
                     }}
-                    disabled={!hasApiKey}
+                    disabled={!hasApiKey || !modelReady}
                     title={
                       !hasApiKey
                         ? "Configure an AI provider in Settings to use AI"
+                        : !modelReady
+                          ? "Set up local AI before starting an example"
                         : example
                     }
                   >

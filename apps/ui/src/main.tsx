@@ -860,16 +860,6 @@ window.addEventListener("unhandledrejection", (event) => {
 
 reportEarlyStartupPhase("module_loaded", document.readyState);
 
-// TinkerQuarry Phase 1 (recovery, fail-fast gate): prove the forked Studio app, running inside
-// tinkerquarry, reaches the real KimCad engine. Calls /api/health through the vite proxy (→ :8765)
-// and logs the result. Temporary boot-proof wiring; the real engine integration is Phase 2.
-void fetch("/api/health")
-  .then((r) => r.json())
-  .then((h) =>
-    console.log("[TinkerQuarry] engine /api/health OK:", JSON.stringify(h)),
-  )
-  .catch((e) => console.error("[TinkerQuarry] engine /api/health FAILED:", e));
-
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BootstrapApp />,
 );

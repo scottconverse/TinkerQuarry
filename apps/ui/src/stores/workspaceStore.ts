@@ -333,12 +333,9 @@ export function createWorkspaceStore(
   }));
 }
 
-const isMobileAtStartup =
-  typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
-
 export const workspaceStore = createWorkspaceStore({
   ...createInitialWorkspaceState(),
-  showWelcome: isMobileAtStartup ? false : true,
+  showWelcome: true,
 });
 
 export function useWorkspaceStore<T>(selector: (state: WorkspaceStore) => T): T {
