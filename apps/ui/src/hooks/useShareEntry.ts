@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useAnalytics } from '../analytics/runtime';
+import { useAnalytics } from '../localAnalytics';
 import { getShare } from '../services/shareService';
 import { parseShareContext } from '../services/shareRouting';
 import { isShareEntryBlockingPhase, useShareEntryStore } from '../stores/shareEntryStore';

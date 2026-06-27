@@ -1,22 +1,10 @@
-import '@ui/sentry';
 import ReactDOM from 'react-dom/client';
-import posthog from 'posthog-js';
-import { PostHogProvider } from '@posthog/react';
 import App from '@ui/App';
-import {
-  captureAppOpened,
-  captureBootstrapError,
-  initializePostHog,
-} from '@ui/analytics/bootstrap';
-import { shouldCaptureBootstrapAnalytics } from '@ui/analytics/bootstrapPolicy';
-import { AnalyticsRuntimeProvider } from '@ui/analytics/runtime';
 import { ErrorBoundary } from '@ui/components/ErrorBoundary';
 import { ThemeProvider } from '@ui/contexts/ThemeContext';
-import { captureSentryException } from '@ui/sentry';
 import { parseShareContext } from '@ui/services/shareRouting';
 import { initFormatter } from '@ui/utils/formatter';
 import { initializePlatform } from '@ui/platform';
-import { loadSettings } from '@ui/stores/settingsStore';
 import '@ui/index.css';
 
 const initialShareContext = parseShareContext(window.location.pathname, window.location.search);
@@ -51,13 +39,6 @@ if (window.__UNSUPPORTED_BROWSER) {
   // eslint-disable-next-line no-console
   console.warn('[main] Browser unsupported — skipping app render');
 } else {
-  const analyticsEnabled = loadSettings().privacy.analyticsEnabled;
-  const posthogReady = initializePostHog(posthog, { analyticsEnabled });
-  const shouldCaptureBootstrapEvents = shouldCaptureBootstrapAnalytics(
-    posthogReady,
-    analyticsEnabled
-  );
-
   initFormatter().catch((error) => {
     console.error('[main] Failed to initialize formatter:', error);
   });
@@ -66,37 +47,16 @@ if (window.__UNSUPPORTED_BROWSER) {
 
   const renderApp = () =>
     root.render(
-      <PostHogProvider client={posthog}>
-        <ThemeProvider>
-          <AnalyticsRuntimeProvider>
-            <ErrorBoundary>
-              <App />
-            </ErrorBoundary>
-          </AnalyticsRuntimeProvider>
-        </ThemeProvider>
-      </PostHogProvider>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </ThemeProvider>
     );
 
   renderApp();
 
-  initializePlatform()
-    .then((platform) => {
-      if (shouldCaptureBootstrapEvents) {
-        captureAppOpened(posthog, {
-          analyticsEnabled,
-          capabilities: platform.capabilities,
-        });
-      }
-    })
-    .catch((error) => {
-      captureSentryException(error, { tags: { phase: 'platform-init' } });
-
-      if (shouldCaptureBootstrapEvents) {
-        captureBootstrapError(posthog, error, {
-          analyticsEnabled,
-          operation: 'platform-init',
-        });
-      }
-      console.error('[main] Failed to initialize platform:', error);
-    });
+  initializePlatform().catch((error) => {
+    console.error('[main] Failed to initialize platform:', error);
+  });
 }

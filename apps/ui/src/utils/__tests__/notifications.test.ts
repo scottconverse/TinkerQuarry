@@ -10,12 +10,7 @@ jest.unstable_mockModule('sonner', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../sentry', () => ({
-  captureSentryException: jest.fn(),
-}));
-
 let toast: typeof import('sonner').toast;
-let captureSentryException: typeof import('../../sentry').captureSentryException;
 let normalizeAppError: typeof import('../notifications').normalizeAppError;
 let notifyError: typeof import('../notifications').notifyError;
 let notifyPromise: typeof import('../notifications').notifyPromise;
@@ -26,7 +21,6 @@ describe('notifications', () => {
 
   beforeAll(async () => {
     ({ toast } = await import('sonner'));
-    ({ captureSentryException } = await import('../../sentry'));
     ({ normalizeAppError, notifyError, notifyPromise, notifySuccess } =
       await import('../notifications'));
   });
@@ -60,7 +54,7 @@ describe('notifications', () => {
     });
   });
 
-  it('can skip Sentry capture for handled UI validation errors', () => {
+  it('can skip local capture logging for handled UI validation errors', () => {
     notifyError({
       operation: 'export-file',
       error: new Error('Current top level object is not a 2D object.'),
@@ -68,7 +62,7 @@ describe('notifications', () => {
       fallbackMessage: 'Export failed',
     });
 
-    expect(captureSentryException).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith('Current top level object is not a 2D object.', {
       id: undefined,
       description: undefined,

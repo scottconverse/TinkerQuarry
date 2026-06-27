@@ -5,7 +5,7 @@ import {
   useAnalytics,
   type LayoutSelectionSource,
   type ViewerPreferenceKey,
-} from '../analytics/runtime';
+} from '../localAnalytics';
 import { Button, IconButton, Text } from './ui';
 import {
   TbPalette,
@@ -14,7 +14,6 @@ import {
   TbSparkles,
   TbX,
   TbBooks,
-  TbShield,
   TbRuler,
   TbInfoCircle,
 } from 'react-icons/tb';
@@ -26,7 +25,6 @@ import {
   ViewerSettings,
   ProjectSettings,
   EditorSettings,
-  PrivacySettings,
   LibrariesSettings,
   AiSettings,
   AboutSettings,
@@ -37,7 +35,6 @@ export type SettingsSection =
   | 'appearance'
   | 'viewer'
   | 'editor'
-  | 'privacy'
   | 'ai'
   | 'libraries'
   | 'project'
@@ -171,15 +168,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     [settings, analytics]
   );
 
-  const handlePrivacyChange = useCallback(
-    <K extends keyof Settings['privacy']>(key: K, value: Settings['privacy'][K]) => {
-      const updated = { ...settings, privacy: { ...settings.privacy, [key]: value } };
-      setSettings(updated);
-      saveSettings(updated);
-    },
-    [settings]
-  );
-
   const handleLibraryChange = useCallback(
     <K extends keyof Settings['library']>(key: K, value: Settings['library'][K]) => {
       const updated = { ...settings, library: { ...settings.library, [key]: value } };
@@ -240,7 +228,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     { key: 'viewer', label: 'Viewer', icon: <TbBox size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
     { key: 'project', label: 'Project', icon: <TbRuler size={16} /> },
-    { key: 'privacy', label: 'Privacy', icon: <TbShield size={16} /> },
     ...(isDesktop
       ? [{ key: 'libraries' as const, label: 'Libraries', icon: <TbBooks size={16} /> }]
       : []),
@@ -253,7 +240,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     viewer: 'Viewer',
     editor: 'Editor',
     project: 'Project',
-    privacy: 'Privacy',
     libraries: 'Libraries',
     ai: 'AI Assistant',
     about: 'About',
@@ -391,9 +377,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 localVimConfig={localVimConfig}
                 onLocalVimConfigChange={setLocalVimConfig}
               />
-            )}
-            {activeSection === 'privacy' && (
-              <PrivacySettings settings={settings} onPrivacyChange={handlePrivacyChange} />
             )}
             {activeSection === 'libraries' && (
               <LibrariesSettings

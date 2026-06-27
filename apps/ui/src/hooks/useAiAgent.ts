@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { type ToolSet, stepCountIs } from 'ai';
-import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
+import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../localAnalytics';
 import { historyService, eventBus, getPlatform } from '../platform';
 import {
   getProjectState,

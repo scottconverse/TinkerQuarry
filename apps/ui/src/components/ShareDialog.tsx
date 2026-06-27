@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TbCheck, TbCopy, TbLink, TbX } from 'react-icons/tb';
-import { useAnalytics } from '../analytics/runtime';
+import { useAnalytics } from '../localAnalytics';
 import type { RenderKind } from '../hooks/useOpenScad';
 import { captureOffscreen } from '../services/offscreenRenderer';
 import { buildShareUrl } from '../services/shareRouting';

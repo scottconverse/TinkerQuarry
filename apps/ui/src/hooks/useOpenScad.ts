@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
+import { useAnalytics, type RenderTrigger } from '../localAnalytics';
 import { getStoredModelSelection } from '../stores/apiKeyStore';
 import {
   getRenderService,

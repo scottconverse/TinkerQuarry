@@ -16,7 +16,6 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^.*/sentry$': '<rootDir>/src/__mocks__/sentry.ts',
     '^fflate$':
       '<rootDir>/../../node_modules/.pnpm/fflate@0.6.10/node_modules/fflate/lib/browser.cjs',
     '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.ts',

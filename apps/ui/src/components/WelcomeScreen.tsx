@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { ModelSelectionSurface } from "../analytics/runtime";
+import type { ModelSelectionSurface } from "../localAnalytics";
 import { Button, IconButton, Text } from "./ui";
 import { AiComposer } from "./AiComposer";
 import { ModelSelector } from "./ModelSelector";

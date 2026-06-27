@@ -28,7 +28,7 @@ jest.unstable_mockModule('@/platform', () => ({
   },
 }));
 
-jest.unstable_mockModule('@/analytics/runtime', () => ({
+jest.unstable_mockModule('@/localAnalytics', () => ({
   createAnalyticsApi: () => ({
     track: (...args: unknown[]) => mockTrack(...args),
     trackError: jest.fn(),

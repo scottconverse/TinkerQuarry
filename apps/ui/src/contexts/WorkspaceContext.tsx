@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { ModelSelectionSurface } from '../analytics/runtime';
+import type { ModelSelectionSurface } from '../localAnalytics';
 import type { Diagnostic } from '../platform/historyService';
 import type { RenderKind } from '../hooks/useOpenScad';
 import type { AddDraftFilesResult } from '../hooks/useAiAgent';

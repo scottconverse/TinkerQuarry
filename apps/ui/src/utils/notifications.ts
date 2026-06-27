@@ -3,8 +3,7 @@ import {
   trackAnalyticsError,
   inferErrorDomain,
   type AnalyticsErrorDomain,
-} from '../analytics/runtime';
-import { captureSentryException } from '../sentry';
+} from '../localAnalytics';
 
 export interface NormalizedAppError {
   message: string;
@@ -86,16 +85,12 @@ export function notifyError({
   if (error !== undefined) {
     console.error(logLabel ?? `[${operation}]`, error);
     if (capture) {
-      captureSentryException(error, {
-        tags: {
-          operation,
-          error_domain: errorDomain ?? inferErrorDomain(operation),
-        },
-        extra: {
-          source_component: sourceComponent ?? logLabel ?? operation,
-          handled: handled ?? true,
-          ...analyticsProperties,
-        },
+      console.error('[notifyError] Captured locally', {
+        operation,
+        errorDomain: errorDomain ?? inferErrorDomain(operation),
+        sourceComponent: sourceComponent ?? logLabel ?? operation,
+        handled: handled ?? true,
+        ...analyticsProperties,
       });
     }
   }

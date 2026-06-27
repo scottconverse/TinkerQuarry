@@ -1,4 +1,4 @@
-import type { ModelSelectionSurface } from '../analytics/runtime';
+import type { ModelSelectionSurface } from '../localAnalytics';
 import type { AiDraft, AttachmentRecord, AttachmentStore } from '../types/aiChat';
 import { createRandomId } from './randomId';
 

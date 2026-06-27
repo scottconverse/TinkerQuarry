@@ -30,7 +30,7 @@ jest.unstable_mockModule('@monaco-editor/react', () => ({
   Editor: () => null,
 }));
 
-jest.unstable_mockModule('@/analytics/runtime', () => ({
+jest.unstable_mockModule('@/localAnalytics', () => ({
   bucketCount: (value: number) => String(value),
   createAnalyticsApi: () => ({
     track: (...args: unknown[]) => mockTrack(...args),
@@ -80,7 +80,7 @@ jest.unstable_mockModule('@/services/desktopMcp', () => ({
 
 let SettingsDialog: typeof import('../SettingsDialog').SettingsDialog;
 
-describe('SettingsDialog privacy copy', () => {
+describe('SettingsDialog', () => {
   beforeAll(async () => {
     ({ SettingsDialog } = await import('../SettingsDialog'));
   });
@@ -157,35 +157,6 @@ describe('SettingsDialog privacy copy', () => {
         dispatchEvent: jest.fn(),
       })),
     });
-  });
-
-  it('shows the tightened privacy copy and respects persisted opt-out state', async () => {
-    localStorage.setItem(
-      'openscad-studio-settings',
-      JSON.stringify({
-        privacy: { analyticsEnabled: false },
-      })
-    );
-
-    render(
-      <ThemeProvider>
-        <SettingsDialog isOpen onClose={() => {}} initialTab="privacy" />
-      </ThemeProvider>
-    );
-
-    expect(await screen.findByText('Share anonymous product analytics')).toBeTruthy();
-    expect(
-      screen.getByText(/persistent anonymous identifier on this device\/browser/i)
-    ).toBeTruthy();
-    expect(screen.getByText(/turning this off stops future analytics capture/i)).toBeTruthy();
-    expect(screen.getByText(/on the web it applies per browser\/profile/i)).toBeTruthy();
-
-    await waitFor(() => {
-      expect(platformMock.getLibraryPaths).toHaveBeenCalledTimes(1);
-    });
-
-    const toggle = screen.getByRole('switch');
-    expect(toggle).toHaveAttribute('data-state', 'unchecked');
   });
 
   it('shows viewer settings and disables axis labels when axes are hidden', async () => {

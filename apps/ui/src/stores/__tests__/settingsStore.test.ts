@@ -12,7 +12,6 @@ describe('settingsStore', () => {
       'openscad-studio-settings',
       JSON.stringify({
         ui: { hasCompletedNux: true },
-        privacy: { analyticsEnabled: false },
       })
     );
 
@@ -32,7 +31,6 @@ describe('settingsStore', () => {
     expect(settings.viewer.show2DBounds).toBe(false);
     expect(settings.viewer.show2DCursorCoords).toBe(true);
     expect(settings.viewer.enable2DGridSnap).toBe(true);
-    expect(settings.privacy.analyticsEnabled).toBe(false);
     expect(settings.ui.hasCompletedNux).toBe(true);
     expect(settings.mcp.enabled).toBe(false);
     expect(settings.mcp.port).toBe(32123);

@@ -1,4 +1,4 @@
-import type { ModelSelectionSurface } from '../analytics/runtime';
+import type { ModelSelectionSurface } from '../localAnalytics';
 
 export type VisionSupport = 'yes' | 'no' | 'unknown';
 export type AssistantMessageState = 'complete' | 'cancelled' | 'error';

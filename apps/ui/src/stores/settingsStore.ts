@@ -48,10 +48,6 @@ export interface LibrarySettings {
   autoDiscoverSystem: boolean;
 }
 
-export interface PrivacySettings {
-  analyticsEnabled: boolean;
-}
-
 export interface ProjectSettings {
   /** User-configured base directory for new projects. Empty string = use platform default. */
   defaultProjectDirectory: string;
@@ -68,7 +64,6 @@ export interface Settings {
   ui: UiSettings;
   viewer: ViewerSettings;
   library: LibrarySettings;
-  privacy: PrivacySettings;
   project: ProjectSettings;
   mcp: McpSettings;
 }
@@ -143,11 +138,6 @@ const DEFAULT_SETTINGS: Settings = {
     customPaths: [],
     autoDiscoverSystem: true,
   },
-  privacy: {
-    // TinkerQuarry (recovery Phase 3): telemetry OFF by default — strictly opt-in (PRD §12/§6.14).
-    // Studio shipped this `true`; the product is private-by-default.
-    analyticsEnabled: false,
-  },
   project: {
     defaultProjectDirectory: '',
   },
@@ -190,10 +180,6 @@ export function loadSettings(): Settings {
         library: {
           ...DEFAULT_SETTINGS.library,
           ...(parsed.library || {}),
-        },
-        privacy: {
-          ...DEFAULT_SETTINGS.privacy,
-          ...(parsed.privacy || {}),
         },
         project: {
           ...DEFAULT_SETTINGS.project,

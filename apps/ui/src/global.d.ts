@@ -15,15 +15,15 @@ interface Window {
     doRender: (
       code: string,
       dimension?: '2d' | '3d',
-      trigger?: import('./analytics/runtime').RenderTrigger
+      trigger?: import('./localAnalytics').RenderTrigger
     ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     manualRender: () => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     renderCode: (
       code: string,
-      trigger?: import('./analytics/runtime').RenderTrigger
+      trigger?: import('./localAnalytics').RenderTrigger
     ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     renderWithTrigger: (
-      trigger: import('./analytics/runtime').RenderTrigger
+      trigger: import('./localAnalytics').RenderTrigger
     ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     dimensionMode: string;
     renderService: any;
