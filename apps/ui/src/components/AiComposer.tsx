@@ -10,7 +10,7 @@ import {
 } from "react";
 import { TbPaperclip, TbX } from "react-icons/tb";
 import { Button, IconButton } from "./ui";
-import type { ModelSelectionSurface } from "../analytics/runtime";
+import type { ModelSelectionSurface } from "../localAnalytics";
 import type { AiDraft, AttachmentStore } from "../types/aiChat";
 
 interface AiComposerProps {

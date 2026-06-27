@@ -41,7 +41,7 @@ import {
 import { useTheme } from "./contexts/ThemeContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import type { WorkspaceState } from "./contexts/WorkspaceContext";
-import { useAnalytics, type LayoutSelectionSource } from "./analytics/runtime";
+import { useAnalytics, type LayoutSelectionSource } from "./localAnalytics";
 import {
   setDockviewApi,
   getDockviewApi,
@@ -213,8 +213,7 @@ function pickFolder(): Promise<{
 }
 
 function isIgnorableError(reason: unknown): boolean {
-  // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error
-  // message and should not be forwarded to Sentry.
+  // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error message.
   if (typeof Event !== "undefined" && reason instanceof Event) {
     return true;
   }

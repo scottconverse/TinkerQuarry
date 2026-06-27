@@ -86,8 +86,8 @@ Full ran with five role subagents:
    Fix: preserve and surface native `ensure_engine` startup errors; provide an in-product setup/repair/start path; test fresh profile with engine stopped/absent.
 
 2. **GG-002 - Critical - Production dependency tree has active critical/high advisories.**  
-   Evidence: `pnpm.cmd audit --prod` reported 1 critical and 10 high advisories, including `protobufjs` via `apps__ui > posthog-js > @opentelemetry/...` (`GHSA-xq3m-2v4x-88gg`).  
-   Fix: upgrade `posthog-js` / transitive OpenTelemetry/protobuf dependencies or override to patched versions; rerun `pnpm.cmd audit --prod` until no critical/high production advisories remain or documented non-reachability exceptions exist.
+   Evidence: `pnpm.cmd audit --prod` reported 1 critical and 10 high advisories, including `protobufjs` via the former web telemetry dependency tree (`GHSA-xq3m-2v4x-88gg`).  
+   Fix: remove the telemetry dependency path or override transitive OpenTelemetry/protobuf dependencies; rerun `pnpm.cmd audit --prod` until no critical/high production advisories remain or documented non-reachability exceptions exist.
 
 ---
 
@@ -143,4 +143,3 @@ Full ran with five role subagents:
 - [x] Full lane ran all 5 roles.
 - [x] Every Blocker/Critical has evidence and fix path.
 - [x] What's-working is present.
-

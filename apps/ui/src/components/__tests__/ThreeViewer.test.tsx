@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 
 const mockTrack = jest.fn();
 
-jest.unstable_mockModule('@/analytics/runtime', () => ({
+jest.unstable_mockModule('@/localAnalytics', () => ({
   bucketCount: (value: number) => String(value),
   createAnalyticsApi: () => ({
     track: (...args: unknown[]) => mockTrack(...args),

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
-import { useAnalytics, type ViewerTool } from '../../analytics/runtime';
+import { useAnalytics, type ViewerTool } from '../../localAnalytics';
 import type {
   InteractionMode,
   LoadedPreviewModel,

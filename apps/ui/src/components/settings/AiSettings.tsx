@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Button, Input, Text } from '../ui';
-import { useAnalytics } from '../../analytics/runtime';
+import { useAnalytics } from '../../localAnalytics';
 import {
   DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
   clearStoredModelSelectionForProvider,

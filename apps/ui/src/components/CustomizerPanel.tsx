@@ -7,7 +7,7 @@
 
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import type { RenderKind } from '../hooks/useOpenScad';
-import { bucketCount, useAnalytics, type CustomizerAction } from '../analytics/runtime';
+import { bucketCount, useAnalytics, type CustomizerAction } from '../localAnalytics';
 import { parseCustomizerParams } from '../utils/customizer/parser';
 import { replaceParamValue } from '../utils/customizer/replaceParamValue';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';

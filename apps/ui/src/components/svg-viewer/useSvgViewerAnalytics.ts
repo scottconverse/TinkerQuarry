@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useAnalytics, type ViewerTool } from '../../analytics/runtime';
+import { useAnalytics, type ViewerTool } from '../../localAnalytics';
 import type { ViewMode } from './types';
 
 export type SvgViewerToolInputMethod = 'toolbar' | 'shortcut';

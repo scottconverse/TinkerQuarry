@@ -64,7 +64,7 @@ import {
   getSectionPlaneVisualTransform,
 } from './three-viewer/sectionPlaneController';
 import { useThreeViewerAnalytics } from './three-viewer/useThreeViewerAnalytics';
-import { useAnalytics } from '../analytics/runtime';
+import { useAnalytics } from '../localAnalytics';
 import type {
   InteractionMode,
   LoadedPreviewModel,

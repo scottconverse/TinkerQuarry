@@ -5,7 +5,7 @@ import { axe } from 'jest-axe';
 import { jest } from '@jest/globals';
 import { renderWithProviders } from './test-utils';
 
-jest.unstable_mockModule('@/analytics/runtime', () => ({
+jest.unstable_mockModule('@/localAnalytics', () => ({
   bucketCount: (value: number) => String(value),
   createAnalyticsApi: () => ({
     track: jest.fn(),

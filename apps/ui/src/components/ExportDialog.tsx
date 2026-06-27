@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAnalytics } from '../analytics/runtime';
+import { useAnalytics } from '../localAnalytics';
 import { getPlatform } from '../platform';
 import { isExportValidationError } from '../services/exportErrors';
 import { exportModelWithContext } from '../services/exportService';

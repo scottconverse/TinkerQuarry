@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import "./sentry";
 import {
   useCallback,
   useEffect,
@@ -9,16 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import ReactDOM from "react-dom/client";
-import posthog from "posthog-js";
-import { PostHogProvider } from "@posthog/react";
 import App from "./App";
-import {
-  captureAppOpened,
-  captureBootstrapError,
-  initializePostHog,
-} from "./analytics/bootstrap";
-import { shouldCaptureBootstrapAnalytics } from "./analytics/bootstrapPolicy";
-import { AnalyticsRuntimeProvider } from "./analytics/runtime";
 import { Button } from "./components/ui";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { EngineStatusBanner } from "./components/EngineStatusBanner";
@@ -38,9 +28,7 @@ import {
   openFileInWindow,
   openWorkspaceFolderInWindow,
 } from "./services/windowOpenService";
-import { captureSentryException } from "./sentry";
 import { getProjectState, getProjectStore } from "./stores/projectStore";
-import { loadSettings } from "./stores/settingsStore";
 import { workspaceStore } from "./stores/workspaceStore";
 import { initFormatter } from "./utils/formatter";
 import "./index.css";
@@ -603,19 +591,11 @@ function BootstrapApp() {
       .then(async (platform) => {
         if (cancelled) return;
 
-        if (shouldCaptureBootstrapEvents) {
-          captureAppOpened(posthog, {
-            analyticsEnabled,
-            capabilities: platform.capabilities,
-          });
-        }
-
         reportStartupPhase("platform_ready");
         setBootDetail("platform_ready");
         setPlatformReady(true);
         void initFormatter().catch((error) => {
-          captureSentryException(error, { tags: { phase: "formatter-init" } });
-          console.warn("[main] Formatter warmup failed:", error);
+          console.error("[main] Formatter warmup failed:", error);
         });
 
         if (platform.capabilities.hasFileSystem) {
@@ -703,19 +683,11 @@ function BootstrapApp() {
       .catch((error) => {
         if (cancelled) return;
 
-        captureSentryException(error, { tags: { phase: "startup" } });
         void reportStartupPhase(
           "startup_error",
           error instanceof Error ? error.message : String(error),
         );
         setBootDetail(error instanceof Error ? error.message : String(error));
-        if (shouldCaptureBootstrapEvents) {
-          captureBootstrapError(posthog, error, {
-            analyticsEnabled,
-            capabilities: undefined,
-            operation: "startup",
-          });
-        }
         console.error("[main] Failed to initialize application:", error);
         setStartupError(error);
       });
@@ -810,29 +782,19 @@ function BootstrapApp() {
   }
 
   return (
-    <PostHogProvider client={posthog}>
-      <ThemeProvider>
-        <AnalyticsRuntimeProvider>
-          <ErrorBoundary>
-            <EngineStatusBanner />
-            <App />
-          </ErrorBoundary>
-        </AnalyticsRuntimeProvider>
-      </ThemeProvider>
-    </PostHogProvider>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <EngineStatusBanner />
+        <App />
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
-const analyticsEnabled = loadSettings().privacy.analyticsEnabled;
 window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || "";
 window.__SHARE_ENABLED =
   Boolean(window.__SHARE_API_BASE) &&
   (import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === "true");
-const posthogReady = initializePostHog(posthog, { analyticsEnabled });
-const shouldCaptureBootstrapEvents = shouldCaptureBootstrapAnalytics(
-  posthogReady,
-  analyticsEnabled,
-);
 
 function reportEarlyStartupPhase(
   phase: DesktopWindowStartupPhase,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TbArrowUpRight, TbGitBranch, TbX } from 'react-icons/tb';
-import { useAnalytics } from '../analytics/runtime';
+import { useAnalytics } from '../localAnalytics';
 import { getShare } from '../services/shareService';
 import type { ShareOrigin } from '../types/share';
 import { Button, IconButton } from './ui';

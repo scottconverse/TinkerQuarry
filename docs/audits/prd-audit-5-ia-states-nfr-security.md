@@ -60,7 +60,7 @@ Paths: FE = `KimCadClaude/frontend/src`, ENG = `KimCadClaude/src/kimcad`, API do
 | PRD ref | Requirement | Status | Evidence (file:line) | What's missing |
 | --- | --- | --- | --- | --- |
 | §12 | offline-after-setup | **PRESENT** | Self-hosted fonts "no CDN, fully offline" (`styles.css:7`); FirstRunWizard "works fully offline" (`FirstRunWizard.tsx:305`); no external `fetch('http…')` in app source (grep → none). | — |
-| §12 | private-by-default: telemetry off, nothing leaves machine | **PRESENT** | No analytics/posthog/sentry/telemetry/beacon in `FE/src` (grep → only a transitive `@opentelemetry/api` in `package-lock.json:2177`, not imported by app code); no external network egress in source. | — |
+| §12 | private-by-default: telemetry off, nothing leaves machine | **PRESENT** | No product telemetry or beacon code in `FE/src` (grep → only a transitive OpenTelemetry API in `package-lock.json:2177`, not imported by app code); no external network egress in source. | — |
 | §12 | private-by-default: images not persisted | **PRESENT** | Photo/sketch read locally into a text seed, "image never leaves the machine and is not persisted" (`api.md:158-162`; on-ramp client never stores the file, `api.ts:472-496`). | — (engine-side persistence not re-verified in this pass; contract is explicit.) |
 | §12 | performance: template re-render instant / no model call | **PRESENT** | `/api/render` is "deterministic, no model call" (`api.md:72-82`); client debounced re-render with min-dwell, never blocks (`RightPanel.tsx:232-241`; `App.tsx:501-529`). | — |
 | §12 | performance: honest progress, never block UI | **PRESENT** | Phase + elapsed overlay, cancelable; superseded-run guards (`App.tsx:163-208, 348-363`). | — |

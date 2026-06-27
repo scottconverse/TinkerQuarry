@@ -72,7 +72,6 @@ test("workspace walkthrough covers settings, menus, viewer, orient, export, and 
     "viewer",
     "editor",
     "project",
-    "privacy",
     "ai",
     "about",
   ];

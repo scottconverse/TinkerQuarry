@@ -1,6 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
-import type { RenderTrigger } from '../analytics/runtime';
+import type { RenderTrigger } from '../localAnalytics';
 
 export interface RenderRequest {
   /** Monotonically increasing ID for deduplication */

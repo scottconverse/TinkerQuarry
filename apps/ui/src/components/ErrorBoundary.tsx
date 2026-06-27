@@ -1,5 +1,4 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { captureSentryException } from '../sentry';
 import { notifyError } from '../utils/notifications';
 
 interface Props {
@@ -19,10 +18,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    captureSentryException(error, {
-      tags: { boundary: 'app' },
-      extra: { componentStack: errorInfo.componentStack },
-    });
+    console.error('[ErrorBoundary] App crash', error, errorInfo);
 
     notifyError({
       operation: 'app-crash',
@@ -220,14 +216,7 @@ export class PanelErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    captureSentryException(error, {
-      tags: {
-        boundary: 'panel',
-        panel_id: this.props.panelId,
-        panel_name: this.props.panelName,
-      },
-      extra: { componentStack: errorInfo.componentStack },
-    });
+    console.error(`[PanelErrorBoundary] ${this.props.panelName} crashed`, error, errorInfo);
 
     notifyError({
       operation: `${this.props.panelName.toLowerCase()}-panel-crash`,

@@ -1,7 +1,7 @@
 import { TbRefresh } from 'react-icons/tb';
 import { Button, Label, SegmentedControl, Text } from '../ui';
 import { getAvailableThemes } from '../../themes';
-import { useAnalytics, type LayoutSelectionSource } from '../../analytics/runtime';
+import { useAnalytics, type LayoutSelectionSource } from '../../localAnalytics';
 import { applyWorkspacePreset } from '../../stores/layoutStore';
 import type { Settings } from '../../stores/settingsStore';
 import { SettingsCard, SettingsCardHeader, SettingsCardSection } from './SettingsPrimitives';

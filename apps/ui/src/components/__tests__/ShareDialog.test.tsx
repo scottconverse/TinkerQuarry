@@ -11,7 +11,7 @@ const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
 
 // Return a stable object so that components with `analytics` in useEffect deps don't
 // re-run the effect on every render (the real useAnalytics is memoized).
-jest.unstable_mockModule('@/analytics/runtime', () => {
+jest.unstable_mockModule('@/localAnalytics', () => {
   const stableAnalytics = {
     track: jest.fn(),
     trackError: jest.fn(),

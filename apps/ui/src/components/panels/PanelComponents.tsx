@@ -16,7 +16,7 @@ import { exportModelWithContext } from '../../services/exportService';
 import { getPlatform } from '../../platform';
 import { notifyError } from '../../utils/notifications';
 import { MAIN_PREVIEW_VIEWER_ID } from '../../utils/capturePreview';
-import { useAnalytics } from '../../analytics/runtime';
+import { useAnalytics } from '../../localAnalytics';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
   const {

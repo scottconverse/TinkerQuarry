@@ -32,5 +32,5 @@ The Phase 1 fail-fast gate **passes**: the Studio absorption is real on this mac
 base boots inside `tinkerquarry` and reaches the real engine. **Cleared to proceed to Phase 2** (fork
 the KimCad engine into `packages/engine`, prove the SCAD sandbox, real design→gate→slice from the
 canonical repo). Still pending and explicitly out of Phase 1 scope: TinkerQuarry reskin (Phase 3),
-session-token on POSTs + full sandbox proof (Phase 2), telemetry strip (analytics/sentry/posthog present
+session-token on POSTs + full sandbox proof (Phase 2), telemetry strip (vendor telemetry present
 in the fork — Phase 2/3), dropping share-links/web-app (Phase 3).

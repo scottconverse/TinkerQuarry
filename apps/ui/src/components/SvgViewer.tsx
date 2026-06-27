@@ -11,7 +11,7 @@ import { buildOverlayModel } from './svg-viewer/overlayModel';
 import { attachBrowserPinchZoomGuard } from './svg-viewer/browserPinchZoomGuard';
 import { SVG_2D_TOOLS } from './svg-viewer/toolRegistry';
 import { useSvgViewerAnalytics } from './svg-viewer/useSvgViewerAnalytics';
-import { useAnalytics } from '../analytics/runtime';
+import { useAnalytics } from '../localAnalytics';
 import {
   createCommittedMeasurement,
   formatMeasurementReadout,

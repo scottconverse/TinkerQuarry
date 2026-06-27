@@ -11,7 +11,7 @@ import { MarkdownMessage } from "./MarkdownMessage";
 import { ModelSelector } from "./ModelSelector";
 import { AiComposer, type AiComposerRef } from "./AiComposer";
 import { AiAccessEmptyState } from "./AiAccessEmptyState";
-import { useAnalytics, type ModelSelectionSurface } from "../analytics/runtime";
+import { useAnalytics, type ModelSelectionSurface } from "../localAnalytics";
 import { useHistory } from "../hooks/useHistory";
 import { getPlatform } from "../platform";
 import type { AiProvider } from "../stores/apiKeyStore";
