@@ -1,3 +1,11 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+allowBuilds:
+  esbuild: true
+  tree-sitter-cli: true
+  tree-sitter-openscad: true
+onlyBuiltDependencies:
+  - esbuild
+  - tree-sitter-cli
+  - tree-sitter-openscad

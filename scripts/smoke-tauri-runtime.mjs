@@ -1,6 +1,7 @@
 import { chromium, expect } from "@playwright/test";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const port = Number(process.env.TINKERQUARRY_TAURI_DEBUG_PORT || "9337");
@@ -21,7 +22,7 @@ const isolatedProfile = isolatedProfileArg
   ? resolve(isolatedProfileArg.slice("--isolated-profile=".length))
   : process.env.TQ_TAURI_ISOLATED_PROFILE
     ? resolve(process.env.TQ_TAURI_ISOLATED_PROFILE)
-    : "";
+    : resolve(tmpdir(), "TQSmokeRuntimeProfileRelease");
 
 if (!existsSync(exe)) {
   console.error(`Tauri executable not found: ${exe}`);
@@ -99,7 +100,7 @@ async function main() {
     await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
     await page.setViewportSize({ width: 1600, height: 1000 }).catch(() => {});
     const title = await page.title();
-    const engine = await page.evaluate(async () => {
+    const engine = await evaluateWithNavigationRetry(page, async () => {
       const internals = globalThis.__TAURI_INTERNALS__;
       if (!internals || typeof internals.invoke !== "function") {
         return {
@@ -189,6 +190,24 @@ async function main() {
   } finally {
     await browser.close().catch(() => {});
   }
+}
+
+async function evaluateWithNavigationRetry(page, fn, timeoutMs = 60_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      await page.waitForLoadState("domcontentloaded", { timeout: 5_000 }).catch(() => {});
+      return await page.evaluate(fn);
+    } catch (err) {
+      lastError = err;
+      if (!/Execution context was destroyed|Cannot find context|Target page/.test(String(err))) {
+        throw err;
+      }
+      await page.waitForTimeout(500).catch(() => {});
+    }
+  }
+  throw lastError;
 }
 
 function profileHasEngineState(root) {

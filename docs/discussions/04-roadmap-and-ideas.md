@@ -1,32 +1,43 @@
-<!-- Category: Ideas -->
+<!-- Category: Ideas. -->
 
 # Roadmap and ideas
 
-Use this thread for feature requests, beta feedback, and workflow ideas.
+Use this thread for feature requests, beta feedback, workflow ideas, and rough edges.
 
 ## v1.3.1 baseline
 
-The Windows beta now has a release-gated core path: prompt, design, inspect, validate, slice, mock
-send, and outcome recording.
+TinkerQuarry now has a verified Windows beta path:
+
+- prompt;
+- editable OpenSCAD;
+- intent/properties/evidence/provenance review;
+- readiness gate;
+- slicing;
+- mock connector send/outcome;
+- conservative known-family reverse import;
+- STEP export from trusted CadQuery twins where available;
+- double-click Windows installer smoke.
 
 ## High-value next areas
 
-- Real hardware connector certification and reports.
-- More deterministic templates for common functional parts.
-- Stronger visual diff and Explain surfaces.
-- Broader accessibility and error-path browser coverage.
-- Better tolerance presets per printer/material.
-- More packaging targets after Windows.
-- Part library / remix workflow.
+- Real hardware connector certification reports by printer family.
+- More known part families for reverse import.
+- STEP/STP reverse-to-parametric import.
+- More deterministic template families for common functional parts.
+- Stronger tolerance/material presets per printer profile.
+- Signed Windows installer.
+- Additional platform packages after Windows beta.
+- Part library, remix, and team/share workflows.
 
-## What to include in an idea
+## Idea template
 
 ```text
 Problem:
 Who has this problem:
 What a good solution would feel like:
 How often you would use it:
-Any example part or workflow:
+Example part or workflow:
+Any files/screenshots:
 ```
 
 Failure cases are welcome. If TinkerQuarry made the wrong thing, that is often the most useful

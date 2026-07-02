@@ -200,3 +200,47 @@ export async function reopenIntoStudio(id: string): Promise<EngineDocOutcome> {
     template: data.template ?? null,
   };
 }
+
+/** Reverse-import a raw CAD/mesh file into the engine's trusted parametric family lane. */
+export async function reverseImportIntoStudio(
+  bytes: Uint8Array,
+  filename: string,
+): Promise<EngineDocOutcome> {
+  const { ok, data } = await engine.reverseImport(bytes, filename);
+  if (!ok || data.status !== 'completed') {
+    return {
+      ok: false,
+      gate: engineGateSummary(data),
+      result: data,
+      template: data.template ?? null,
+      error: data.error ?? 'Could not reverse-import that file.',
+    };
+  }
+  const rid = ridFromResult(data);
+  if (rid == null) return {
+    ok: false,
+    gate: engineGateSummary(data),
+    result: data,
+    template: data.template ?? null,
+    error: 'Imported design has no id.',
+  };
+  const src = await engine.source(rid, true);
+  if (!src.ok || !src.data?.scad) return {
+    ok: false,
+    gate: engineGateSummary(data),
+    rid,
+    result: data,
+    template: data.template ?? null,
+    error: 'Imported design has no source.',
+  };
+  return {
+    ok: true,
+    gate: engineGateSummary(data),
+    headline: data.report?.headline || undefined,
+    rid,
+    path: setEngineDocument(src.data.scad),
+    scad: src.data.scad,
+    result: data,
+    template: data.template ?? null,
+  };
+}

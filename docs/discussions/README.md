@@ -1,15 +1,22 @@
-# Seed discussions
+# GitHub Discussions Seed Documents
 
-Ready-to-post starter threads for GitHub Discussions. Create the categories, then paste each file's
-body into a new discussion in the matching category (and pin the first two).
+These are maintainer-authored starter posts for GitHub Discussions. Create the categories, then paste
+each file into a new discussion in the matching category. Pin the announcement and FAQ.
 
-| File | Category | Pin? | Title |
-|---|---|---|---|
-| [01-announcement.md](01-announcement.md) | 📣 Announcements | 📌 | TinkerQuarry: describe a part in plain words, print it — all on your machine |
-| [02-faq.md](02-faq.md) | 🙋 Q&A | 📌 | FAQ — start here |
-| [03-show-and-tell.md](03-show-and-tell.md) | 🙌 Show & Tell | | Show & Tell: post your first TinkerQuarry print |
-| [04-roadmap-and-ideas.md](04-roadmap-and-ideas.md) | 💡 Ideas | | Roadmap & ideas — what should we build next? |
-| [05-getting-started-help.md](05-getting-started-help.md) | 🙋 Q&A | | Getting started / it's not working — troubleshooting thread |
+| File | Category | Pin | Title |
+| --- | --- | --- | --- |
+| [01-announcement.md](01-announcement.md) | Announcements | Yes | TinkerQuarry v1.3.1: local-first AI CAD for printable parts |
+| [02-faq.md](02-faq.md) | Q&A | Yes | FAQ: start here |
+| [03-show-and-tell.md](03-show-and-tell.md) | Show and Tell | No | Show and Tell: post your first TinkerQuarry print |
+| [04-roadmap-and-ideas.md](04-roadmap-and-ideas.md) | Ideas | No | Roadmap and ideas |
+| [05-getting-started-help.md](05-getting-started-help.md) | Q&A | No | Getting started and troubleshooting |
 
-Suggested categories: **Announcements** (maintainers post), **Q&A** (question/answer),
-**Show & Tell**, **Ideas**, **General**.
+Suggested categories:
+
+- Announcements
+- Q&A
+- Show and Tell
+- Ideas
+- General
+
+Do not present these as organic user posts. They are official maintainer seeds.

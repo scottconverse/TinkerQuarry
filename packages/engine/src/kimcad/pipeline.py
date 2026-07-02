@@ -243,6 +243,8 @@ class PrintReport:
     orientation: str
     orientation_stability: float
     sanitizer_removed: list[str]
+    surface_area_mm2: float = 0.0
+    center_of_mass_mm: tuple[float, float, float] | None = None
     # Which geometry backend built this part ("openscad" | "cadquery"). The CadQuery backend
     # (Stage 8) is the parallel fallback and the source of the editable STEP export.
     backend: str = "openscad"
@@ -1021,6 +1023,8 @@ class Pipeline:
             repairs=mesh_report.repairs,
             n_bodies=mesh_report.n_bodies,
             volume_mm3=mesh_report.volume_mm3,
+            surface_area_mm2=mesh_report.surface_area_mm2,
+            center_of_mass_mm=mesh_report.center_of_mass_mm,
             orientation=orientation.description,
             orientation_stability=orientation.stability,
             sanitizer_removed=render.sanitize.removed,

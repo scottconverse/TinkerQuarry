@@ -31,6 +31,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -117,14 +118,38 @@ def stage_site_packages(skip_pip: bool) -> None:
         shutil.rmtree(target)
     lockfile = ROOT / "requirements.lock"
     if lockfile.exists():
+        wheel_target = [
+            "--platform", "win_amd64",
+            "--implementation", "cp",
+            "--python-version", "3.13",
+            "--abi", "cp313",
+            "--only-binary", ":all:",
+        ]
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix=".txt") as f:
+            filtered_lock = Path(f.name)
+            for line in lockfile.read_text(encoding="utf-8").splitlines():
+                if line.strip().lower().startswith("proxy-tools=="):
+                    continue
+                f.write(line + "\n")
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
+                 *wheel_target, "--no-deps", "-r", str(filtered_lock)],
+                check=True,
+            )
+        finally:
+            filtered_lock.unlink(missing_ok=True)
+        # proxy-tools is pure Python but source-only on PyPI, so it cannot be resolved in
+        # pip's foreign-platform wheel mode. Install it without deps after the platform
+        # sensitive wheels have been pinned to CPython 3.13.
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
-             "-r", str(lockfile)],
+             "--no-deps", "proxy-tools==0.1.0"],
             check=True,
         )
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(target),
-             "--no-deps", "--upgrade", str(ROOT)],
+             "--no-deps", "--upgrade", "--ignore-requires-python", str(ROOT)],
             check=True,
         )
     else:
@@ -142,6 +167,10 @@ def stage_site_packages(skip_pip: bool) -> None:
                 shutil.rmtree(p, ignore_errors=True)
             else:
                 p.unlink(missing_ok=True)
+    for cache_dir in target.rglob("__pycache__"):
+        shutil.rmtree(cache_dir, ignore_errors=True)
+    for pyc in target.rglob("*.pyc"):
+        pyc.unlink(missing_ok=True)
     # ENFORCED, not promised (the 11.5 audit caught a cosmetic strip; the beta gate caught
     # its blind spots): nothing strippable may remain at the top level.
     leftovers = [
@@ -149,6 +178,13 @@ def stage_site_packages(skip_pip: bool) -> None:
         if _strip_stem(p.name) in RELEASE_STRIP_NAMES or p.name.lower().endswith((".pth", ".whl"))
     ]
     assert not leftovers, f"release strip incomplete: {leftovers}"
+    wrong_abi = [
+        str(p.relative_to(target)) for p in target.rglob("*.pyd")
+        if ".cp312-" in p.name.lower()
+    ]
+    assert not wrong_abi, f"staged Python 3.13 runtime received incompatible extension wheels: {wrong_abi}"
+    cache_leftovers = [str(p.relative_to(target)) for p in target.rglob("__pycache__")]
+    assert not cache_leftovers, f"release staging kept Python cache folders: {cache_leftovers[:5]}"
 
 
 def stage_payload() -> None:

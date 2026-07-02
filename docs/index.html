@@ -6,30 +6,26 @@
     <title>TinkerQuarry - Local-first AI CAD for printable parts</title>
     <meta
       name="description"
-      content="TinkerQuarry turns plain-English prompts into checked, printable 3D parts. Local-first, no account, with OpenSCAD, PrintProof3D, OrcaSlicer, and a native Windows beta."
+      content="TinkerQuarry turns plain-English prompts into editable, checked, printable 3D parts. Local-first Windows beta with OpenSCAD, PrintProof3D, OrcaSlicer, reverse import, and STEP export lanes."
     />
     <meta property="og:title" content="TinkerQuarry" />
     <meta
       property="og:description"
-      content="Describe a part. Inspect it. Gate it. Slice it. Print it."
+      content="Describe a part. Inspect intent and properties. Gate it. Slice it. Print it."
     />
     <meta property="og:type" content="website" />
-    <meta
-      property="og:url"
-      content="https://scottconverse.github.io/TinkerQuarry/"
-    />
+    <meta property="og:url" content="https://scottconverse.github.io/TinkerQuarry/" />
     <style>
       :root {
         color-scheme: light;
-        --ink: #0f172a;
-        --muted: #475569;
-        --line: #cbd5e1;
+        --ink: #101828;
+        --muted: #475467;
+        --line: #d0d5dd;
         --panel: #ffffff;
-        --wash: #f8fafc;
-        --teal: #0f766e;
-        --blue: #2563eb;
-        --green: #15803d;
-        --amber: #b45309;
+        --wash: #f2f4f7;
+        --green: #087443;
+        --blue: #175cd3;
+        --gold: #b54708;
       }
       * {
         box-sizing: border-box;
@@ -45,7 +41,7 @@
           "Segoe UI",
           sans-serif;
         color: var(--ink);
-        background: #eef2f7;
+        background: var(--wash);
       }
       a {
         color: var(--blue);
@@ -58,47 +54,41 @@
         min-height: 88vh;
         display: grid;
         align-items: end;
+        color: white;
         background:
-          linear-gradient(
-            90deg,
-            rgba(15, 23, 42, 0.92),
-            rgba(15, 118, 110, 0.72)
-          ),
-          url("assets/tinkerquarry-architecture.svg");
+          linear-gradient(90deg, rgba(16, 24, 40, 0.92), rgba(8, 116, 67, 0.72)),
+          url("assets/tinkerquarry-workflow.svg");
         background-size: cover;
         background-position: center;
-        color: white;
       }
       .hero-inner {
-        max-width: 1180px;
+        width: min(1180px, calc(100% - 48px));
         margin: 0 auto;
-        padding: 52px 28px 72px;
+        padding: 56px 0 74px;
       }
       .eyebrow {
         display: inline-flex;
         gap: 10px;
         align-items: center;
         padding: 8px 12px;
-        border: 1px solid rgba(255, 255, 255, 0.34);
+        border: 1px solid rgba(255, 255, 255, 0.38);
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.12);
         font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        font-weight: 750;
       }
       h1 {
-        max-width: 820px;
+        max-width: 900px;
         margin: 28px 0 16px;
-        font-size: clamp(44px, 7vw, 86px);
+        font-size: clamp(48px, 8vw, 92px);
         line-height: 0.96;
         letter-spacing: 0;
       }
       .lead {
-        max-width: 730px;
+        max-width: 760px;
         font-size: 21px;
         line-height: 1.55;
-        color: #e2e8f0;
+        color: #eef4ff;
       }
       .actions {
         display: flex;
@@ -122,23 +112,21 @@
       }
       .button.secondary {
         color: white;
-        border-color: rgba(255, 255, 255, 0.4);
-      }
-      main {
-        background: var(--wash);
+        border-color: rgba(255, 255, 255, 0.45);
       }
       section {
-        max-width: 1180px;
+        width: min(1180px, calc(100% - 48px));
         margin: 0 auto;
-        padding: 72px 28px;
+        padding: 72px 0;
       }
       h2 {
-        margin: 0 0 18px;
+        margin: 0 0 16px;
         font-size: 34px;
-        line-height: 1.15;
+        line-height: 1.14;
+        letter-spacing: 0;
       }
       .section-lead {
-        max-width: 790px;
+        max-width: 810px;
         color: var(--muted);
         font-size: 18px;
         line-height: 1.65;
@@ -160,45 +148,46 @@
         font-size: 19px;
       }
       .item p,
-      li {
+      .item li {
         color: var(--muted);
         line-height: 1.55;
-      }
-      .wide {
-        grid-column: span 2;
       }
       .graphic {
         width: 100%;
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: 8px;
         background: white;
       }
       .proof {
-        background: #0f172a;
+        width: 100%;
+        max-width: none;
+        background: #101828;
         color: white;
       }
+      .proof-inner {
+        width: min(1180px, calc(100% - 48px));
+        margin: 0 auto;
+        padding: 72px 0;
+      }
       .proof .section-lead,
-      .proof li {
-        color: #cbd5e1;
+      .proof .item p {
+        color: #d0d5dd;
       }
       .proof .item {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.07);
+        border-color: rgba(255, 255, 255, 0.18);
       }
-      .proof .item p {
-        color: #cbd5e1;
-      }
-      .status {
+      .badge {
         display: inline-flex;
         padding: 5px 9px;
         border-radius: 999px;
-        background: #dcfce7;
-        color: #166534;
+        background: #dcfae6;
+        color: #067647;
         font-size: 13px;
         font-weight: 800;
       }
       footer {
-        padding: 34px 28px;
+        padding: 34px 24px;
         border-top: 1px solid var(--line);
         background: white;
         color: var(--muted);
@@ -218,116 +207,84 @@
         .grid {
           grid-template-columns: 1fr;
         }
-        .wide {
-          grid-column: auto;
-        }
       }
     </style>
   </head>
   <body>
     <header class="hero">
       <div class="hero-inner">
-        <span class="eyebrow"
-          >v1.3.1 Windows beta · local-first · GPL-2.0-only</span
-        >
+        <span class="eyebrow">v1.3.1 Windows beta / local-first / GPL-2.0-only</span>
         <h1>TinkerQuarry</h1>
         <p class="lead">
-          Describe a part in plain English, inspect the generated OpenSCAD,
-          validate it against your printer, slice it, and download or send the
-          proven output. No account. No telemetry. No cloud by default.
+          Describe a functional part, inspect the generated CAD intent and properties, validate it
+          against your printer, slice it, and prepare real print output from a local-first desktop
+          workflow.
         </p>
         <div class="actions">
           <a class="button primary" href="USER-MANUAL.html">Read the manual</a>
           <a class="button secondary" href="ARCHITECTURE.html">Architecture</a>
-          <a
-            class="button secondary"
-            href="https://github.com/scottconverse/TinkerQuarry"
-            >GitHub</a
-          >
+          <a class="button secondary" href="https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1">Download</a>
+          <a class="button secondary" href="https://github.com/scottconverse/TinkerQuarry">GitHub</a>
         </div>
       </div>
     </header>
     <main>
       <section>
-        <h2>Plain words to print-ready output</h2>
+        <h2>Plain words to checked print output</h2>
         <p class="section-lead">
-          TinkerQuarry is built for functional 3D-printing work: clips,
-          brackets, mounts, holders, trays, organizers, and the one-off parts
-          that normally require a CAD detour.
+          TinkerQuarry is built for practical printed parts: clips, mounts, brackets, spacers,
+          trays, organizers, and the one-off fixtures that should not require a full CAD detour.
         </p>
         <div class="grid">
           <article class="item">
-            <h3>AI-assisted, source-visible CAD</h3>
-            <p>
-              The engine creates OpenSCAD source you can inspect, edit, save,
-              export, and re-gate.
-            </p>
+            <h3>Editable CAD</h3>
+            <p>Generated OpenSCAD stays visible, editable, exportable, and re-gated before use.</p>
+          </article>
+          <article class="item">
+            <h3>Evidence panels</h3>
+            <p>Intent, assumptions, physical properties, visual inspection cards, and provenance are visible.</p>
           </article>
           <article class="item">
             <h3>Manufacturing gate</h3>
-            <p>
-              Ready-to-print means a current successful slice exists for the
-              selected printer, material, and orientation.
-            </p>
-          </article>
-          <article class="item">
-            <h3>Local-first privacy</h3>
-            <p>
-              Models, prompts, images, and designs stay on your machine unless
-              you explicitly configure a cloud provider.
-            </p>
+            <p>Ready to print means the selected printer, material, orientation, and slice are current.</p>
           </article>
         </div>
       </section>
       <section>
-        <h2>The product flow</h2>
-        <img
-          class="graphic"
-          src="assets/tinkerquarry-workflow.svg"
-          alt="TinkerQuarry workflow"
-        />
+        <h2>Current product flow</h2>
+        <img class="graphic" src="assets/tinkerquarry-workflow.svg" alt="TinkerQuarry workflow" />
       </section>
       <section>
         <h2>Architecture</h2>
         <p class="section-lead">
-          The Studio UI runs in a Tauri desktop shell and talks to the local
-          KimCad engine. Geometry, validation, and slicing are handled by
-          explicitly pinned local tools.
+          The Studio UI runs in a Tauri Windows shell and talks to the local KimCad engine. OpenSCAD
+          renders geometry, PrintProof3D and mesh checks provide readiness evidence, OrcaSlicer
+          produces print output, and trusted CadQuery twins provide STEP where available.
         </p>
-        <img
-          class="graphic"
-          src="assets/tinkerquarry-architecture.svg"
-          alt="TinkerQuarry architecture"
-        />
+        <img class="graphic" src="assets/tinkerquarry-architecture.svg" alt="TinkerQuarry architecture" />
       </section>
       <section class="proof">
-        <h2>Release proof</h2>
-        <p class="section-lead">
-          v1.3.1 was published from a clean local release gate with native
-          build, installed-app smoke, manifest, and checksum artifacts.
-        </p>
-        <div class="grid">
-          <article class="item">
-            <h3><span class="status">0/0/0/0/0</span></h3>
-            <p>
-              GauntletGate ALL closed with no blocker, critical, major, minor,
-              or nit findings remaining.
-            </p>
-          </article>
-          <article class="item">
-            <h3>Native package proven</h3>
-            <p>
-              MSI and NSIS artifacts build; release executable and installed app
-              smoke tests pass.
-            </p>
-          </article>
-          <article class="item">
-            <h3>Browser path proven</h3>
-            <p>
-              Playwright covers build, viewer, Make it real, slice, mock send,
-              outcome, workspace controls, and mobile smoke.
-            </p>
-          </article>
+        <div class="proof-inner">
+          <h2>Verified Windows beta</h2>
+          <p class="section-lead">
+            The current tree passed the full gate, native release build, direct Tauri runtime smoke,
+            and installed NSIS workflow smoke. The malformed reverse-import test passes because the
+            app correctly rejects the malformed mesh.
+          </p>
+          <div class="grid">
+            <article class="item">
+              <h3><span class="badge">Gate clean</span></h3>
+              <p>Full repo gate, browser e2e, engine pytest, Rust/Tauri tests, and audit checks passed.</p>
+            </article>
+            <article class="item">
+              <h3>Installer proven</h3>
+              <p>NSIS installer builds from a short Windows path and the installed app smoke passes.</p>
+            </article>
+            <article class="item">
+              <h3>Honest beta limits</h3>
+              <p>Unsigned installer, Windows-first packaging, advisory visual review, and hardware certification still clearly documented.</p>
+            </article>
+          </div>
         </div>
       </section>
       <section>
@@ -335,44 +292,26 @@
         <div class="grid">
           <article class="item">
             <h3>User Manual</h3>
-            <p>
-              Separate non-technical and technical sections for installation,
-              operation, troubleshooting, CLI, API, and release proof.
-            </p>
+            <p>Non-technical use, technical operation, and architecture in one professionally structured manual.</p>
             <p><a href="USER-MANUAL.html">Open manual</a></p>
           </article>
           <article class="item">
             <h3>Status Matrix</h3>
-            <p>
-              The evidence-backed status of every beta surface, including what
-              is real and what remains future work.
-            </p>
+            <p>Evidence-backed status for every major feature and beta boundary.</p>
             <p><a href="STATUS.html">Open status</a></p>
           </article>
           <article class="item">
-            <h3>GitHub Discussions</h3>
-            <p>
-              Ask questions, share prints, suggest roadmap items, and help shape
-              the beta.
-            </p>
-            <p>
-              <a
-                href="https://github.com/scottconverse/TinkerQuarry/discussions"
-                >Join discussions</a
-              >
-            </p>
+            <h3>Discussions</h3>
+            <p>Announcement, FAQ, show-and-tell, roadmap, and support seeds for GitHub Discussions.</p>
+            <p><a href="https://github.com/scottconverse/TinkerQuarry/discussions">Join discussions</a></p>
           </article>
         </div>
       </section>
     </main>
     <footer>
       <div>
-        <span>TinkerQuarry v1.3.1 · GPL-2.0-only</span>
-        <span
-          ><a href="https://github.com/scottconverse/TinkerQuarry"
-            >github.com/scottconverse/TinkerQuarry</a
-          ></span
-        >
+        <span>TinkerQuarry v1.3.1 / KimCad 0.9.3 / GPL-2.0-only</span>
+        <span><a href="https://github.com/scottconverse/TinkerQuarry">github.com/scottconverse/TinkerQuarry</a></span>
       </div>
     </footer>
   </body>

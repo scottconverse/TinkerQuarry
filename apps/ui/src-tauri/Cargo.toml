@@ -1,8 +1,8 @@
 [package]
-name = "openscad-studio"
+name = "tinkerquarry"
 version = "1.3.1"
-description = "Modern OpenSCAD editor with AI assistance"
-authors = ["OpenSCAD Studio Contributors"]
+description = "Local-first AI CAD workflow for printable parts"
+authors = ["Scott Converse", "TinkerQuarry Contributors"]
 edition = "2021"
 license = "GPL-2.0"
 

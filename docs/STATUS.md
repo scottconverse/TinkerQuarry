@@ -1,124 +1,131 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-06-24
+**As of:** 2026-07-02
 **Product release:** v1.3.1
-**Current clean-gate marker:** `gauntletgate-2026-06-24-rerun-clean-2`
+**Engine:** KimCad 0.9.3
+**Current gate:** clean current-tree gate plus native Windows installer rerun
 
-This is the current source of truth for the canonical `tinkerquarry` product repo. It supersedes prior
-"done", "clear to advance", and manual-only verification claims.
+## Plain-English Truth
 
-## One-Line Truth
+TinkerQuarry is a working Windows beta for local-first prompt-to-CAD 3D printing.
 
-TinkerQuarry's beta core flow is real and verified:
+Verified core path:
 
-Describe a part in plain English -> local KimCad engine designs it -> Studio viewer renders it -> Make
-it real slices it to printable G-code -> mock Send records a simulated outcome.
+```text
+plain-English prompt
+-> local KimCad design pipeline
+-> OpenSCAD source and Studio preview
+-> intent/properties/evidence review
+-> printer/material readiness gate
+-> OrcaSlicer output
+-> download or connector send
+-> outcome record
+```
 
-The native Windows app now also builds and smoke-tests from both the release executable and the
-installed NSIS copy. The packaged executable is `tinkerquarry.exe`.
+The malformed reverse-import mesh test is green because the app rejects the bad mesh. That is the
+intended behavior.
 
-The published v1.3.1 release remains the shipped beta artifact. The current `main` branch has an
-additional post-release GauntletGate clean pass that closes follow-up audit findings. The gate uses
-the built-in simulated connector for repeatable send/outcome proof.
+## Current Verification
 
-## Verification Honesty
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Full repo gate | Passed | `pnpm test:gate` completed cleanly |
+| UI unit coverage | Passed | 94 Jest suites / 660 tests in final gate run |
+| Web unit coverage | Passed | 4 Jest suites / 20 tests in final gate run |
+| Engine coverage | Passed | 1746 pytest tests in final gate run |
+| Browser e2e | Passed | 7 Playwright tests in final gate run |
+| Rust/Tauri tests | Passed | `pnpm test:rust` in gate |
+| Rust dependency audit | Passed with scoped upstream exception | `pnpm test:rust:audit` ignores only `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195`, both from the currently latest `plist -> quick-xml` dependency path |
+| Native release build | Passed | `scripts\native-release.cmd` from `C:\tqbuild\TinkerQuarry` |
+| Tauri runtime smoke | Passed | `pnpm test:e2e:tauri` |
+| Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed` |
 
-The engine has genuine automated coverage: in-process HTTP, real OpenSCAD, render-on-tune,
-slice-to-G-code, save/reopen/source round-trip, live marker coverage, and real-tool marker coverage.
+Fresh current-tree NSIS artifact:
 
-The previous browser blind spot is closed for the release-critical path. `pnpm test:e2e:web` is committed Playwright
-coverage that boots the current app against the demo engine, prompts/builds, reaches the
-design-ready state, opens Make it real, handles first-real caution, slices, reaches Ready to print,
-sends through the mock connector, records a simulated outcome, walks the desktop workspace controls,
-checks key menu/dialog accessibility wiring, verifies stale manual-code edits are refused before
-slicing, and smoke-tests a mobile/narrow viewport.
+```text
+Name: TinkerQuarry_1.3.1_x64-setup.exe
+SHA-256: 7C0E1E9B5CC2840FA44F568040D132B3CD8E34F4C214C86EBA34D7373708F05F
+Build path: C:\tqbuild\TinkerQuarry
+Smoke: direct Tauri runtime and installed NSIS workflow both passed
+```
 
-`pnpm test:e2e:tauri` is a committed native-runtime smoke that launches the built Tauri app, invokes
-`ensure_engine`, checks engine health, and verifies the UI surface. `pnpm test:e2e:tauri:installed`
-installs the current NSIS artifact into a temp directory, launches it with an isolated profile, and
-drives the native build/slice/send workflow through the mock connector.
+The public v1.3.1 release is at
+[github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
 
-Additional exploratory UI testing is useful after release, but the automated browser suite now covers
-the product promises that gate this beta.
+## Product Surfaces
 
-## P0 Beta Status
+| Surface | Status | Notes |
+| --- | --- | --- |
+| Windows installer | Verified | Double-click NSIS installer path is built and smoke-tested |
+| Prompt-to-design | Verified | Local KimCad engine creates source, preview, and report |
+| Studio viewer/editor | Verified | OpenSCAD source is visible and editable; stale edits force re-gating |
+| Customizer | Verified | Template parameters re-render deterministically |
+| Intent panel | Implemented | Parsed plan, assumptions, dimensions, and feature list |
+| Properties panel | Implemented | Volume, material, mass, center of mass, surface area, bed contact, bounding box |
+| Visual evidence cards | Implemented | Labeled multi-view inspection and correction evidence |
+| Provenance/toolbox disclosure | Implemented | Plain-English tool/model/agent contribution surface |
+| Visual Correction Loop | Implemented | Advisory local probe loop, not metrology-grade inspection |
+| Make it real | Verified | Readiness, orientation, slice, send, and outcome flow |
+| Reverse import | Implemented | Conservative STL/3MF/OBJ known-family matching |
+| STEP/CadQuery lane | Implemented where available | Trusted twins provide editable CAD/STEP precision lane |
+| Save/reopen/history | Implemented | Save, restore, branch, duplicate, rename, delete, export/import |
+| Export | Implemented | `.kimcad`, `.scad`, STL, OBJ, AMF, 3MF, SVG, DXF, PNG, STEP when available |
+| Accessibility | Verified | Browser scans and keyboard/dialog checks are part of the gate |
+| Share web app | Verified packaging | Separate Cloudflare Pages path with dry-run deploy check |
 
-| Area                                     | Status              | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Canonical repo                           | verified            | `tinkerquarry` is the product repo. `KimCadClaude` remains separate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Prompt -> engine design -> Studio viewer | verified            | The app is wired to the local engine and renders generated SCAD in Studio.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Make it real                             | verified            | Fresh designs can slice to printable output. "Ready to print" is only shown after a successful slice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Send/outcome                             | verified happy path | UI sends through the selected connector after a fresh slice. Simulated send provenance is stored and shown honestly. Mock Send -> outcome is covered by Playwright. Hardware connector browser coverage remains separate.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Native Windows packaging                 | verified            | Rust/MSVC toolchain installed, `pnpm --dir apps\ui tauri build` passes, MSI/NSIS artifacts are produced, the packaged executable is `tinkerquarry.exe`, and release + installed NSIS smoke tests pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| OpenSCAD Studio absorption               | working             | Studio is forked into `apps/ui`, branded, telemetry off, and wired to the TinkerQuarry engine flow.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Design-spec workflow                     | verified            | The app has the AI/design surface, viewer, right-side Customize / Make it real rail, orientation controls, Explain panel, Make it real, Send, and outcome path. The live Playwright flow asserts the rail, explanation, and iteration log are visible.                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Code view/editor                         | working             | Engine-generated SCAD is visible/editable in Monaco. Manual edits are blocked from stale slicing until re-gated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Viewer                                   | working             | Studio viewer provides practical CAD inspection surfaces and offscreen capture support.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Visual Correction Loop                   | implemented         | Advisory local probe-mode v1 exists. The default local critic is `qwen2.5vl:7b` in decomposed probe mode; optional agreement mode uses `qwen2.5vl:7b` + `minicpm-v:8b`, and `qwen3-vl:8b` remains the best-quality selectable local critic from the audit. Beta probe accuracy bar is 90%. The UI runs a bounded autonomous review/correction pass after generated designs, keeps/restores the best candidate on regression, records provenance in the iteration log, supports manual Fix visual issue, and shows before/after visual diff evidence when a correction changes the preview. Empty/unparseable model answers become `needs review`, not pass. |
-| Bundled OpenSCAD                         | implemented         | Windows tool fetching now pins OpenSCAD `2026.03.16` by SHA-256 and defaults renders to the Manifold backend, with a documented CGAL fallback switch. The staged install tree reports `OpenSCAD version 2026.03.16` and passes install verification.                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Bundled SCAD libraries                   | implemented         | BOSL2, Round-Anything, YAPP_Box, and gridfinity-rebuilt are vendored with attribution. First-party `library/threads.scad` wraps BOSL2 threading for printable rods, holes, metric bolts, and nuts. Catch'n'Hole, vendored MCAD, and vendored tq-threads were removed from the bundled set to keep the beta payload smaller. Dan Kirshner `threads.scad` is intentionally excluded because the available source is GPL-3.0-or-later. The kept library smoke proofs render under OpenSCAD `2026.03.16` Manifold.                                                                                                                                              |
-| External-library admission               | implemented         | Settings now admits user-installed SCAD libraries through consent -> sandbox copy -> manifest -> `external/<slug>/` include prefix. The OpenSCAD sanitizer allows only `library/` and admitted sandbox `external/<slug>/` includes. Public API responses redact local source/sandbox paths, admission is serialized/atomic in-process, docs-only folders are rejected, and a real OpenSCAD render test proves admitted includes resolve.                                                                                                                                                                                                                    |
-| Licensing/about                          | implemented         | GPL/source availability and third-party notices are present in-app.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+## Beta Boundaries
 
-## Release-Complete Product Surfaces
+Known limits:
 
-| Area                  | Status      | Notes                                                                                                                                                                                                                                         |
-| --------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Explain panel         | implemented | The right rail explains the agent loop, generated design, evidence sources, readiness gate, VCL state, slice proof, selected profile/connector, and why Send is enabled or disabled.                                                          |
-| Agent loop            | implemented | The release loop is visible and bounded: plan -> generate -> gate -> visual review -> correction/refine -> restore best candidate -> slice proof. External-agent MCP tooling remains available for pro workflows.                             |
-| Iteration log/history | implemented | Save/reopen, rename, duplicate, delete, Undo, persistent session transcript, restore, and branch/fork from prior snapshots are present. Branch restore is source-safe and requires a new engine pass before manufacturing.                    |
-| Visual diff           | implemented | Before/after visual evidence now includes structural diff percentage, bounding box, and changed-region hotspots, with entries recorded in the iteration log.                                                                                  |
-| Export coverage       | implemented | `.scad`, STL, OBJ, AMF, 3MF, SVG, DXF, PNG preview, STEP when the engine offers it, and portable `.kimcad` import/export are available.                                                                                                       |
-| Accessibility         | implemented | Browser-level axe scans now cover welcome, workspace, settings, and export surfaces; keyboard traversal, landmarks, labels, heading order, and contrast were fixed for the release surfaces.                                                  |
-| Browser test breadth  | implemented | Playwright covers core build/slice/send/outcome, desktop workspace controls, Explain/agent/evidence panels, branch history, stale-edit refusal, menu/dialog keyboard wiring, export dialog coverage, accessibility scans, mobile, and tablet. |
+- Windows is the supported beta package target.
+- The beta installer is unsigned.
+- Real hardware connector certification remains field-validation work beyond the mock connector.
+- Visual inspection is advisory and does not replace deterministic geometry checks.
+- STEP reverse-to-parametric import is not implemented yet; STEP is currently an export lane.
+- Reverse import intentionally accepts only known trusted mesh-family matches.
 
-## Latest Verification
+## Version Matrix
 
-Run from `C:\Users\Scott\Desktop\CODE\tinkerquarry` unless noted.
+| Surface | Version |
+| --- | ---: |
+| Product / desktop release | v1.3.1 |
+| `package.json` | 1.3.1 |
+| `apps/ui/package.json` | 1.3.1 |
+| `apps/ui/src-tauri/tauri.conf.json` | 1.3.1 |
+| `apps/ui/src-tauri/Cargo.toml` | 1.3.1 |
+| KimCad engine | 0.9.3 |
+| `apps/web` | 0.6.0 |
+| `packages/shared` | 0.4.0 |
 
-| Command                                                                                                            | Result                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `pnpm -r lint`                                                                                                     | passed                                                                                                         |
-| `pnpm -r type-check`                                                                                               | passed                                                                                                         |
-| `node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand` from `apps\ui`            | 94 suites passed, 1 skipped; 662 tests passed, 2 skipped; existing React `act(...)` warnings                   |
-| `pnpm test:web:unit`                                                                                               | 4 suites passed; 16 tests passed                                                                               |
-| `.\.venv\Scripts\python.exe -m pytest tests\test_external_libraries.py -q` from `packages\engine`                  | 6 passed; includes real OpenSCAD render through an admitted external library                                   |
-| `pnpm test:e2e:web`                                                                                                | covers core manufacturing flow, workspace walkthrough, stale edit refusal, and mobile/narrow smoke             |
-| `cmd /c "call ...\LaunchDevCmd.bat -arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && pnpm.cmd tauri:build"` | passed; MSI and NSIS artifacts produced                                                                        |
-| `node scripts/smoke-tauri-runtime.mjs`                                                                             | passed against release executable                                                                              |
-| `pnpm test:e2e:tauri:installed`                                                                                    | passed against installed NSIS copy with isolated profile and native build/slice/send workflow                  |
-| `cargo test --manifest-path apps\ui\src-tauri\Cargo.toml`                                                          | 10 passed                                                                                                      |
-| `.\.venv\Scripts\python.exe -m pytest tests -q` from `packages\engine`                                             | 1627 passed, 111 skipped                                                                                       |
-| OpenSCAD 2026 Manifold render smoke                                                                                | 5/5 passed: 3MF cube, threaded rod, threaded hole, Gridfinity base, VCL fixture                                |
-| Boolean-heavy threaded part render comparison                                                                      | OpenSCAD 2021.01: 4.08s; OpenSCAD 2026.03.16 Manifold: 0.41s                                                   |
-| `.\.venv\Scripts\python.exe scripts\build_installer.py --stage-only --skip-pip` from `packages\engine`             | passed; staged checksum-pinned OpenSCAD, OrcaSlicer, and PrintProof3D                                          |
-| `dist\staging\tools\openscad\openscad.exe --version` from `packages\engine`                                        | `OpenSCAD version 2026.03.16`                                                                                  |
-| `.\.venv\Scripts\python.exe scripts\verify_install.py dist\staging --port 8743` from `packages\engine`             | `VERIFY-INSTALL: ALL GREEN`                                                                                    |
-| First-party BOSL2-backed thread wrapper + kept Gridfinity render proof                                             | 4/4 passed                                                                                                     |
-| `pnpm test:release` from repo root                                                                                 | passed before v1.3.1 publication; includes gate, browser e2e, native build, release smoke, installed-app smoke |
-
-## Run
-
-Two-terminal dev mode:
+## Run Locally
 
 ```powershell
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
+cd path\to\TinkerQuarry
+corepack enable
+pnpm install
+cd packages\engine
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+```powershell
+# Terminal 1
+cd path\to\TinkerQuarry\packages\engine
 $env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"
 .\.venv\Scripts\kimcad.exe web --port 8765
 ```
 
 ```powershell
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+# Terminal 2
+cd path\to\TinkerQuarry\apps\ui
 pnpm dev
 ```
 
-Then open `http://localhost:1420`.
-
 ## Related Documents
 
-- [EVALUATE.md](EVALUATE.md)
-- [USER-MANUAL.md](USER-MANUAL.md)
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [HANDOFF-TO-CODEX.md](HANDOFF-TO-CODEX.md) - historical 2026-06-22 handoff, superseded for current status
-- [audits/honesty-audit-2026-06-22.md](audits/honesty-audit-2026-06-22.md)
-- [audits/v1-coverage-2026-06-22.md](audits/v1-coverage-2026-06-22.md)
+- [User Manual](USER-MANUAL.md)
+- [Architecture](ARCHITECTURE.md)
+- [Changelog](../CHANGELOG.md)
+- [CAD Agent Roadmap](roadmap-zookeeper-inspired-cad-agent.md)
+- [Discussion Seeds](discussions/README.md)

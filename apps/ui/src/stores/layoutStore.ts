@@ -67,6 +67,24 @@ function addMobilePanels(api: DockviewApi) {
     position: { referenceGroup: groupId },
     inactive: true,
   });
+  addEvidencePanels(api, groupId);
+}
+
+function addEvidencePanels(api: DockviewApi, groupId: string) {
+  [
+    ['intent', 'Intent'],
+    ['properties', 'Properties'],
+    ['visual-inspection', 'Visual Review'],
+    ['provenance', 'Provenance'],
+  ].forEach(([id, title]) => {
+    api.addPanel({
+      id,
+      component: id,
+      title,
+      position: { referenceGroup: groupId },
+      inactive: true,
+    });
+  });
 }
 
 export function addPresetPanels(
@@ -114,6 +132,7 @@ export function addPresetPanels(
           position: { referenceGroup: previewPanel.group.id },
           inactive: true,
         });
+        addEvidencePanels(api, previewPanel.group.id);
       }
       break;
     }
@@ -156,6 +175,7 @@ export function addPresetPanels(
           position: { referenceGroup: aiFpPreview.group.id },
           inactive: true,
         });
+        addEvidencePanels(api, aiFpPreview.group.id);
       }
       break;
     }
@@ -193,6 +213,7 @@ export function addPresetPanels(
           position: { referenceGroup: previewPanel.group.id },
           inactive: true,
         });
+        addEvidencePanels(api, previewPanel.group.id);
       }
       break;
     }
@@ -212,6 +233,7 @@ export function addPresetPanels(
           title: 'Customizer',
           position: { referenceGroup: wep.group.id },
         });
+        addEvidencePanels(api, wep.group.id);
       }
       api.addPanel({
         id: 'ai-chat',
@@ -244,6 +266,7 @@ export function addPresetPanels(
           title: 'Customizer',
           position: { referenceGroup: wpp.group.id },
         });
+        addEvidencePanels(api, wpp.group.id);
       }
       api.addPanel({
         id: 'ai-chat',
@@ -275,6 +298,7 @@ export function addPresetPanels(
           title: 'Customizer',
           position: { referenceGroup: mp.group.id },
         });
+        addEvidencePanels(api, mp.group.id);
       }
       break;
     }

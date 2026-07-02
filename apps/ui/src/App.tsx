@@ -57,6 +57,7 @@ import { useAiAgent } from "./hooks/useAiAgent";
 import {
   describeIntoStudio,
   reopenIntoStudio,
+  reverseImportIntoStudio,
   setEngineDocument,
   pureTuneValues,
   type EngineTurn,
@@ -65,6 +66,7 @@ import {
 import {
   engine,
   type ConnectorInfo,
+  type DesignResult,
   type ModelStatusResult,
   type VisualReviewResult,
 } from "./services/engineClient";
@@ -798,7 +800,13 @@ function App() {
   // §6.3 undo: a session stack of prior engine designs. Each describe/refine/reopen pushes the design
   // it replaces, so the user can step back instantly instead of re-describing (a 60–90s round-trip).
   const [engineUndoStack, setEngineUndoStack] = useState<
-    { scad: string; rid: number; gate: string | null; stepUrl: string | null }[]
+    {
+      scad: string;
+      rid: number;
+      gate: string | null;
+      stepUrl: string | null;
+      result: DesignResult | null;
+    }[]
   >([]);
   // Whether an engine design exists yet — drives the "Make it real" button's enabled state.
   const [hasEngineDesign, setHasEngineDesign] = useState(false);
@@ -808,7 +816,14 @@ function App() {
   const [currentDesignHeadline, setCurrentDesignHeadline] = useState<
     string | null
   >(null);
+  const [currentDesignResult, setCurrentDesignResult] =
+    useState<DesignResult | null>(null);
   const [currentStepUrl, setCurrentStepUrl] = useState<string | null>(null);
+  const [reverseImportStatus, setReverseImportStatus] = useState<{
+    state: "idle" | "running" | "error";
+    filename?: string;
+    message?: string;
+  }>({ state: "idle" });
   const [visualReviewSummary, setVisualReviewSummary] = useState<string | null>(
     null,
   );
@@ -818,6 +833,11 @@ function App() {
   const [visualCorrectionPrompt, setVisualCorrectionPrompt] = useState<
     string | null
   >(null);
+  const [visualReviewResult, setVisualReviewResult] =
+    useState<VisualReviewResult | null>(null);
+  const [visualReviewImages, setVisualReviewImages] = useState<
+    { label: string; image: string }[]
+  >([]);
   const [visualReviewLog, setVisualReviewLog] = useState<string[]>([]);
   const [visualDiffEvidence, setVisualDiffEvidence] =
     useState<VisualDiffEvidence | null>(null);
@@ -896,6 +916,7 @@ function App() {
           rid: lastEngineRidRef.current,
           gate: lastGateRef.current,
           stepUrl: lastStepUrlRef.current,
+          result: currentDesignResult,
         };
         setEngineUndoStack((s) => [...s, prev]);
       }
@@ -905,6 +926,7 @@ function App() {
       lastStepUrlRef.current = result.result?.step_url ?? null;
       setCurrentStepUrl(result.result?.step_url ?? null);
       setCurrentDesignHeadline(result.headline ?? null);
+      setCurrentDesignResult(result.result ?? currentDesignResult);
       setHasEngineDesign(true);
       setLiveReadiness(result.gate || null);
       appendIterationLog({
@@ -921,11 +943,13 @@ function App() {
         setVisualDiffSummary(null);
         setVisualDiffEvidence(null);
         setVisualCorrectionPrompt(null);
+        setVisualReviewResult(null);
+        setVisualReviewImages([]);
         setVisualReviewLog([]);
       }
       setLastSlicedRid(null);
     },
-    [appendIterationLog, renderCodeDirect],
+    [appendIterationLog, currentDesignResult, renderCodeDirect],
   );
   const readinessWithVisual = useMemo(
     () =>
@@ -1021,8 +1045,11 @@ function App() {
         setVisualDiffEvidence(null);
         visualDiffBeforeRef.current = null;
         setVisualCorrectionPrompt(null);
+        setVisualReviewResult(null);
+        setVisualReviewImages([]);
         return null;
       }
+      setVisualReviewImages(images);
       const beforeDiffImage = visualDiffBeforeRef.current;
       if (beforeDiffImage) {
         visualDiffBeforeRef.current = null;
@@ -1062,6 +1089,7 @@ function App() {
       }
       const { data } = await engine.visualReview(rid, images);
       if (lastEngineRidRef.current !== rid) return null;
+      setVisualReviewResult(data);
       const round = data.round_id ? ` round ${data.round_id}` : "";
       if (data.status === "issues") {
         const first =
@@ -1273,6 +1301,8 @@ function App() {
         setVisualDiffSummary(null);
         setVisualDiffEvidence(null);
         setVisualCorrectionPrompt(null);
+        setVisualReviewResult(null);
+        setVisualReviewImages([]);
         setVisualReviewLog([]);
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
         // reason; this is a designed outcome, not a crash, so don't capture it as an error.
@@ -1378,6 +1408,9 @@ function App() {
         const r = await engine.render(rid, tuned);
         if (r.ok && r.data.status === "completed") {
           lastEngineScadRef.current = renderTargetContent; // the engine now matches the tuned document
+          setCurrentDesignResult(r.data);
+          setCurrentDesignHeadline(r.data.report?.headline ?? null);
+          setLiveReadiness(engineGateSummary(r.data));
         }
       }
       notifySuccess("Slicing…", {
@@ -1672,6 +1705,56 @@ function App() {
   // Reopen a saved design (§6.12): pull it back into the workspace as the active document, the same
   // end state as a fresh describe (viewer renders it, Customizer sliders work). Used by the
   // WelcomeScreen "My Designs" surface.
+  const handleReverseImportCad = useCallback(() => {
+    if (!ready) {
+      const message = "Start the local engine before importing CAD.";
+      setReverseImportStatus({ state: "error", message });
+      notifyError({
+        operation: "Import CAD",
+        capture: false,
+        displayMessage: message,
+        toastId: "reverse-import-engine",
+      });
+      return;
+    }
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".stl,.3mf,.obj";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      void (async () => {
+        setReverseImportStatus({ state: "running", filename: file.name });
+        try {
+          notifySuccess("Importing CAD...", { toastId: "reverse-import-started" });
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const result = await reverseImportIntoStudio(bytes, file.name);
+          if (!result.ok) {
+            const message =
+              result.error ?? result.gate ?? "Could not import that mesh file.";
+            setReverseImportStatus({ state: "error", filename: file.name, message });
+            notifyError({
+              operation: "Reverse import failed",
+              error: message,
+            });
+            return;
+          }
+          commitEngineOutcome(result);
+          hideWelcomeScreen();
+          setReverseImportStatus({ state: "idle" });
+          notifySuccess("Imported as an editable trusted-template design", {
+            toastId: "reverse-import-ready",
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setReverseImportStatus({ state: "error", filename: file.name, message });
+          notifyError({ operation: "Reverse import failed", error });
+        }
+      })();
+    };
+    input.click();
+  }, [commitEngineOutcome, hideWelcomeScreen, ready]);
+
   const handleReopenDesign = useCallback(
     async (id: string) => {
       const result = await reopenIntoStudio(id);
@@ -1711,10 +1794,14 @@ function App() {
     lastGateRef.current = prev.gate;
     lastStepUrlRef.current = prev.stepUrl;
     setCurrentStepUrl(prev.stepUrl);
+    setCurrentDesignResult(prev.result);
     setLiveReadiness(prev.gate);
     setVisualReviewSummary(null);
     setVisualDiffSummary(null);
     setVisualCorrectionPrompt(null);
+    setVisualReviewResult(null);
+    setVisualReviewImages([]);
+    setVisualDiffEvidence(null);
     setVisualReviewLog([]);
     setHasEngineDesign(true);
     setLastSlicedRid(null);
@@ -1731,6 +1818,7 @@ function App() {
       renderCodeDirect(entry.scad);
       lastEngineScadRef.current = entry.scad;
       lastEngineRidRef.current = null;
+      setCurrentDesignResult(null);
       lastGateRef.current = entry.gate ?? null;
       lastStepUrlRef.current = null;
       setCurrentStepUrl(null);
@@ -3648,7 +3736,28 @@ function App() {
       onOpenCustomizerAiRefine: handleOpenCustomizerAiRefine,
       onOpenEditorPanel: handleOpenEditorPanel,
       onOpenExportDialog: handleOpenExportDialog,
+      onReverseImportCad: handleReverseImportCad,
       onAiSubmit: handleAiPanelSubmit,
+      currentDesignResult,
+      currentDesignHeadline,
+      currentRid: lastEngineRidRef.current,
+      liveReadiness,
+      currentStepUrl,
+      selectedPrinterName:
+        enginePrinters.find((printer) => printer.key === printerKey)?.name ??
+        null,
+      selectedMaterial: material || null,
+      selectedConnector:
+        engineConnectors.find((connector) => connector.name === connectorName) ??
+        null,
+      workspaceModelStatus,
+      visualReviewSummary,
+      visualReviewResult,
+      visualReviewImages,
+      visualReviewLog,
+      visualCorrectionRounds,
+      visualDiffEvidence,
+      iterationLog,
     }),
     [
       renderTargetContent,
@@ -3706,7 +3815,25 @@ function App() {
       handleOpenCustomizerAiRefine,
       handleOpenEditorPanel,
       handleOpenExportDialog,
+      handleReverseImportCad,
       handleAiPanelSubmit,
+      currentDesignResult,
+      currentDesignHeadline,
+      liveReadiness,
+      currentStepUrl,
+      enginePrinters,
+      printerKey,
+      material,
+      engineConnectors,
+      connectorName,
+      workspaceModelStatus,
+      visualReviewSummary,
+      visualReviewResult,
+      visualReviewImages,
+      visualReviewLog,
+      visualCorrectionRounds,
+      visualDiffEvidence,
+      iterationLog,
     ],
   );
 
@@ -4007,6 +4134,42 @@ function App() {
             >
               Undo
             </Button>
+          )}
+
+          <Button
+            data-testid="reverse-import-button"
+            variant="secondary"
+            onClick={handleReverseImportCad}
+            size="sm"
+            disabled={isRendering || reverseImportStatus.state === "running" || !ready}
+            className="text-xs px-2 py-1"
+            title="Import STL, 3MF, or OBJ into the trusted parametric CAD lane"
+          >
+            {reverseImportStatus.state === "running" ? "Importing" : "Import CAD"}
+          </Button>
+
+          {reverseImportStatus.state === "error" && (
+            <div
+              data-testid="reverse-import-status"
+              className="hidden max-w-[16rem] items-center gap-1 truncate text-xs sm:inline-flex"
+              style={{ color: "var(--color-error)" }}
+              title={reverseImportStatus.message}
+            >
+              <span className="truncate">
+                {reverseImportStatus.filename
+                  ? `${reverseImportStatus.filename}: ${reverseImportStatus.message}`
+                  : reverseImportStatus.message}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="px-1 py-0 underline"
+                onClick={handleReverseImportCad}
+              >
+                Retry
+              </Button>
+            </div>
           )}
 
           <Button

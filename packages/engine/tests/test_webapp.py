@@ -877,6 +877,134 @@ def test_tauri_desktop_origin_can_preflight_and_send_tokened_posts(tmp_path):
         httpd.server_close()
 
 
+def test_reverse_import_preflight_allows_filename_header(tmp_path):
+    import http.client
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    httpd = _serve_with_token(pipe, tmp_path, "desktop-token")
+    host, port = "127.0.0.1", httpd.server_address[1]
+    try:
+        conn = http.client.HTTPConnection(host, port, timeout=10)
+        conn.request(
+            "OPTIONS",
+            "/api/reverse-import",
+            headers={
+                "Origin": "tauri://localhost",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "X-KimCad-Session, X-TinkerQuarry-Filename",
+            },
+        )
+        resp = conn.getresponse()
+        headers = {k.lower(): v for k, v in resp.getheaders()}
+        resp.read()
+        conn.close()
+
+        assert resp.status == 204
+        assert "x-tinkerquarry-filename" in headers["access-control-allow-headers"].lower()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_reverse_import_rejects_step_and_cleans_output_dir(tmp_path):
+    import http.client
+    import json
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        conn = http.client.HTTPConnection(host, port, timeout=10)
+        conn.request(
+            "POST",
+            "/api/reverse-import",
+            body=b"ISO-10303-21;",
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-TinkerQuarry-Filename": "part.step",
+            },
+        )
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode("utf-8"))
+        conn.close()
+
+    assert resp.status == 400
+    assert "STL, 3MF, or OBJ" in body["error"]
+    assert not _reverse_import_output_dirs(tmp_path)
+
+
+def test_reverse_import_rejects_unreadable_mesh_and_cleans_output_dir(tmp_path):
+    import http.client
+    import json
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        conn = http.client.HTTPConnection(host, port, timeout=10)
+        conn.request(
+            "POST",
+            "/api/reverse-import",
+            body=b"not a mesh",
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-TinkerQuarry-Filename": "bad.stl",
+            },
+        )
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode("utf-8"))
+        conn.close()
+
+    assert resp.status == 200
+    assert body["status"] == "render_failed"
+    assert body["has_mesh"] is False
+    assert "triangle mesh" in body["error"]
+    assert not _reverse_import_output_dirs(tmp_path)
+
+
+def test_reverse_import_http_success_registers_mesh_and_source(tmp_path):
+    import http.client
+    import io
+    import json
+    import urllib.request
+
+    import trimesh
+
+    mesh = trimesh.creation.box(extents=(20, 20, 20))
+    buf = io.BytesIO()
+    mesh.export(buf, file_type="stl")
+    body = buf.getvalue()
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        base = f"http://{host}:{port}"
+        conn = http.client.HTTPConnection(host, port, timeout=30)
+        conn.request(
+            "POST",
+            "/api/reverse-import",
+            body=body,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-TinkerQuarry-Filename": "box.stl",
+            },
+        )
+        resp = conn.getresponse()
+        payload = json.loads(resp.read().decode("utf-8"))
+        conn.close()
+
+        assert resp.status == 200
+        assert payload["status"] == "completed"
+        assert payload["has_mesh"] is True
+        assert payload["template"] == "snap_box"
+        assert payload["reverse_import"]["source_filename"] == "box.stl"
+        assert payload["mesh_url"].startswith("/api/mesh/")
+
+        source = json.load(urllib.request.urlopen(
+            base + f"/api/source/{payload['rid']}?inline=1", timeout=10
+        ))
+        assert "snap_box" in source["scad"]
+
+
+def _reverse_import_output_dirs(root):
+    return [path for path in root.iterdir() if path.is_dir() and path.name.isdigit()]
+
+
 def test_session_token_is_injected_into_the_served_shell(tmp_path):
     """#31: GET / serves the SPA shell with the per-boot token substituted into the meta-tag
     placeholder, so the SPA reads + sends it; the literal placeholder never reaches the client."""

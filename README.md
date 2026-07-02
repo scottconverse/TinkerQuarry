@@ -2,178 +2,213 @@
 
 **Local-first AI CAD for real 3D-printable parts.**
 
-TinkerQuarry turns a plain-English prompt into a checked, printable file. Describe a part, inspect
-and tune the generated OpenSCAD, validate it against your printer, slice it, then download or send
-the job through a configured connector. The product is private by default: no account, no telemetry,
-and no cloud model unless you explicitly configure one.
+TinkerQuarry turns a plain-English part idea into editable CAD, checks the result against
+manufacturing constraints, slices it, and prepares the output for download or printer handoff. It is
+private by default: no account, no telemetry, no cloud model unless you explicitly configure one.
 
 [![Release](https://img.shields.io/badge/release-v1.3.1-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1)
-[![Engine](https://img.shields.io/badge/beta-0.9.3-16a34a)](packages/engine/pyproject.toml)
+[![Engine](https://img.shields.io/badge/engine-0.9.3-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Status](https://img.shields.io/badge/gate-post--release%20clean-1d7a4e)](docs/audits/gate-tinkerquarry-2026-06-24-fresh/GAUNTLETGATE-ALL-FIXED-v1.3.1-working-tree.md)
+[![Gate](https://img.shields.io/badge/gate-current%20tree%20clean-15803d)](docs/STATUS.md)
 
-## What It Does
+## The Short Version
 
-TinkerQuarry is built for functional 3D-printing work:
+TinkerQuarry is for makers and technical users who need functional 3D-printed parts without starting
+from a blank CAD file. You describe the part, inspect the generated OpenSCAD, adjust parameters,
+review the intent and evidence panels, validate it against a selected printer/material, slice it with
+OrcaSlicer, then download or send the current proven output.
 
-1. **Describe** the object you need, such as `a wall hook for a 12 mm dowel`.
-2. **Review** the generated model in the Studio workspace with viewer controls, source view, and
-   parameter surfaces.
-3. **Make it real** by selecting a printer/material, applying orientation, and running the
-   printability gate.
-4. **Slice** only after the model passes readiness checks.
-5. **Download or send** the proven output, with mock-send and outcome recording covered by release
-   tests.
+Typical parts:
 
-## Current Release Truth
+- wall hooks, brackets, clips, spacers, standoffs, trays, holders, simple enclosures, and jigs;
+- dimensioned utility parts where exact size matters more than visual ornament;
+- repeatable parametric parts that benefit from editable source and trusted CAD twins.
 
-Version `v1.3.1` is a Windows beta release. The core product path is implemented and release-gated:
+TinkerQuarry is not a certified engineering system. It does not replace human review, professional
+CAD for formal drawings, or safety-critical design validation.
 
-- Prompt -> local KimCad engine -> OpenSCAD model -> Studio viewer.
-- Customize / Make it real rail with readiness, manual orientation, slice, send, and iteration log.
-- Printability gate blocks stale or unsafe manufacturing output.
-- Mock send/outcome path is browser-tested.
-- Native Tauri Windows package builds and installed-app smoke passes.
-- The published `v1.3.1` release gate passed before publication. A later post-release
-  GauntletGate pass on `main` also closed the follow-up audit findings at
-  `0 Blocker / 0 Critical / 0 Major / 0 Minor / 0 Nit`.
+## What Is In v1.3.1
 
-Known beta boundaries are documented, not hidden:
+The current product line is **TinkerQuarry v1.3.1** with **KimCad engine 0.9.3**. The package
+versions intentionally differ because the desktop product, internal engine, share web surface, and
+shared helpers are separately versioned surfaces.
 
-- Hardware connector proof beyond mock send remains a validation lane.
-- Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
-- Explain, structural visual diff evidence, restore/branch history, and release accessibility scans
-  are implemented and covered by browser tests.
-- Browser coverage includes the core flow, workspace controls, menu/dialog keyboard checks, export
-  dialog, branch history, accessibility scans, mobile, and tablet. It intentionally does not claim
-  hardware connector validation.
+Implemented and documented:
 
-See [docs/STATUS.md](docs/STATUS.md) for the evidence-backed status matrix.
+- Prompt-to-CAD generation through the local KimCad engine.
+- OpenSCAD source view, editor, formatter, viewer, customizer parameters, save/reopen, and export.
+- Intent panel with parsed design plan, assumptions, dimensions, and feature list.
+- Properties panel with estimated volume, material, mass, center of mass, surface area, bed contact,
+  and bounding box.
+- Labeled multi-view visual inspection cards for correction/evidence review.
+- Plain-English agent toolbox and provenance disclosure.
+- Printability/readiness gate with stale-state blocking.
+- Manual orientation, slice, download, connector send, and outcome recording.
+- Reverse import from STL/3MF/OBJ into known trusted part families when measurements match.
+- CadQuery trusted twins for the editable CAD/STEP precision lane where available.
+- Optional cloud model configuration, off by default.
+- Windows NSIS installer and native runtime smoke coverage.
+- Share web surface for public/shared output experiments, deployed separately from the desktop app.
 
-## Architecture At A Glance
+See the full [User Manual](docs/USER-MANUAL.md), [Architecture](docs/ARCHITECTURE.md), and
+[Status Matrix](docs/STATUS.md) for the detailed truth table.
 
-![TinkerQuarry architecture](docs/assets/tinkerquarry-architecture.svg)
+## Install
 
-TinkerQuarry is a desktop-first product composed of:
-
-- **React/TypeScript Studio app** in `apps/ui`.
-- **Tauri WebView2 shell** for the native Windows package.
-- **KimCad Python engine** in `packages/engine`.
-- **OpenSCAD 2026.03.16 Manifold** for geometry rendering.
-- **OrcaSlicer** for G-code generation.
-- **PrintProof3D 0.6.2** for printability analysis.
-- **Optional local/cloud model providers** selected by the user.
-
-The product name is **TinkerQuarry**. The internal engine and CLI are **KimCad**. That naming split is
-intentional because KimCad remains the reusable engine layer inside this product.
-
-## Install And Use
-
-The supported beta target is Windows.
+The supported beta platform is Windows.
 
 1. Download `TinkerQuarry_1.3.1_x64-setup.exe` from the
-   [v1.3.1 release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1), or
-   build from source with the commands below.
-2. Open TinkerQuarry.
-3. Choose or confirm printer/material settings.
-4. Describe a part and build it.
-5. Slice only after the app shows readiness.
+   [v1.3.1 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
+2. Double-click the installer.
+3. Launch **TinkerQuarry**.
+4. Confirm printer/material settings.
+5. Build a small first part, such as `a 70 mm round coaster, 4 mm tall`.
 
-Full instructions are in the [User Manual](docs/USER-MANUAL.md).
+The beta installer is unsigned, so Windows SmartScreen may ask for confirmation. Verify the release
+checksum from the GitHub Release before installing when provenance matters.
+
+## First Workflow
+
+1. **Describe** the part with plain language and real dimensions.
+2. **Inspect** the generated model in the Studio viewer and source editor.
+3. **Read the intent** to confirm the plan, assumptions, dimensions, and features match what you
+   asked for.
+4. **Adjust parameters** instead of regenerating whenever a deterministic slider is available.
+5. **Check properties and evidence** before manufacturing.
+6. **Make it real** by selecting printer/material, orienting, validating, and slicing.
+7. **Download or send** only after the app has a current successful slice.
 
 ## Developer Quick Start
 
-Fresh source setup:
+Requirements:
+
+- Windows for the full native installer/release path.
+- Node.js with Corepack and pnpm `10.12.4`.
+- Python `3.13`.
+- Rust/MSVC build tools for Tauri.
+
+Fresh checkout:
 
 ```powershell
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry
+cd path\to\TinkerQuarry
 corepack enable
 pnpm install
 cd packages\engine
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.lock
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-Then use two PowerShell terminals:
+Run the local engine and UI:
 
 ```powershell
-# Terminal 1: engine
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\packages\engine
+# Terminal 1
+cd path\to\TinkerQuarry\packages\engine
 $env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"
 .\.venv\Scripts\kimcad.exe web --port 8765
 ```
 
 ```powershell
-# Terminal 2: front end
-cd C:\Users\Scott\Desktop\CODE\tinkerquarry\apps\ui
+# Terminal 2
+cd path\to\TinkerQuarry\apps\ui
 pnpm dev
 ```
 
 Open `http://localhost:1420`.
 
-## Release Proof
+## Verification And Release Proof
 
-The local release command is:
+Primary gate:
+
+```powershell
+pnpm test:gate
+```
+
+Full native release gate:
 
 ```powershell
 pnpm test:release
 ```
 
-For published `v1.3.1`, this passed on commit
-`4e159c2a189e4b388204baf636acd46ac430a1c0` before the public tag and release assets
-were published. The post-release clean rerun gate is recorded separately at
-`gauntletgate-2026-06-24-rerun-clean-2`.
-It covers:
+Current clean evidence:
 
-- lint and type-check;
-- UI Jest suite;
-- web unit suite;
-- full engine pytest suite;
-- Playwright browser walkthroughs;
-- Rust/Tauri tests;
-- native Windows build;
-- release executable smoke;
-- installed NSIS workflow smoke.
+- `pnpm test:gate` passed with UI Jest, web Jest, Rust/Tauri tests, Rust audit, web share deploy
+  dry-run, engine pytest, and Playwright browser coverage.
+- Native Windows release build produced an NSIS installer.
+- Release executable smoke passed.
+- Installed NSIS smoke passed after installing into an isolated test location.
+- The intentionally malformed reverse-import mesh test passes by rejecting the bad mesh. That is the
+  intended behavior.
 
-The public release and checksums are at
+Important native-build note: Windows NSIS packaging can fail from very deep workspace paths because
+of path-length limits in bundled slicer/profile assets. The verified workaround is to build from a
+short path such as `C:\tqbuild\TinkerQuarry`.
+
+The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The public v1.3.1 release is
 [github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
 
-## Share Web Deployment
+## Architecture At A Glance
 
-The optional public/share surface in `apps/web` deploys to Cloudflare Pages with three bindings:
-
-- `SHARE_KV` for share metadata;
-- `SHARE_R2` for thumbnails;
-- `SHARE_RATE_LIMITER`, a separate Durable Object worker named `tinkerquarry-share-rate-limiter`.
-
-Deploy the Durable Object worker before deploying Pages:
-
-```powershell
-pnpm --filter web share:rate-limiter:deploy
+```mermaid
+flowchart LR
+  User["User prompt, file, or saved design"] --> UI["TinkerQuarry Studio<br/>React + TypeScript"]
+  UI --> Shell["Tauri Windows shell"]
+  UI --> API["KimCad local API<br/>Python 3.13"]
+  API --> Model["Local model<br/>optional cloud model"]
+  API --> SCAD["OpenSCAD source"]
+  API --> Import["Reverse importer<br/>STL / 3MF / OBJ"]
+  SCAD --> Render["OpenSCAD 2026.03.16<br/>Manifold render"]
+  Import --> Twin["Trusted template twin"]
+  Twin --> SCAD
+  Render --> Gate["Printability and properties gate"]
+  Gate --> Slice["OrcaSlicer"]
+  Gate --> Evidence["Intent, properties, visual evidence,<br/>provenance panels"]
+  Slice --> Output["Download, connector send,<br/>outcome record"]
 ```
 
-The gate verifies this packaging path with `pnpm test:web:share-deploy`, which builds the share web
-app, compiles Pages Functions, and dry-runs the Durable Object worker. Local share testing uses
-`pnpm web:share:dev`.
+The desktop app is a Tauri shell around a React/TypeScript Studio UI. The UI talks to a local Python
+engine. The engine uses OpenSCAD for geometry, PrintProof3D and mesh checks for readiness,
+OrcaSlicer for G-code, and optional CadQuery trusted twins for precise STEP export. All manufacturing
+actions are blocked when source, render, printer/material, orientation, or slice state becomes stale.
 
-## Documentation
-
-- [Professional User Manual](docs/USER-MANUAL.md)
-- [Architecture And Technologies](docs/ARCHITECTURE.md)
-- [Evaluation Guide](docs/EVALUATE.md)
-- [Status Matrix](docs/STATUS.md)
-- [Third-Party Licenses](packages/engine/THIRD_PARTY_LICENSES.md)
+Full architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Repository Map
 
 ```text
-apps/ui/          TinkerQuarry Studio UI and Tauri desktop shell
-apps/web/         lightweight public/share web surface
-packages/engine/  KimCad engine, HTTP API, tools, config, printer profiles
-packages/shared/  shared package helpers
-docs/             product docs, status, audits, landing page, manual
-scripts/          native release and smoke-test helpers
+apps/ui/           Production TinkerQuarry Studio UI and Tauri desktop shell
+apps/web/          Optional public/share web surface
+packages/engine/   KimCad engine, HTTP API, tools, config, printer profiles
+packages/shared/   Shared TypeScript helpers
+docs/              Product docs, landing page, manual, architecture, status, discussions
+scripts/           Native release, smoke, and test helpers
+frontend/          Historical prototype reference, not release evidence
+```
+
+## Documentation
+
+- [User Manual](docs/USER-MANUAL.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Status Matrix](docs/STATUS.md)
+- [Changelog](CHANGELOG.md)
+- [CAD Agent Roadmap](docs/roadmap-zookeeper-inspired-cad-agent.md)
+- [Discussion Seeds](docs/discussions/README.md)
+- [Third-Party Licenses](packages/engine/THIRD_PARTY_LICENSES.md)
+
+## Share Web Deployment
+
+The optional share surface in `apps/web` deploys separately to Cloudflare Pages. It uses:
+
+- `SHARE_KV` for share metadata;
+- `SHARE_R2` for thumbnails;
+- `SHARE_RATE_LIMITER`, a Durable Object worker named `tinkerquarry-share-rate-limiter`.
+
+Verify the packaging path with:
+
+```powershell
+pnpm test:web:share-deploy
 ```
 
 ## License

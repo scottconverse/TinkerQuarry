@@ -28,5 +28,5 @@ set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
 cargo test --manifest-path apps/ui/src-tauri/Cargo.toml
 if errorlevel 1 exit /b %errorlevel%
 
-pnpm.cmd tauri:build
+pnpm.cmd --dir apps/ui exec tauri build --bundles nsis
 if errorlevel 1 exit /b %errorlevel%

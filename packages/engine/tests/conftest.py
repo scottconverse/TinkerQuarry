@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,10 @@ def _cadquery_available() -> bool:
     return _cached("cadquery", lambda: find_cadquery_interpreter() is not None)
 
 
+def _pytest_playwright_available() -> bool:
+    return _cached("pytest-playwright", lambda: importlib.util.find_spec("pytest_playwright") is not None)
+
+
 def _browser_available(browser_channel: str | None = None) -> bool:
     # KC-20 (#25): the Playwright e2e suite needs both pytest-playwright importable AND a
     # downloaded, LAUNCHABLE Chromium. The browser is provisioned out-of-band (`playwright install
@@ -89,6 +94,9 @@ def _browser_available(browser_channel: str | None = None) -> bool:
     cache_key = f"browser:{browser_channel or 'bundled'}"
     if cache_key in _MARKER_CACHE:
         return _MARKER_CACHE[cache_key]
+    if not _pytest_playwright_available():
+        _MARKER_CACHE[cache_key] = False
+        return False
     import time as _time
 
     last_exc: Exception | None = None
@@ -116,6 +124,22 @@ def _browser_available(browser_channel: str | None = None) -> bool:
     return False
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip browser e2e during collection when pytest-playwright is not installed.
+
+    Without this, pytest can fail while resolving the plugin's `page` fixture before
+    pytest_runtest_setup has a chance to evaluate the `needs_browser` marker.
+    """
+    if _pytest_playwright_available():
+        return
+    skip_browser = pytest.mark.skip(
+        reason="needs_browser: pytest-playwright is not installed (run: pip install pytest-playwright)"
+    )
+    for item in items:
+        if item.get_closest_marker("needs_browser"):
+            item.add_marker(skip_browser)
+
+
 def pytest_runtest_setup(item: pytest.Item) -> None:
     """Skip env-dependent tests off their environment (KC-16). Keyed by marker so the WHY of a
     skip is explicit and selectable (e.g. ``pytest -m "not real_tool"`` for a fast inner loop)."""
@@ -128,7 +152,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     if item.get_closest_marker("needs_cadquery") and not _cadquery_available():
         pytest.skip("needs_cadquery: no CadQuery interpreter discoverable")
     if item.get_closest_marker("needs_browser") and not _browser_available(
-        item.config.getoption("browser_channel")
+        item.config.getoption("browser_channel", default=None)
     ):
         pytest.skip("needs_browser: Playwright Chromium not installed (run: playwright install chromium)")
 

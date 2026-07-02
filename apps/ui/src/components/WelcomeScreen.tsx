@@ -84,6 +84,15 @@ const EXAMPLE_PROMPTS = [
   "Design a pencil holder with holes",
 ];
 
+const SOURCE_ENGINE_STEPS = [
+  "cd packages\\engine",
+  "py -3.13 -m venv .venv",
+  ".venv\\Scripts\\python.exe -m pip install -r requirements.lock",
+  ".venv\\Scripts\\python.exe -m pip install -e .",
+  "$env:TINKERQUARRY_DEV_TOKEN = \"tq-dev-token\"",
+  ".venv\\Scripts\\kimcad.exe web --port 8765 --demo",
+];
+
 export function WelcomeScreen({
   draft,
   attachments,
@@ -120,6 +129,9 @@ export function WelcomeScreen({
     null,
   );
   const [modelPulling, setModelPulling] = useState(false);
+  const [portableImportError, setPortableImportError] = useState<string | null>(
+    null,
+  );
   // §6.12 "My Designs": the engine's saved designs, the "recent surface on entry".
   const [savedDesigns, setSavedDesigns] = useState<SavedDesignEntry[]>([]);
   const refreshSavedDesigns = async () => {
@@ -187,12 +199,19 @@ export function WelcomeScreen({
     ]);
   };
   const handleImportPortableDesign = async () => {
+    setPortableImportError(null);
     const file = await getPlatform().fileOpenBinary([
       { name: "TinkerQuarry Design", extensions: ["kimcad"] },
     ]);
     if (!file) return;
     const r = await engine.importDesign(file.content);
-    if (!r.ok || !r.data.id) return;
+    if (!r.ok || !r.data.id) {
+      setPortableImportError(
+        r.data.error ||
+          "Start the local engine, then try importing this TinkerQuarry design again.",
+      );
+      return;
+    }
     await refreshSavedDesigns();
     onReopenDesign?.(r.data.id);
   };
@@ -409,7 +428,7 @@ export function WelcomeScreen({
                   backgroundColor: "var(--bg-secondary)",
                   borderColor: modelReady
                     ? "var(--border-secondary)"
-                    : "var(--status-warning)",
+                    : "var(--color-warning)",
                   color: "var(--text-secondary)",
                 }}
               >
@@ -421,13 +440,22 @@ export function WelcomeScreen({
                       : ""}
                   </span>
                 ) : modelStatusError ? (
-                  <span>
-                    {modelStatusError} The Windows app starts the bundled engine
-                    automatically. In a source checkout, start it from
-                    PowerShell with <code>cd packages\engine</code> then{" "}
-                    <code>.venv\Scripts\kimcad.exe web --port 8765 --demo</code>
-                    .
-                  </span>
+                  <div className="space-y-2">
+                    <div style={{ color: "var(--text-primary)" }}>
+                      {modelStatusError}
+                    </div>
+                    <div>
+                      The Windows app starts the bundled engine automatically. In
+                      a source checkout, run these PowerShell commands once:
+                    </div>
+                    <ol className="list-decimal space-y-1 pl-5">
+                      {SOURCE_ENGINE_STEPS.map((step) => (
+                        <li key={step}>
+                          <code>{step}</code>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
                 ) : modelNeedsSetup ? (
                   <span>
                     Local AI setup needed for {modelStatus.model}
@@ -536,6 +564,12 @@ export function WelcomeScreen({
                   </Button>
                 ))}
               </div>
+              {!modelReady && (
+                <Text variant="caption" color="tertiary">
+                  Examples need the local engine. You can still import a saved
+                  design, open a file, or start from code.
+                </Text>
+              )}
             </div>
           </div>
         ) : hasApiKey === false ? (
@@ -673,6 +707,19 @@ export function WelcomeScreen({
                     </div>
                   ),
                 )}
+              </div>
+            )}
+            {portableImportError && (
+              <div
+                role="alert"
+                className="rounded-md border px-3 py-2 text-xs"
+                style={{
+                  borderColor: "var(--color-error)",
+                  color: "var(--color-error)",
+                  backgroundColor: "var(--bg-secondary)",
+                }}
+              >
+                {portableImportError}
               </div>
             )}
           </div>

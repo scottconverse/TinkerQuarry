@@ -61,6 +61,8 @@ MAX_BODY_BYTES = 1_048_576  # 1 MiB — prompts are tiny; reject anything larger
 # A design import carries a mesh (+ thumb), so it needs more headroom than a JSON body. Still
 # bounded so a hostile upload can't exhaust memory.
 MAX_IMPORT_BYTES = 32 * 1_048_576  # 32 MiB
+# Raw CAD import can carry an STL/3MF/OBJ mesh candidate. Keep it bounded like saved-design import.
+MAX_REVERSE_IMPORT_BYTES = 64 * 1_048_576  # 64 MiB
 # A photo for the vision on-ramp (Slice 7). Generous for a phone photo, bounded so a hostile
 # upload can't exhaust memory; the local vision model also downsizes it.
 MAX_PHOTO_BYTES = 12 * 1_048_576  # 12 MiB — the upload cap for BOTH image on-ramps (photo + sketch)
@@ -99,7 +101,21 @@ def _plan_payload(plan: Any) -> dict[str, Any]:
     return {
         "object_type": plan.object_type,
         "summary": plan.summary,
+        "dimensions": dict(getattr(plan, "dimensions", {}) or {}),
         "target_bbox_mm": list(plan.bounding_box_mm) if plan.bounding_box_mm else None,
+        "features": [
+            feature.model_dump(mode="json")
+            if hasattr(feature, "model_dump")
+            else dict(feature)
+            for feature in (getattr(plan, "features", None) or [])
+        ],
+        "tolerances": plan.tolerances.model_dump(mode="json")
+        if hasattr(getattr(plan, "tolerances", None), "model_dump")
+        else None,
+        "printer": getattr(plan, "printer", None),
+        "material": getattr(plan, "material", None),
+        "assumptions": list(getattr(plan, "assumptions", None) or []),
+        "open_questions": list(getattr(plan, "open_questions", None) or []),
     }
 
 
@@ -155,6 +171,12 @@ def _report_payload(report: Any) -> dict[str, Any]:
         ],
         "watertight": report.watertight,
         "volume_mm3": round(float(report.volume_mm3), 1),
+        "surface_area_mm2": round(float(getattr(report, "surface_area_mm2", 0.0)), 1),
+        "center_of_mass_mm": (
+            [round(float(v), 2) for v in getattr(report, "center_of_mass_mm", None)]
+            if getattr(report, "center_of_mass_mm", None) is not None
+            else None
+        ),
         "orientation": report.orientation,
         "readiness": _readiness_payload(getattr(report, "readiness", None)),
     }
@@ -235,6 +257,7 @@ _MAX_PROGRESS_SLOTS = 32
 # peer can't stack N heavy pipelines and exhaust CPU/RAM; 2 gives a little headroom over the
 # single-user norm of one-at-a-time. Over the cap, the route returns 429 + Retry-After.
 _MAX_INFLIGHT_DESIGNS = 2
+_MAX_INFLIGHT_REVERSE_IMPORTS = 1
 # A client-supplied job_id keys in-memory progress state, so it's validated to a short, safe token
 # (a UUID fits) before use; anything else disables progress tracking for that run (best-effort).
 _JOB_ID_RE = re.compile(r"\A[A-Za-z0-9-]{1,64}\Z")
@@ -848,7 +871,8 @@ _GET_ONLY_PATHS = (
 )
 _GET_ONLY_PREFIXES = ("/api/connector-status/", "/api/design/progress/")
 _POST_ONLY_PATHS = (
-    "/api/model-pull", "/api/design", "/api/libraries/admit", "/api/libraries/remove",
+    "/api/model-pull", "/api/design", "/api/reverse-import",
+    "/api/libraries/admit", "/api/libraries/remove",
 )
 _POST_ONLY_PREFIXES = (
     "/api/visual-review/",
@@ -906,6 +930,7 @@ def make_handler(
     # queued; one per server instance, shared across all request threads. slice/render are already
     # serialized by slice_lock/render_lock above, so design is the one heavy route lacking a bound.
     design_slots = threading.BoundedSemaphore(_MAX_INFLIGHT_DESIGNS)
+    reverse_import_slots = threading.BoundedSemaphore(_MAX_INFLIGHT_REVERSE_IMPORTS)
     # MS-3: live design-phase slots keyed by a client-supplied job_id, so the SPA can poll
     # GET /api/design/progress/<job_id> WHILE a (multi-minute) design runs on another request
     # thread and show the current phase. Bounded + LRU-evicted; an entry is removed when its run
@@ -1044,7 +1069,10 @@ def make_handler(
             origin = desktop_cors_origin(self.headers.get("Origin"))
             if origin is not None:
                 self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Access-Control-Allow-Headers", "Content-Type, X-KimCad-Session")
+                self.send_header(
+                    "Access-Control-Allow-Headers",
+                    "Content-Type, X-KimCad-Session, X-TinkerQuarry-Filename",
+                )
                 self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
                 self.send_header("Vary", "Origin")
             super().end_headers()
@@ -1680,6 +1708,15 @@ def make_handler(
                 return
             if self.path == "/api/model-pull":
                 self._handle_model_pull()
+                return
+            if self.path == "/api/reverse-import":
+                if not reverse_import_slots.acquire(blocking=False):
+                    self._busy()
+                    return
+                try:
+                    self._handle_reverse_import()
+                finally:
+                    reverse_import_slots.release()
                 return
             if self.path == "/api/connections":
                 self._handle_connections_post()
@@ -2621,6 +2658,158 @@ def make_handler(
                     # its trusted CadQuery twin. With an interpreter present the URL is
                     # offered (built lazily on first download); without one the payload
                     # says WHERE to enable it — the UI never dangles a dead promise.
+                    from kimcad.cadquery_templates import step_supported
+
+                    if step_supported(result.template.family.name):
+                        if get_config().cadquery_interpreter() is not None:
+                            payload["step_url"] = f"/api/step/{rid}"
+                        else:
+                            payload["step_offer"] = "settings"
+            self._json(200, payload)
+
+        def _handle_reverse_import(self) -> None:
+            """Reverse-import an uploaded mesh file into a known parametric family."""
+            data = self._read_raw_body(MAX_REVERSE_IMPORT_BYTES)
+            if data is None:
+                return
+            raw_name = self.headers.get("X-TinkerQuarry-Filename") or "import.stl"
+            filename = re.sub(r"[^A-Za-z0-9._ -]+", "_", Path(raw_name).name) or "import.stl"
+            suffix = Path(filename).suffix.lower()
+            if suffix not in {".stl", ".3mf", ".obj"}:
+                self._json(400, {"error": "Upload an STL, 3MF, or OBJ mesh file."})
+                return
+
+            from kimcad.pipeline import PipelineStatus
+            from kimcad.reverse_import import (
+                geometry_signature_matches,
+                match_known_family_from_bbox,
+                plan_from_match,
+            )
+            from kimcad.validation import load_mesh, validate_mesh
+
+            rid = reg.new_rid()
+            out_dir = web_root / str(rid)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            source_path = out_dir / f"reverse-source{suffix}"
+
+            def reject(status: str, body: dict[str, Any]) -> None:
+                shutil.rmtree(out_dir, ignore_errors=True)
+                payload = {"status": status, "has_mesh": False, **body}
+                self._json(200, payload)
+
+            try:
+                source_path.write_bytes(data)
+                mesh = load_mesh(source_path)
+                mesh, mesh_report = validate_mesh(mesh)
+                if (
+                    mesh_report.vertices <= 0
+                    or mesh_report.faces <= 0
+                    or mesh_report.volume_mm3 <= 0
+                    or mesh_report.surface_area_mm2 <= 0
+                ):
+                    raise ValueError("mesh has no measurable solid")
+            except Exception as e:  # noqa: BLE001 - import errors are user-facing, not tracebacks
+                self.log_error("reverse import load failed: %s: %s", type(e).__name__, e)
+                reject(PipelineStatus.render_failed.value, {
+                    "error": (
+                        "Could not read that file as a triangle mesh. Export STL, 3MF, or OBJ "
+                        "from your CAD tool and try again."
+                    ),
+                })
+                return
+
+            match = match_known_family_from_bbox(mesh_report.bounding_box_mm)
+            if match is None:
+                reject(PipelineStatus.needs_experimental.value, {
+                    "error": "Imported mesh did not confidently match a known parametric part family.",
+                    "reverse_import": {
+                        "source_filename": filename,
+                        "measured_bbox_mm": [round(float(v), 2) for v in mesh_report.bounding_box_mm],
+                        "volume_mm3": round(float(mesh_report.volume_mm3), 1),
+                        "surface_area_mm2": round(float(mesh_report.surface_area_mm2), 1),
+                        "center_of_mass_mm": (
+                            [round(float(v), 2) for v in mesh_report.center_of_mass_mm]
+                            if mesh_report.center_of_mass_mm is not None else None
+                        ),
+                    },
+                })
+                return
+
+            plan = plan_from_match(match, filename)
+            try:
+                with render_lock:
+                    result = pipeline.rerender(
+                        plan, match.family.name, match.values, out_dir, basename="part"
+                    )
+            except Exception as e:  # never leak a traceback to the browser
+                self.log_error("reverse import render failed: %s: %s", type(e).__name__, e)
+                shutil.rmtree(out_dir, ignore_errors=True)
+                self._json(500, {"error": "Something went wrong while rebuilding the imported part."})
+                return
+
+            signature = geometry_signature_matches(mesh_report, result.report)
+            if not signature.ok:
+                reject(PipelineStatus.needs_experimental.value, {
+                    "error": (
+                        "Imported mesh matched a known envelope, but its volume or surface area "
+                        "does not match the trusted parametric twin closely enough."
+                    ),
+                    "reverse_import": {
+                        "source_filename": filename,
+                        "matched_family": match.family.name,
+                        "confidence": round(float(match.confidence), 3),
+                        "measured_bbox_mm": [round(float(v), 2) for v in match.measured_bbox_mm],
+                        "matched_bbox_mm": [round(float(v), 2) for v in match.expected_bbox_mm],
+                        "volume_delta": (
+                            round(float(signature.volume_delta), 4)
+                            if signature.volume_delta is not None else None
+                        ),
+                        "surface_delta": (
+                            round(float(signature.surface_delta), 4)
+                            if signature.surface_delta is not None else None
+                        ),
+                        "rejected_reasons": list(signature.reasons),
+                    },
+                })
+                return
+
+            payload = _result_to_payload(result)
+            payload["prompt"] = f"Reverse import {filename}"
+            payload["rid"] = rid
+            payload["reverse_import"] = {
+                "source_filename": filename,
+                "matched_family": match.family.name,
+                "confidence": round(float(match.confidence), 3),
+                "measured_bbox_mm": [round(float(v), 2) for v in match.measured_bbox_mm],
+                "matched_bbox_mm": [round(float(v), 2) for v in match.expected_bbox_mm],
+                "volume_delta": (
+                    round(float(signature.volume_delta), 4)
+                    if signature.volume_delta is not None else None
+                ),
+                "surface_delta": (
+                    round(float(signature.surface_delta), 4)
+                    if signature.surface_delta is not None else None
+                ),
+            }
+            if result.mesh_path is not None and result.mesh_path.exists():
+                with reg.lock:
+                    reg.meshes[rid] = result.mesh_path
+                    rep = payload.get("report") or {}
+                    reg.gate_status[rid] = rep.get("gate_status") or "fail"
+                    if result.template is not None:
+                        reg.template_state[rid] = (result.plan, result.template.family.name)
+                        from kimcad.cadquery_templates import step_supported
+
+                        if step_supported(result.template.family.name):
+                            reg.step_source[rid] = (
+                                result.template.family.name, dict(result.template.values)
+                            )
+                    reg.snapshot[rid] = _design_snapshot(
+                        payload, result, payload["prompt"], original_prompt=payload["prompt"]
+                    )
+                    reg.enforce_caps_locked(MAX_REGISTRY)
+                payload["mesh_url"] = f"/api/mesh/{rid}"
+                if result.template is not None:
                     from kimcad.cadquery_templates import step_supported
 
                     if step_supported(result.template.family.name):

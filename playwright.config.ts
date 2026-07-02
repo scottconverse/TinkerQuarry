@@ -41,8 +41,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `.venv\\Scripts\\kimcad.exe web --port ${enginePort} --demo --out "${engineOut}"`,
-      cwd: "./packages/engine",
+      command: `node .\\scripts\\start-engine-web.mjs --port ${enginePort} --out "${engineOut}"`,
+      cwd: ".",
       env: {
         TINKERQUARRY_DEV_TOKEN: "tq-dev-token",
         LOCALAPPDATA: path.join(profileRoot, "LocalAppData"),

@@ -1,15 +1,17 @@
-<!-- Category: Q&A · Pin this -->
+<!-- Category: Q&A. Pin this. -->
 
-# FAQ
+# FAQ: start here
 
 ## What is TinkerQuarry?
 
 TinkerQuarry is a local-first AI CAD app for 3D printing. You describe a functional part, the local
-engine generates OpenSCAD, the app validates the model, and you slice/download or send the output.
+engine generates editable OpenSCAD, the app validates the current model, and you slice/download or
+send the current output.
 
 ## Do I need to know CAD?
 
-No. The main workflow is prompt-first. Technical users can inspect and edit the generated OpenSCAD.
+No. The main workflow is prompt-first. Technical users can also inspect and edit the generated
+OpenSCAD.
 
 ## Does it use the cloud?
 
@@ -18,20 +20,33 @@ configure a provider and key.
 
 ## What is KimCad?
 
-KimCad is the internal engine and CLI inside TinkerQuarry. TinkerQuarry is the product name, app,
-installer, documentation, and GitHub repository.
+KimCad is the internal Python engine and CLI inside TinkerQuarry. TinkerQuarry is the product name,
+desktop app, installer, public documentation, and GitHub repository.
 
-## What does v1.3.1 prove?
+## Is it verified?
 
-The release gate was run locally before v1.3.1 publication. It covers lint, type-check, UI unit tests, web
-unit tests, the engine test suite, Playwright browser walkthroughs, Rust/Tauri tests, native Windows
-package build, release executable smoke, and installed-app smoke.
+Yes for the documented beta scope. The current tree passed the full gate, native Windows build,
+direct Tauri runtime smoke, and installed NSIS smoke. The mock send/outcome path is tested. Real
+hardware connector certification is still beta field work.
 
-## Is it finished?
+## Does the installer work from a double-click `.exe`?
 
-It is a beta. The core path is real and release-gated. Explain, structural visual diff, branch
-history, browser accessibility scans, and mock send/outcome are included. Hardware connector
-certification and metrology-grade vision remain beta field work.
+Yes. The Windows NSIS installer builds as `TinkerQuarry_1.3.1_x64-setup.exe`, and the installed-app
+smoke test passed.
+
+## Why did a malformed reverse-import mesh test pass?
+
+Because TinkerQuarry rejected the malformed mesh. That is the intended behavior.
+
+## What can I import?
+
+Reverse import currently accepts STL, 3MF, and OBJ when the mesh clearly matches a known trusted part
+family. Unknown or malformed meshes are rejected. STEP reverse import is not implemented yet.
+
+## What can I export?
+
+`.kimcad`, `.scad`, STL, OBJ, AMF, 3MF, SVG, DXF, PNG preview, and STEP when a trusted CadQuery twin
+is available.
 
 ## What license is it?
 

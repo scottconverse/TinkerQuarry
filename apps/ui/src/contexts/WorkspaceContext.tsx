@@ -9,6 +9,13 @@ import type { AiProvider } from '../stores/apiKeyStore';
 import type { Settings } from '../stores/settingsStore';
 import type { WorkspaceTab } from '../stores/workspaceTypes';
 import type { AiDraft, AttachmentStore, Message, ToolCall, VisionSupport } from '../types/aiChat';
+import type {
+  ConnectorInfo,
+  DesignResult,
+  ModelStatusResult,
+  VisualReviewResult,
+} from '../services/engineClient';
+import type { VisualDiffAnalysis } from '../utils/visualDiff';
 
 export interface WorkspaceState {
   // Editor
@@ -86,6 +93,40 @@ export interface WorkspaceState {
   onOpenCustomizerAiRefine: () => void;
   onOpenEditorPanel: () => void;
   onOpenExportDialog: () => void;
+  onReverseImportCad: () => void;
+
+  // TinkerQuarry product evidence panels
+  currentDesignResult: DesignResult | null;
+  currentDesignHeadline: string | null;
+  currentRid: number | null;
+  liveReadiness: string | null;
+  currentStepUrl: string | null;
+  selectedPrinterName: string | null;
+  selectedMaterial: string | null;
+  selectedConnector: ConnectorInfo | null;
+  workspaceModelStatus: ModelStatusResult | null;
+  visualReviewSummary: string | null;
+  visualReviewResult: VisualReviewResult | null;
+  visualReviewImages: Array<{ label: string; image: string }>;
+  visualReviewLog: string[];
+  visualCorrectionRounds: number;
+  visualDiffEvidence: {
+    before: string;
+    after: string;
+    summary: string;
+    analysis?: VisualDiffAnalysis | null;
+  } | null;
+  iterationLog: Array<{
+    id: string;
+    createdAt: number;
+    kind: string;
+    title: string;
+    detail?: string | null;
+    rid?: number | null;
+    gate?: string | null;
+    stepUrl?: string | null;
+    branchName?: string | null;
+  }>;
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);

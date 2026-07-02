@@ -1,30 +1,38 @@
-<!-- Category: Announcements · Pin this -->
+<!-- Category: Announcements. Pin this. -->
 
-# Welcome to TinkerQuarry v1.3.1
+# TinkerQuarry v1.3.1: local-first AI CAD for printable parts
 
-TinkerQuarry is a local-first AI CAD application for making real 3D-printable parts. Describe a
-part in plain language, inspect the generated OpenSCAD, validate it against your printer/material,
-slice it, then download or send the proven output.
+TinkerQuarry is a Windows beta for making practical 3D-printable parts from plain language. You
+describe a part, inspect the generated OpenSCAD, review intent and properties, validate it against
+your printer/material, slice it, and prepare real print output.
 
-The v1.3.1 Windows beta is now public and release-gated.
+## What is working
 
-## What is working in v1.3.1
+- Prompt-to-CAD through the local KimCad engine.
+- OpenSCAD source view, editor, viewer, customizer parameters, save/reopen, and export.
+- Intent panel with parsed plan, assumptions, dimensions, and feature list.
+- Properties panel with estimated volume, material, mass, center of mass, surface area, bed contact,
+  and bounding box.
+- Labeled multi-view visual inspection cards.
+- Plain-English agent/toolbox provenance disclosure.
+- Readiness gate, manual orientation, slicing, download, connector send, and outcome recording.
+- Conservative STL/3MF/OBJ reverse import for known trusted part families.
+- STEP export through trusted CadQuery twins where available.
+- Windows NSIS installer and installed-app smoke coverage.
 
-- Prompt -> local KimCad engine -> OpenSCAD source -> Studio viewer.
-- Customize / Make it real rail with readiness, manual orientation, slice, send, and iteration log.
-- Printability gate that blocks stale or unsafe manufacturing output.
-- Mock send and print-outcome recording.
-- Native Windows package build, release-executable smoke, and installed-app workflow smoke.
-- Full local release proof: `pnpm test:release` and GauntletGate ALL passed before publication.
+## Verification
 
-## What is still beta
+The current tree has a clean full gate, native release build, direct Tauri runtime smoke, and
+installed NSIS smoke. The intentionally malformed reverse-import test is green because TinkerQuarry
+rejects the malformed mesh, which is the intended behavior.
 
-- Hardware connector proof beyond the mock connector is still a validation lane.
-- Visual Correction Loop is advisory local probe mode, not metrology-grade inspection.
-- Explain, structural visual diff evidence, restore/branch history, and release accessibility scans
-  are included and browser-tested.
-- Browser coverage is meaningful and covers the release path; hardware connector validation remains
-  beta field work.
+## Still beta
+
+- Windows is the supported package target.
+- The installer is unsigned.
+- Hardware connector certification beyond the mock connector remains field-validation work.
+- Visual inspection is advisory and does not replace deterministic geometry checks.
+- STEP reverse-to-parametric import is a roadmap item.
 
 ## Start here
 
@@ -33,5 +41,5 @@ The v1.3.1 Windows beta is now public and release-gated.
 - Status matrix: `docs/STATUS.md`
 - Release: https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1
 
-If you print something, please post it in Show and Tell. Real parts and failure cases are the best
-signal for the next stage.
+If you make a real part, please post it in Show and Tell. Real prints and real failure cases are the
+best signal for the next stage.

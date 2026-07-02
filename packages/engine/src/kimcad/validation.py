@@ -36,6 +36,8 @@ class MeshReport:
     # so a hand-built multi-body report still reads as "all extra bodies are stray"
     # and warns, preserving the pre-existing behaviour.
     stray_bodies: int = -1
+    surface_area_mm2: float = 0.0
+    center_of_mass_mm: tuple[float, float, float] | None = None
     errors: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -97,6 +99,27 @@ def validate_mesh(mesh: trimesh.Trimesh) -> tuple[trimesh.Trimesh, MeshReport]:
         volume = 0.0
         errors.append("volume could not be computed")
 
+    try:
+        surface_area = float(mesh.area)
+        if not np.isfinite(surface_area):
+            surface_area = 0.0
+            errors.append("surface area could not be computed")
+    except (ValueError, AttributeError, TypeError):  # pragma: no cover - degenerate mesh
+        surface_area = 0.0
+        errors.append("surface area could not be computed")
+
+    center_of_mass: tuple[float, float, float] | None
+    try:
+        raw_center = np.asarray(mesh.center_mass, dtype=float)
+        if raw_center.shape == (3,) and bool(np.all(np.isfinite(raw_center))):
+            center_of_mass = (float(raw_center[0]), float(raw_center[1]), float(raw_center[2]))
+        else:
+            center_of_mass = None
+            errors.append("center of mass could not be computed")
+    except (ValueError, AttributeError, TypeError):  # pragma: no cover - degenerate mesh
+        center_of_mass = None
+        errors.append("center of mass could not be computed")
+
     n_bodies = _body_count(mesh, errors)
     stray_bodies = _stray_body_count(mesh, errors)
 
@@ -110,6 +133,8 @@ def validate_mesh(mesh: trimesh.Trimesh) -> tuple[trimesh.Trimesh, MeshReport]:
         bounding_box_mm=bbox,
         n_bodies=n_bodies,
         stray_bodies=stray_bodies,
+        surface_area_mm2=surface_area,
+        center_of_mass_mm=center_of_mass,
         errors=errors,
     )
 

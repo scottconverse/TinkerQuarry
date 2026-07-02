@@ -1,7 +1,7 @@
 /** @jest-environment node */
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -18,6 +18,27 @@ let engineProcess: ChildProcessWithoutNullStreams | undefined;
 
 function engineRoot(): string {
   return path.resolve(process.cwd(), '..', '..', 'packages', 'engine');
+}
+
+function localEngineCommand(root: string, port: number, outDir: string): { command: string; args: string[] } {
+  const commonArgs = ['web', '--host', '127.0.0.1', '--port', String(port), '--demo', '--out', outDir];
+  const configuredPython = process.env.TINKERQUARRY_ENGINE_PYTHON;
+  if (configuredPython) {
+    return { command: configuredPython, args: ['-m', 'kimcad.cli', ...commonArgs] };
+  }
+
+  const venvPython = path.join(root, '.venv', 'Scripts', 'python.exe');
+  if (existsSync(venvPython)) {
+    return { command: venvPython, args: ['-m', 'kimcad.cli', ...commonArgs] };
+  }
+
+  const stagedPython = path.join(root, 'dist', 'staging', 'python', 'python.exe');
+  const stagedLauncher = path.join(root, 'dist', 'staging', 'kimcad_launcher.py');
+  if (existsSync(stagedPython) && existsSync(stagedLauncher)) {
+    return { command: stagedPython, args: [stagedLauncher, ...commonArgs] };
+  }
+
+  return { command: venvPython, args: ['-m', 'kimcad.cli', ...commonArgs] };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -93,20 +114,17 @@ beforeAll(async () => {
     base = `http://127.0.0.1:${port}`;
     const root = engineRoot();
     const outDir = mkdtempSync(path.join(tmpdir(), 'tq-engine-live-'));
-    engineProcess = spawn(
-      path.join(root, '.venv', 'Scripts', 'python.exe'),
-      ['-m', 'kimcad.cli', 'web', '--host', '127.0.0.1', '--port', String(port), '--demo', '--out', outDir],
-      {
-        cwd: root,
-        env: {
-          ...process.env,
-          PYTHONPATH: path.join(root, 'src'),
-          TINKERQUARRY_DEV_TOKEN: TOKEN,
-          USERPROFILE: outDir,
-          HOME: outDir,
-        },
-      }
-    );
+    const { command, args } = localEngineCommand(root, port, outDir);
+    engineProcess = spawn(command, args, {
+      cwd: root,
+      env: {
+        ...process.env,
+        PYTHONPATH: path.join(root, 'src'),
+        TINKERQUARRY_DEV_TOKEN: TOKEN,
+        USERPROFILE: outDir,
+        HOME: outDir,
+      },
+    });
   }
   await waitForHealth(base);
   savedId = await seedSavedDesign();

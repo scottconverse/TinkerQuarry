@@ -81,6 +81,22 @@ engine clamped (`{"name", "requested", "applied"}`), and a cache-busted
 `mesh_url (...?v=N)`. Re-rendering invalidates the design's cached slice, G-code, and STEP
 (the old shape can never be downloaded or sent).
 
+### POST `/api/reverse-import`
+
+Recover a trusted, editable template design from an uploaded mesh when it confidently matches a
+known part family. This endpoint accepts raw STL, 3MF, or OBJ bytes with the original filename in
+`X-TinkerQuarry-Filename`.
+
+The importer is conservative: it first measures the uploaded mesh, finds a known-family envelope,
+rebuilds that trusted family, then compares bounding box, volume, and surface area before
+registering an editable design. If the file is unreadable, no family matches, or the rebuilt twin
+does not match the measured geometry closely enough, the response is a recoverable `200` with
+`status: "render_failed"` or `status: "needs_experimental"`, `has_mesh: false`, and an `error`
+message. Rejected imports do not register a mesh id.
+
+STEP/STP files are not accepted here. STEP remains an export format from trusted template twins,
+not a reverse-to-parametric import format.
+
 ---
 
 ## Artifacts

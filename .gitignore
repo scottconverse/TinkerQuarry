@@ -33,6 +33,9 @@ Thumbs.db
 apps/*/dist/
 packages/*/dist/
 *.log
+*.exe
+*.msi
+gate-tinkerquarry-*/artifacts/
 .vite/
 .wrangler-functions-build/
 **/.wrangler-functions-build/

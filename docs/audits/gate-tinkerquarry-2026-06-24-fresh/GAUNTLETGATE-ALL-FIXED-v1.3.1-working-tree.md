@@ -4,6 +4,11 @@
 **Lanes run:** lite, walkthrough, full · **Lanes NOT run:** none  
 **How run / environment:** local Windows repo, web dev server via Playwright, engine test venv, Rust/Tauri tests, Cloudflare Pages/Worker dry-run
 
+> **Erratum, 2026-06-30:** This is historical v1.3.1/post-release evidence. It predates the
+> current artifact-backed GauntletGate first-run standard and must not be used as clearance for
+> later working-tree changes. Use the latest `gate-tinkerquarry-2026-06-30-rerun/` report for the
+> current tree.
+
 ---
 
 ## Verdict (Read First)

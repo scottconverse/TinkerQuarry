@@ -1,6 +1,14 @@
 import React, { useCallback, useRef, useState } from 'react';
 import type { IDockviewPanelProps, IDockviewPanelHeaderProps } from 'dockview';
-import { TbCode, TbEye, TbSparkles, TbTerminal2 } from 'react-icons/tb';
+import {
+  TbCamera,
+  TbCode,
+  TbEye,
+  TbInfoCircle,
+  TbRuler,
+  TbSparkles,
+  TbTerminal2,
+} from 'react-icons/tb';
 import type { IconType } from 'react-icons';
 import { Editor } from '../Editor';
 import { Preview } from '../Preview';
@@ -17,6 +25,12 @@ import { getPlatform } from '../../platform';
 import { notifyError } from '../../utils/notifications';
 import { MAIN_PREVIEW_VIEWER_ID } from '../../utils/capturePreview';
 import { useAnalytics } from '../../localAnalytics';
+import {
+  IntentPanel,
+  PropertiesPanel,
+  ProvenancePanel,
+  VisualInspectionPanel,
+} from '../ProductEvidencePanels';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
   const {
@@ -254,6 +268,10 @@ export const panelComponents: Record<string, React.FC<IDockviewPanelProps>> = {
   console: ConsolePanel,
   'diff-viewer': DiffViewerPanel,
   customizer: CustomizerPanelWrapper,
+  intent: IntentPanel,
+  properties: PropertiesPanel,
+  'visual-inspection': VisualInspectionPanel,
+  provenance: ProvenancePanel,
 };
 
 export interface PanelTypeInfo {
@@ -268,6 +286,10 @@ export const PANEL_TYPES: PanelTypeInfo[] = [
   { id: 'preview', label: 'Preview', icon: TbEye },
   { id: 'ai-chat', label: 'AI', icon: TbSparkles },
   { id: 'console', label: 'Console', icon: TbTerminal2 },
+  { id: 'intent', label: 'Intent', icon: TbInfoCircle },
+  { id: 'properties', label: 'Properties', icon: TbRuler },
+  { id: 'visual-inspection', label: 'Visual', icon: TbCamera },
+  { id: 'provenance', label: 'Provenance', icon: TbInfoCircle },
 ];
 
 export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
@@ -336,7 +358,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
       {/* eslint-disable-next-line no-restricted-syntax -- panel-type icon trigger is a 14px icon button embedded in a dockview tab header (height: 100%); <IconButton>'s h-7 or h-8 sizes are larger than the tab strip allows */}
       <button
         type="button"
-        aria-label="Change panel type"
+        aria-label={`Change ${props.api.title} panel type`}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={(e) => {

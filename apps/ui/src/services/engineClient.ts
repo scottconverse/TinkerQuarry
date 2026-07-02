@@ -54,18 +54,67 @@ export interface ModelPullProgressResult {
 export interface GateFinding {
   key?: string;
   label?: string;
+  level?: string;
+  code?: string;
+  message?: string;
   ok?: boolean;
   warn?: boolean;
   detail?: string;
+}
+
+export interface DesignDimensionCheck {
+  axis?: string;
+  target?: number;
+  actual?: number;
+  ok?: boolean;
 }
 
 export interface DesignReport {
   gate_status?: "pass" | "warn" | "fail";
   headline?: string;
   backend?: string;
-  dims?: number[];
+  dims?: DesignDimensionCheck[];
   findings?: GateFinding[];
-  readiness?: { score?: number; verdict?: string; tone?: string };
+  watertight?: boolean;
+  volume_mm3?: number;
+  surface_area_mm2?: number;
+  center_of_mass_mm?: number[] | null;
+  orientation?: string;
+  readiness?: {
+    score?: number;
+    verdict?: string;
+    tone?: string;
+    confidence?: string;
+    risks?: Array<{ title?: string; detail?: string; tone?: string }>;
+    recommendations?: string[];
+    comparison?: string | null;
+    attribution?: string | null;
+  } | null;
+}
+
+export interface DesignFeature {
+  type?: string;
+  description?: string;
+  diameter_mm?: number | null;
+  width_mm?: number | null;
+  depth_mm?: number | null;
+  count?: number | null;
+  spacing_mm?: number | null;
+  position?: number[] | null;
+  notes?: string | null;
+}
+
+export interface DesignPlan {
+  object_type?: string;
+  summary?: string;
+  dimensions?: Record<string, number>;
+  target_bbox_mm?: number[] | null;
+  features?: DesignFeature[];
+  tolerances?: { clearance_mm?: number; notes?: string | null } | null;
+  printer?: string | null;
+  material?: string | null;
+  assumptions?: string[];
+  open_questions?: string[];
 }
 
 export interface VisualProbeResult {
@@ -122,10 +171,18 @@ export interface DesignResult {
   has_mesh?: boolean;
   mesh_url?: string | null;
   step_url?: string | null;
+  step_offer?: string | null;
   template?: string | null;
   params?: unknown[];
-  plan?: unknown;
+  plan?: DesignPlan | null;
   report?: DesignReport;
+  reverse_import?: {
+    source_filename?: string;
+    matched_family?: string;
+    confidence?: number;
+    measured_bbox_mm?: number[];
+    matched_bbox_mm?: number[];
+  };
   clarification?: string | null;
   error?: string | null;
 }
@@ -244,7 +301,7 @@ function localEngineUnavailableMessage(): string {
   if (desktopEngineStartupError) {
     return `The bundled local engine could not start: ${desktopEngineStartupError}`;
   }
-  return "Could not reach the local engine. Open the Windows app, or run the local engine from this checkout with: cd packages\\engine; .venv\\Scripts\\kimcad.exe web --port 8765 --demo";
+  return "Could not reach the local engine.";
 }
 
 export interface SavedDesignEntry {
@@ -396,8 +453,9 @@ export class EngineClient {
     path: string,
     body: Uint8Array,
     contentType: string,
+    extraHeaders: Record<string, string> = {},
   ): Promise<ApiResponse<T>> {
-    const headers: Record<string, string> = { "Content-Type": contentType };
+    const headers: Record<string, string> = { "Content-Type": contentType, ...extraHeaders };
     let base = this.base;
     let tok = sessionToken();
     if (base === DEFAULT_API_BASE) {
@@ -552,6 +610,16 @@ export class EngineClient {
       "/designs/import",
       bytes,
       "application/zip",
+    );
+  }
+  /** Reverse-import an STL/3MF/OBJ mesh file into the closest trusted parametric family. */
+  reverseImport(bytes: Uint8Array, filename: string) {
+    return this.rawJsonReq<DesignResult>(
+      "POST",
+      "/reverse-import",
+      bytes,
+      "application/octet-stream",
+      { "X-TinkerQuarry-Filename": filename },
     );
   }
   /** Download a binary engine asset URL such as /api/step/123 in web or Tauri runtime. */

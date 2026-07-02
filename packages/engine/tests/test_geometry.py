@@ -45,6 +45,8 @@ def test_validate_watertight_box():
     assert report.n_bodies == 1
     assert np.allclose(report.bounding_box_mm, (50, 50, 10), atol=1e-6)
     assert abs(report.volume_mm3 - 25000) < 1.0
+    assert abs(report.surface_area_mm2 - 7000) < 1.0
+    assert np.allclose(report.center_of_mass_mm, (0, 0, 0), atol=1e-6)
 
 
 def test_validate_counts_disconnected_bodies():

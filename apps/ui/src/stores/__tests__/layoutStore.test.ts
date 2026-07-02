@@ -91,6 +91,10 @@ describe('layoutStore addPresetPanels', () => {
     expect(api.groups).toHaveLength(3);
     expect(api.getPanel('ai-chat')?.group.id).toBe(api.getPanel('editor')?.group.id);
     expect(api.getPanel('preview')?.group.id).toBe(api.getPanel('console')?.group.id);
+    expect(api.getPanel('intent')?.group.id).toBe(api.getPanel('preview')?.group.id);
+    expect(api.getPanel('properties')?.group.id).toBe(api.getPanel('preview')?.group.id);
+    expect(api.getPanel('visual-inspection')?.group.id).toBe(api.getPanel('preview')?.group.id);
+    expect(api.getPanel('provenance')?.group.id).toBe(api.getPanel('preview')?.group.id);
     // The customizer ("Customize") is its OWN right column, not a tab in the preview group.
     expect(api.getPanel('customizer')?.group.id).not.toBe(api.getPanel('preview')?.group.id);
   });
@@ -107,6 +111,10 @@ describe('layoutStore addPresetPanels', () => {
       'editor',
       'ai-chat',
       'console',
+      'intent',
+      'properties',
+      'visual-inspection',
+      'provenance',
     ]);
 
     const previewGroupId = api.getPanel('preview')?.group.id;
@@ -114,12 +122,20 @@ describe('layoutStore addPresetPanels', () => {
     expect(api.getPanel('editor')?.group.id).toBe(previewGroupId);
     expect(api.getPanel('ai-chat')?.group.id).toBe(previewGroupId);
     expect(api.getPanel('console')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('intent')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('properties')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('visual-inspection')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('provenance')?.group.id).toBe(previewGroupId);
 
     expect(api.addPanelCalls[0]?.inactive).toBeUndefined();
     expect(api.addPanelCalls[1]?.inactive).toBe(true);
     expect(api.addPanelCalls[2]?.inactive).toBe(true);
     expect(api.addPanelCalls[3]?.inactive).toBe(true);
     expect(api.addPanelCalls[4]?.inactive).toBe(true);
+    expect(api.addPanelCalls[5]?.inactive).toBe(true);
+    expect(api.addPanelCalls[6]?.inactive).toBe(true);
+    expect(api.addPanelCalls[7]?.inactive).toBe(true);
+    expect(api.addPanelCalls[8]?.inactive).toBe(true);
   });
 
   it('creates a preview-led customizer-first desktop layout', () => {
@@ -135,5 +151,9 @@ describe('layoutStore addPresetPanels', () => {
     expect(api.getPanel('ai-chat')?.group.id).toBe(previewGroupId);
     expect(api.getPanel('editor')?.group.id).toBe(previewGroupId);
     expect(api.getPanel('console')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('intent')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('properties')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('visual-inspection')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('provenance')?.group.id).toBe(previewGroupId);
   });
 });
