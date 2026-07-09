@@ -126,3 +126,27 @@ def test_catalog_was_reverified_after_its_last_edit():
         f"sha256 {recorded_sha[:12]}…). Re-run `scripts/build_printer_catalog.py --verify` to "
         "re-prove every printer slices, then commit the refreshed record."
     )
+
+
+def test_no_slice_proven_printer_is_gui_blocked():
+    """Gate 2026-07-09 (T1): KNOWN_UNSLICEABLE_PRINTERS shipped a stale entry that kept blocking
+    the Neptune 4 Max in the GUI long after the bundled slicer could slice it (the live test
+    passed while web_options still said sliceable:false). Tripwire: a printer the proof-of-record
+    live-sliced may never sit in the GUI block list, and every blocked key must at least be a
+    real catalog printer."""
+    import json
+
+    from kimcad.webapp import KNOWN_UNSLICEABLE_PRINTERS
+
+    catalog = set(Config.load().raw.get("printers", {}))
+    for key in KNOWN_UNSLICEABLE_PRINTERS:
+        assert key in catalog, f"blocked printer {key!r} is not in the catalog"
+    if VERIFY_RECORD.exists():
+        proven = set(json.loads(VERIFY_RECORD.read_text(encoding="utf-8")).get(
+            "slice_proven_printers", []
+        ))
+        stale = proven & set(KNOWN_UNSLICEABLE_PRINTERS)
+        assert not stale, (
+            f"printers {sorted(stale)} are slice-proven by {VERIFY_RECORD.name} but still "
+            "blocked in KNOWN_UNSLICEABLE_PRINTERS — remove the stale block or re-verify."
+        )

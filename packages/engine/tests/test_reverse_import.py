@@ -2,10 +2,34 @@ from types import SimpleNamespace
 
 from kimcad.reverse_import import (
     geometry_signature_matches,
+    match_known_families_from_bbox,
     match_known_family_from_bbox,
     plan_from_match,
 )
 from kimcad.templates import default_registry
+
+
+def test_bbox_ties_return_every_candidate_family_ranked():
+    """QA-1 (gate 2026-07-09): a 20x20x30 envelope ties MANY families (solid cylinder, hollow
+    box, tray...). The old single-winner API returned whichever registered first (snap_box) and
+    the import path never tried the rest — rejecting a dowel pin on its own textbook shape. The
+    candidate list must contain dowel_pin so the signature loop can reach it."""
+    candidates = match_known_families_from_bbox((20.0, 20.0, 30.0))
+
+    names = [m.family.name for m in candidates]
+    assert len(candidates) > 1, "shared envelope must yield multiple candidates"
+    assert "dowel_pin" in names, f"dowel_pin missing from tied candidates: {names}"
+    assert all(
+        candidates[i].score_mm <= candidates[i + 1].score_mm for i in range(len(candidates) - 1)
+    ), "candidates must be ranked best-first"
+    # The single-winner wrapper stays consistent with the head of the ranked list.
+    single = match_known_family_from_bbox((20.0, 20.0, 30.0))
+    assert single is not None and single.family.name == names[0]
+
+
+def test_bbox_no_match_returns_empty_list():
+    assert match_known_families_from_bbox((0.4, 0.4, 0.4)) == []
+    assert match_known_families_from_bbox((float("nan"), 10.0, 10.0)) == []
 
 
 def test_reverse_import_matches_direct_bbox_template_family():
