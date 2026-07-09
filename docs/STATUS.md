@@ -29,10 +29,11 @@ intended behavior.
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Full repo gate | Passed 2026-07-09 | `pnpm test:gate` completed cleanly on the release tree |
-| UI unit coverage | Passed | 94 Jest suites / 660 tests in the gate run |
-| Web unit coverage | Passed | 4 Jest suites / 20 tests in the gate run |
-| Engine coverage | Passed | 1746 pytest tests, 0 skipped, with the gate's `--strict-no-skips` flag |
+| Full repo gate | Passed 2026-07-09 (post-GauntletGate rerun) | `pnpm test:gate` exit 0 on the fixed release tree |
+| GauntletGate v1.4.0 | CLEAR TO ADVANCE at fix-to-zero | [gate report](audits/gate-tinkerquarry-2026-07-09/GATE-REPORT.md): 2 Critical / 11 Major / 7 Minor found, all fixed and re-verified (one refuted with probe evidence) |
+| UI unit coverage | Passed | 94 Jest suites / 670 tests in the gate rerun |
+| Web unit coverage | Passed | 4 Jest suites / 20 tests in the gate rerun |
+| Engine coverage | Passed | 1755 pytest tests, 0 skipped, with the gate's `--strict-no-skips` flag |
 | Browser e2e | Passed | 7 Playwright tests (accessibility, manufacturing flow, workspace, mobile/tablet) |
 | Rust/Tauri tests | Passed | `pnpm test:rust` in gate |
 | Rust dependency audit | Passed with scoped upstream exception | `pnpm test:rust:audit` ignores only `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195`, both from the currently latest `plist -> quick-xml` dependency path |
