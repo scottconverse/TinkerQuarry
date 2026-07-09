@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TinkerQuarry - Local-first AI CAD for printable parts</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101828'/%3E%3Cpath d='M8 12h16M16 12v12' stroke='%23087443' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
     <meta
       name="description"
       content="TinkerQuarry turns plain-English prompts into editable, checked, printable 3D parts. Local-first Windows beta with OpenSCAD, PrintProof3D, OrcaSlicer, reverse import, and STEP export lanes."
@@ -273,9 +274,10 @@
         <div class="proof-inner">
           <h2>Verified Windows beta</h2>
           <p class="section-lead">
-            The current tree passed the full gate, native release build, direct Tauri runtime smoke,
-            and installed NSIS workflow smoke. The malformed reverse-import test passes because the
-            app correctly rejects the malformed mesh.
+            Every release must pass the complete automated test suite, a real build of the Windows
+            installer, and hands-off checks of both the built app and a fresh installed copy before
+            it is published. Malformed or unrecognized 3D files are detected and safely rejected
+            instead of becoming broken designs.
           </p>
           <div class="grid">
             <article class="item">

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% if page.title %}{{ page.title }} · {% endif %}TinkerQuarry</title>
+    <meta name="description" content="{{ site.description }}" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101828'/%3E%3Cpath d='M8 12h16M16 12v12' stroke='%23087443' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <style>
+      :root {
+        --ink: #101828;
+        --muted: #475467;
+        --line: #d0d5dd;
+        --panel: #ffffff;
+        --wash: #f2f4f7;
+        --green: #087443;
+        --blue: #175cd3;
+        --gold: #b54708;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: var(--wash);
+        line-height: 1.6;
+      }
+      .site-nav {
+        background: var(--ink);
+        padding: 0.65rem 1rem;
+      }
+      .site-nav .inner {
+        max-width: 60rem;
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: baseline;
+      }
+      .site-nav a { color: #eaf3fb; text-decoration: none; font-size: 0.9rem; }
+      .site-nav a:hover { text-decoration: underline; }
+      .site-nav .brand { font-weight: 700; font-size: 1rem; color: #ffffff; }
+      main {
+        max-width: 60rem;
+        margin: 0 auto;
+        padding: 1.5rem 1.25rem 4rem;
+        background: var(--panel);
+        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+      }
+      h1, h2, h3, h4 { line-height: 1.25; }
+      h1 { border-bottom: 2px solid var(--line); padding-bottom: 0.4rem; }
+      h2 { border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; margin-top: 2.2rem; }
+      a { color: var(--blue); }
+      code {
+        background: var(--wash);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0.1em 0.35em;
+        font-size: 0.92em;
+      }
+      pre {
+        background: var(--wash);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 0.9rem;
+        overflow-x: auto;
+      }
+      pre code { background: none; border: none; padding: 0; }
+      table { border-collapse: collapse; width: 100%; margin: 1rem 0; display: block; overflow-x: auto; }
+      th, td { border: 1px solid var(--line); padding: 0.45rem 0.7rem; text-align: left; vertical-align: top; }
+      th { background: var(--wash); }
+      img { max-width: 100%; }
+      blockquote { border-left: 4px solid var(--line); margin-left: 0; padding-left: 1rem; color: var(--muted); }
+      .mermaid { background: var(--panel); text-align: center; }
+      footer {
+        max-width: 60rem;
+        margin: 0 auto;
+        padding: 1rem 1.25rem 2.5rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <div class="inner">
+        <a class="brand" href="{{ '/' | relative_url }}">TinkerQuarry</a>
+        <a href="{{ '/USER-MANUAL.html' | relative_url }}">Manual</a>
+        <a href="{{ '/ARCHITECTURE.html' | relative_url }}">Architecture</a>
+        <a href="{{ '/STATUS.html' | relative_url }}">Status</a>
+        <a href="https://github.com/scottconverse/TinkerQuarry">GitHub</a>
+        <a href="https://github.com/scottconverse/TinkerQuarry/releases/latest">Download</a>
+      </div>
+    </nav>
+    <main>
+      {{ content }}
+    </main>
+    <footer>
+      TinkerQuarry is GPL-2.0-only ·
+      <a href="https://github.com/scottconverse/TinkerQuarry">source</a> ·
+      <a href="https://github.com/scottconverse/TinkerQuarry/releases/latest">latest release</a>
+    </footer>
+    <script type="module">
+      // The docs embed fenced ```mermaid blocks; kramdown emits them as
+      // <pre><code class="language-mermaid">. Convert and render client-side.
+      const blocks = document.querySelectorAll("pre code.language-mermaid");
+      if (blocks.length) {
+        const { default: mermaid } = await import(
+          "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
+        );
+        for (const code of blocks) {
+          const holder = document.createElement("pre");
+          holder.className = "mermaid";
+          holder.textContent = code.textContent;
+          code.closest("pre").replaceWith(holder);
+        }
+        mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+        await mermaid.run({ querySelector: ".mermaid" });
+      }
+    </script>
+  </body>
+</html>
