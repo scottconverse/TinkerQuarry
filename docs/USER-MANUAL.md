@@ -48,7 +48,9 @@ By default:
 - no telemetry is sent;
 - prompts and designs stay on your computer;
 - the local KimCad engine runs on your computer;
-- OpenSCAD, PrintProof3D, OrcaSlicer, and reverse-import checks run locally;
+- all the bundled tools run locally too — OpenSCAD (the 3D geometry engine), OrcaSlicer (which
+  prepares files for your printer), PrintProof3D (the printability checker), and the
+  imported-file checks;
 - cloud models are off.
 
 If you enable cloud acceleration in Settings, your prompt can be sent to the provider you configure.
@@ -381,7 +383,8 @@ Important endpoint families:
 - `/api/connectors`
 - `/api/connections`
 
-Full API reference: [packages/engine/docs/api.md](../packages/engine/docs/api.md).
+Full [API reference](https://github.com/scottconverse/TinkerQuarry/blob/main/packages/engine/docs/api.md)
+(on GitHub — the file lives outside this site's publish root).
 
 ## Manufacturing State Rules
 
@@ -441,24 +444,20 @@ Controls in the current product:
 Current-tree gate evidence:
 
 - `pnpm test:gate`: passed.
-- UI Jest: 94 suites / 660 tests in the final gate run.
+- UI Jest: 94 suites / 670 tests in the final gate run.
 - Web Jest: 4 suites / 20 tests in the final gate run.
-- Engine pytest: 1746 passed in the final gate run.
+- Engine pytest: 1755 passed, 0 skipped, in the final gate run.
 - Playwright browser e2e: 7 passed in the final gate run.
-- `scripts\native-release.cmd`: passed from `C:\tqbuild\TinkerQuarry`.
+- `scripts\native-release.cmd`: passed.
 - `pnpm test:e2e:tauri`: passed against the release executable.
 - `pnpm test:e2e:tauri:installed`: passed against the installed NSIS copy.
 
-Fresh NSIS rerun artifact:
-
-```text
-Name: TinkerQuarry_1.4.0_x64-setup.exe
-SHA-256: 7C0E1E9B5CC2840FA44F568040D132B3CD8E34F4C214C86EBA34D7373708F05F
-Verified: native runtime smoke and installed NSIS smoke
-```
-
-Public release assets are hosted on the
-[v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
+The **only** source of truth for the published installer's checksum is `SHA256SUMS.txt` on the
+[v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0) —
+compare your `Get-FileHash` output against that file (the release's `release-manifest.json`
+pins the exact source commit the artifacts were built from). This manual deliberately does not
+repeat the hash: a locally rebuilt installer produces a different, equally valid hash, and a
+stale copy here would read like a tampered download.
 
 ---
 

@@ -2,6 +2,15 @@ title: TinkerQuarry
 description: Local-first AI CAD for real 3D-printable parts.
 markdown: kramdown
 theme: null
+# Visitor audit 2026-07-09: with theme:null and no layout, every converted .md page shipped as a
+# bare HTML fragment — no <title>, no CSS, no nav, and mermaid diagrams as raw code text. The
+# default layout wraps converted pages; index.html has no front matter, so Jekyll copies it
+# verbatim and it keeps its own hand-built markup.
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
 exclude:
   - audits/
   - handoff/
