@@ -337,7 +337,17 @@ def find_cadquery_interpreter(
             cmds.extend([["py", f"-{v}"] for v in ("3.13", "3.12", "3.11")])
         cmds.extend([[n] for n in ("python3.13", "python3.12", "python3.11", "python3")])
 
+    # Gate 2026-07-09 (Eng-4): per-candidate timeouts alone let discovery run cmds × 240 s in
+    # the pathological all-candidates-hang case (10+ minutes). One overall deadline bounds the
+    # WHOLE discovery pass; each candidate still gets its full window when time remains.
+    import time as _time
+
+    per_candidate_s = _env_timeout("KIMCAD_CQ_PROBE_TIMEOUT_S", 240)
+    total_deadline = _time.monotonic() + _env_timeout("KIMCAD_CQ_DISCOVERY_TIMEOUT_S", 300)
     for cmd in cmds:
+        remaining = total_deadline - _time.monotonic()
+        if remaining <= 0:
+            break
         try:
             # The probe is ~3-4s warm, but a COLD venv (fresh pip install, Defender scanning
             # the new OCP binaries) measured 41s on the CI runner — 20s timed out and the
@@ -348,7 +358,7 @@ def find_cadquery_interpreter(
             # Scrub secrets from the probe env too (the probe needs none) — ENG-002.
             proc = subprocess.run(
                 [*cmd, "-c", _PROBE], capture_output=True, text=True,
-                timeout=_env_timeout("KIMCAD_CQ_PROBE_TIMEOUT_S", 240),
+                timeout=min(per_candidate_s, remaining),
                 env=_worker_env(),
             )
         except (OSError, subprocess.SubprocessError):

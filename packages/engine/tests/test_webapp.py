@@ -670,18 +670,30 @@ def test_serves_spa_index_and_assets_and_rejects_traversal(tmp_path):
 # --- Stage 1 Slice 3b: printer/material selection + slice-on-confirm -----------
 
 
-def test_web_options_lists_printers_with_sliceable_flag():
+def test_web_options_lists_printers_with_sliceable_flag(monkeypatch):
     opts = web_options(Config.load())
     by_key = {p["key"]: p for p in opts["printers"]}
     # Bambu profiles ship machine + process + filament profiles and are currently usable.
     assert by_key["bambu_p2s"]["sliceable"] is True
     assert by_key["bambu_a1"]["sliceable"] is True
-    assert by_key["elegoo_neptune_4_max"]["sliceable"] is False
-    assert "relative extruder mode" in by_key["elegoo_neptune_4_max"]["slice_note"]
+    # Gate 2026-07-09 (T1): the Neptune 4 Max block went stale once the bundled slicer could
+    # slice it (the live per-vendor test proves it) — it must now read sliceable, no note.
+    assert by_key["elegoo_neptune_4_max"]["sliceable"] is True
+    assert not by_key["elegoo_neptune_4_max"].get("slice_note")
     assert by_key["bambu_p2s"]["layer_height_mm"] is None or by_key["bambu_p2s"]["layer_height_mm"] > 0
     assert any(m["key"] == "pla" for m in opts["materials"])
     assert opts["default_printer"] == "bambu_p2s"
     assert opts["default_material"] == "pla"
+    # The block MECHANISM still works: a synthetic entry marks the printer unsliceable and a
+    # saved default pointing at it falls back to a usable printer.
+    import kimcad.webapp as webapp_mod
+
+    monkeypatch.setitem(
+        webapp_mod.KNOWN_UNSLICEABLE_PRINTERS, "elegoo_neptune_4_max", "synthetic test block"
+    )
+    blocked_by_key = {p["key"]: p for p in web_options(Config.load())["printers"]}
+    assert blocked_by_key["elegoo_neptune_4_max"]["sliceable"] is False
+    assert "synthetic test block" in blocked_by_key["elegoo_neptune_4_max"]["slice_note"]
     blocked_saved = web_options(
         Config.load(),
         {"default_printer": "elegoo_neptune_4_max", "default_material": "pla"},
@@ -817,6 +829,31 @@ def test_token_on_post_to_get_only_route_is_405_with_json_body(tmp_path):
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+def test_get_on_post_only_route_is_405_with_json_body(tmp_path):
+    """Gate 2026-07-09 (QA-2): the MIRROR of the test above — a GET to a POST-only route must
+    carry the same truthful Allow header AND the same JSON error envelope. The old inline
+    responder in do_GET sent an empty, content-type-less 405, breaking the uniform contract
+    (and this exact direction had no test, which is how it regressed)."""
+    import http.client
+    import json as _j
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        for path in ("/api/design", "/api/reverse-import", "/api/model-pull",
+                     "/api/libraries/admit", "/api/libraries/remove"):
+            conn = http.client.HTTPConnection(host, port, timeout=10)
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            body = resp.read()
+            allow = resp.getheader("Allow")
+            ctype = resp.getheader("Content-Type") or ""
+            conn.close()
+            assert resp.status == 405, f"{path} should be 405, got {resp.status}"
+            assert (allow or "") == "POST", f"{path} Allow header wrong: {allow!r}"
+            assert "application/json" in ctype, f"{path} missing JSON content type: {ctype!r}"
+            assert _j.loads(body) == {"error": "Method not allowed."}, f"{path} body: {body!r}"
 
 
 def test_tauri_desktop_origin_can_preflight_and_send_tokened_posts(tmp_path):
@@ -1008,6 +1045,128 @@ def test_reverse_import_http_success_registers_mesh_and_source(tmp_path):
         assert "snap_box" in source["scad"]
 
 
+def _post_reverse_import(host, port, body, filename, timeout=120):
+    import http.client
+    import json as _json
+
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    conn.request(
+        "POST",
+        "/api/reverse-import",
+        body=body,
+        headers={
+            "Content-Type": "application/octet-stream",
+            "X-TinkerQuarry-Filename": filename,
+        },
+    )
+    resp = conn.getresponse()
+    payload = _json.loads(resp.read().decode("utf-8"))
+    conn.close()
+    return resp.status, payload
+
+
+def _stl_bytes(mesh):
+    import io
+
+    buf = io.BytesIO()
+    mesh.export(buf, file_type="stl")
+    return buf.getvalue()
+
+
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
+def test_reverse_import_solid_cylinder_reaches_the_dowel_pin_twin(tmp_path):
+    """QA-1 (gate 2026-07-09): a solid 20x30 mm cylinder — the dowel_pin family's own textbook
+    shape — was REJECTED because the bbox matcher returned only the first-registered envelope tie
+    (snap_box, hollow) and the signature check never tried the rest. The import loop must now
+    walk the tied candidates against the REAL renderer until the solid-cylinder twin agrees."""
+    import trimesh
+
+    body = _stl_bytes(trimesh.creation.cylinder(radius=10.0, height=30.0))
+    pipe = Pipeline(Config.load(), BAMBU, PLA, FakeProvider(_plan([20, 20, 30])))
+    with _serve(pipe, tmp_path) as (host, port):
+        status, payload = _post_reverse_import(host, port, body, "pin.stl", timeout=300)
+
+    assert status == 200
+    assert payload["status"] == "completed", payload.get("reverse_import", payload.get("error"))
+    assert payload["reverse_import"]["matched_family"] == "dowel_pin"
+    assert payload["has_mesh"] is True
+
+
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
+def test_reverse_import_rejects_when_no_twin_signature_agrees(tmp_path):
+    """T5 (gate 2026-07-09): the signature-mismatch reject branch, over HTTP, with the real
+    renderer. A solid sphere shares a cubic envelope with several families but its volume/surface
+    signature agrees with none of their twins — the loop must try the candidates and reject
+    honestly, reporting how many it tried."""
+    import trimesh
+
+    body = _stl_bytes(trimesh.creation.icosphere(subdivisions=3, radius=12.0))
+    pipe = Pipeline(Config.load(), BAMBU, PLA, FakeProvider(_plan([24, 24, 24])))
+    with _serve(pipe, tmp_path) as (host, port):
+        status, payload = _post_reverse_import(host, port, body, "ball.stl", timeout=300)
+
+    assert status == 200
+    assert payload["status"] == "needs_experimental"
+    assert payload["has_mesh"] is False
+    ri = payload["reverse_import"]
+    assert ri["candidates_tried"] >= 1
+    assert ri["rejected_reasons"], "reject must say why the best candidate's signature failed"
+    assert not _reverse_import_output_dirs(tmp_path)
+
+
+def test_reverse_import_unmatched_envelope_is_needs_experimental(tmp_path):
+    """T5: the no-family-matches reject branch over HTTP (fake renderer fine — never reached)."""
+    import trimesh
+
+    body = _stl_bytes(trimesh.creation.box(extents=(317.0, 3.5, 91.0)))
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        status, payload = _post_reverse_import(host, port, body, "odd.stl")
+
+    assert status == 200
+    assert payload["status"] == "needs_experimental"
+    assert payload["has_mesh"] is False
+    assert payload["reverse_import"]["measured_bbox_mm"] == [317.0, 3.5, 91.0]
+    assert not _reverse_import_output_dirs(tmp_path)
+
+
+def test_reverse_import_oversize_body_is_a_typed_413(tmp_path):
+    """T5: /api/reverse-import has its own 64 MiB cap (a distinct constant from the 1 MiB JSON
+    cap the older 413 tests exercise) — declaring more must get the typed refusal."""
+    import http.client
+    import json as _json
+
+    from kimcad.webapp import MAX_REVERSE_IMPORT_BYTES
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        conn = http.client.HTTPConnection(host, port, timeout=30)
+        conn.putrequest("POST", "/api/reverse-import")
+        conn.putheader("Content-Type", "application/octet-stream")
+        conn.putheader("X-TinkerQuarry-Filename", "big.stl")
+        conn.putheader("Content-Length", str(MAX_REVERSE_IMPORT_BYTES + 1))
+        conn.endheaders()
+        resp = conn.getresponse()
+        payload = _json.loads(resp.read().decode("utf-8"))
+        conn.close()
+
+    assert resp.status == 413
+    assert "too large" in payload["error"].lower()
+    assert not _reverse_import_output_dirs(tmp_path)
+
+
+def test_reverse_import_unknown_suffix_is_a_400(tmp_path):
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        status, payload = _post_reverse_import(host, port, b"anything", "model.step")
+
+    assert status == 400
+    assert "STL, 3MF, or OBJ" in payload["error"]
+    assert not _reverse_import_output_dirs(tmp_path)
+
+
 def _reverse_import_output_dirs(root):
     return [path for path in root.iterdir() if path.is_dir() and path.name.isdigit()]
 
@@ -1139,7 +1298,15 @@ def test_slice_registered_mesh_refuses_printer_without_process(tmp_path):
     assert gcode_path is None
 
 
-def test_slice_registered_mesh_refuses_known_blocked_profile(tmp_path):
+def test_slice_registered_mesh_refuses_known_blocked_profile(tmp_path, monkeypatch):
+    # Gate 2026-07-09 (T1): the real dict is empty since v1.4.0; a synthetic entry keeps this a
+    # MECHANISM test (the block refuses before touching the mesh) instead of pinning a stale
+    # catalog fact that could never fail when the catalog moved on.
+    import kimcad.webapp as webapp_mod
+
+    monkeypatch.setitem(
+        webapp_mod.KNOWN_UNSLICEABLE_PRINTERS, "elegoo_neptune_4_max", "synthetic test block"
+    )
     mesh = tmp_path / "part.oriented.stl"
     mesh.write_bytes(b"solid x\nendsolid x\n")  # never reached; known profile block fails first
     info, gcode_path = slice_registered_mesh(
@@ -1147,7 +1314,7 @@ def test_slice_registered_mesh_refuses_known_blocked_profile(tmp_path):
     )
     assert info["sliced"] is False
     assert info["reason"] == "no_profile"
-    assert "relative extruder mode" in info["note"]
+    assert "synthetic test block" in info["note"]
     assert gcode_path is None
 
 

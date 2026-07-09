@@ -1706,6 +1706,12 @@ function App() {
   // end state as a fresh describe (viewer renders it, Customizer sliders work). Used by the
   // WelcomeScreen "My Designs" surface.
   const handleReverseImportCad = useCallback(() => {
+    // Gate 2026-07-09 (UX-5): three surfaces call this (toolbar + empty-state panels); only
+    // the toolbar button was disabled while an import ran. Guard re-entry HERE so no entry
+    // point can start overlapping imports.
+    if (reverseImportStatus.state === "running") {
+      return;
+    }
     if (!ready) {
       const message = "Start the local engine before importing CAD.";
       setReverseImportStatus({ state: "error", message });
@@ -1753,7 +1759,7 @@ function App() {
       })();
     };
     input.click();
-  }, [commitEngineOutcome, hideWelcomeScreen, ready]);
+  }, [commitEngineOutcome, hideWelcomeScreen, ready, reverseImportStatus.state]);
 
   const handleReopenDesign = useCallback(
     async (id: string) => {
@@ -4149,9 +4155,12 @@ function App() {
           </Button>
 
           {reverseImportStatus.state === "error" && (
+            // Gate 2026-07-09 (UX-2): this block was `hidden ... sm:inline-flex`, so below a
+            // 640 px window the ONLY error/Retry surface for a failed import disappeared
+            // (the toast self-dismisses). It must stay visible at every window width.
             <div
               data-testid="reverse-import-status"
-              className="hidden max-w-[16rem] items-center gap-1 truncate text-xs sm:inline-flex"
+              className="inline-flex max-w-[16rem] items-center gap-1 truncate text-xs"
               style={{ color: "var(--color-error)" }}
               title={reverseImportStatus.message}
             >

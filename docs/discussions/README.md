@@ -5,7 +5,7 @@ each file into a new discussion in the matching category. Pin the announcement a
 
 | File | Category | Pin | Title |
 | --- | --- | --- | --- |
-| [01-announcement.md](01-announcement.md) | Announcements | Yes | TinkerQuarry v1.3.1: local-first AI CAD for printable parts |
+| [01-announcement.md](01-announcement.md) | Announcements | Yes | TinkerQuarry v1.4.0: local-first AI CAD for printable parts |
 | [02-faq.md](02-faq.md) | Q&A | Yes | FAQ: start here |
 | [03-show-and-tell.md](03-show-and-tell.md) | Show and Tell | No | Show and Tell: post your first TinkerQuarry print |
 | [04-roadmap-and-ideas.md](04-roadmap-and-ideas.md) | Ideas | No | Roadmap and ideas |

@@ -37,23 +37,27 @@ class GeometrySignatureCheck:
     reasons: tuple[str, ...] = ()
 
 
-def match_known_family_from_bbox(
+def match_known_families_from_bbox(
     bbox_mm: tuple[float, float, float],
     registry: TemplateRegistry | None = None,
-) -> ReverseImportMatch | None:
-    """Find the closest known template family for a measured bounding box.
+) -> list[ReverseImportMatch]:
+    """All template families whose analytic bounding box fits the measured one, best first.
 
-    The first useful slice uses the stable signal every family already declares:
-    an analytic bounding box. For each candidate, try default parameters and a
-    simple direct-axis inverse for slider dimensions that declare ``bbox_axis``.
+    A bounding box alone cannot pick between families that share an envelope (a solid
+    cylinder, a hollow box, and a tray can all measure 20x20x30) — ties at the same score
+    used to be broken by registration order, which made the matcher reject a dowel pin
+    because ``snap_box`` was registered first (gate 2026-07-09, QA-1). Callers verify the
+    mesh-scale geometry signature per candidate and keep the first that agrees, so this
+    returns the full ranked candidate list, one best entry per family.
     """
 
     if len(bbox_mm) != 3 or any((not math.isfinite(v) or v <= 0) for v in bbox_mm):
-        return None
+        return []
 
     reg = registry or default_registry()
-    best: ReverseImportMatch | None = None
+    matches: list[ReverseImportMatch] = []
     for family in reg.families():
+        best_for_family: ReverseImportMatch | None = None
         for values in _candidate_values(family, bbox_mm):
             expected = family.expected_bbox(values)
             score = _bbox_score(bbox_mm, expected)
@@ -69,9 +73,22 @@ def match_known_family_from_bbox(
                 score_mm=score,
                 confidence=confidence,
             )
-            if best is None or match.score_mm < best.score_mm:
-                best = match
-    return best
+            if best_for_family is None or match.score_mm < best_for_family.score_mm:
+                best_for_family = match
+        if best_for_family is not None:
+            matches.append(best_for_family)
+    matches.sort(key=lambda m: m.score_mm)
+    return matches
+
+
+def match_known_family_from_bbox(
+    bbox_mm: tuple[float, float, float],
+    registry: TemplateRegistry | None = None,
+) -> ReverseImportMatch | None:
+    """The single closest candidate (see :func:`match_known_families_from_bbox`)."""
+
+    matches = match_known_families_from_bbox(bbox_mm, registry)
+    return matches[0] if matches else None
 
 
 def geometry_signature_matches(

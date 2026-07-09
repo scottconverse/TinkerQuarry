@@ -1,6 +1,6 @@
 <!-- Category: Announcements. Pin this. -->
 
-# TinkerQuarry v1.3.1: local-first AI CAD for printable parts
+# TinkerQuarry v1.4.0: local-first AI CAD for printable parts
 
 TinkerQuarry is a Windows beta for making practical 3D-printable parts from plain language. You
 describe a part, inspect the generated OpenSCAD, review intent and properties, validate it against
@@ -39,7 +39,7 @@ rejects the malformed mesh, which is the intended behavior.
 - Manual: `docs/USER-MANUAL.md`
 - Architecture: `docs/ARCHITECTURE.md`
 - Status matrix: `docs/STATUS.md`
-- Release: https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1
+- Release: https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0
 
 If you make a real part, please post it in Show and Tell. Real prints and real failure cases are the
 best signal for the next stage.

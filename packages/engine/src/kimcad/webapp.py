@@ -51,12 +51,12 @@ MAX_REGISTRY = 50  # keep at most the last N rendered meshes; evict oldest
 # not rendered meshes), so it gets its own cap instead of overloading MAX_REGISTRY. Slices are
 # heavier and re-confirms are rarer, so a smaller bound is plenty.
 MAX_SLICE_CACHE = 16  # keep at most the last N cached (rid, printer, material) slice results
-KNOWN_UNSLICEABLE_PRINTERS: dict[str, str] = {
-    "elegoo_neptune_4_max": (
-        "Bundled OrcaSlicer 2.4.0 rejects its upstream Neptune 4 Max profile "
-        "(relative extruder mode without G92 E0)."
-    ),
-}
+# Catalog printers whose bundled-slicer profile is KNOWN broken, with the user-facing reason.
+# Empty since v1.4.0: the Neptune 4 Max entry (OrcaSlicer 2.4.0 rejecting its relative-extruder
+# profile) became stale once the bundled slicer was upgraded — the live per-vendor slice test
+# now proves it slices, while this dict still blocked it in the GUI (gate 2026-07-09, T1).
+# tests/test_printer_catalog.py cross-checks entries here against the slice proof-of-record.
+KNOWN_UNSLICEABLE_PRINTERS: dict[str, str] = {}
 MAX_BODY_BYTES = 1_048_576  # 1 MiB — prompts are tiny; reject anything larger
 # A design import carries a mesh (+ thumb), so it needs more headroom than a JSON body. Still
 # bounded so a hostile upload can't exhaust memory.
@@ -258,6 +258,13 @@ _MAX_PROGRESS_SLOTS = 32
 # single-user norm of one-at-a-time. Over the cap, the route returns 429 + Retry-After.
 _MAX_INFLIGHT_DESIGNS = 2
 _MAX_INFLIGHT_REVERSE_IMPORTS = 1
+# QA-1 (gate 2026-07-09): how many bbox-matched candidate families reverse-import will rebuild
+# and signature-check before giving up. A shared envelope ties MANY families (a 20x20x30 box
+# ties 18 today), so the loop must be able to reach them all — the natural bound is the family
+# count; this is a hard backstop against future catalog growth. Each attempt is one template
+# render (sub-second under Manifold) behind render_lock, the route is single-slot, and it is
+# reachable only via the loopback session-token surface.
+_MAX_REVERSE_IMPORT_CANDIDATES = 24
 # A client-supplied job_id keys in-memory progress state, so it's validated to a short, safe token
 # (a UUID fits) before use; anything else disables progress tracking for that run (best-effort).
 _JOB_ID_RE = re.compile(r"\A[A-Za-z0-9-]{1,64}\Z")
@@ -1326,11 +1333,11 @@ def make_handler(
                 return
             # QA-1002 (stage-10 gate): GET on a POST-only resource is 405 with a TRUTHFUL
             # Allow header, mirroring the do_POST tail's rule for GET-only resources.
+            # Gate 2026-07-09 (QA-2): route through _method_not_allowed so this path carries
+            # the SAME JSON error envelope as every other 405 — the inline responder sent an
+            # empty, content-type-less body that broke the uniform error contract.
             if _is_post_only(self.path):
-                self.send_response(405)
-                self.send_header("Allow", "POST")
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                self._method_not_allowed()
                 return
             self._json(404, {"error": "Not found."})
 
@@ -2682,7 +2689,7 @@ def make_handler(
             from kimcad.pipeline import PipelineStatus
             from kimcad.reverse_import import (
                 geometry_signature_matches,
-                match_known_family_from_bbox,
+                match_known_families_from_bbox,
                 plan_from_match,
             )
             from kimcad.validation import load_mesh, validate_mesh
@@ -2718,8 +2725,8 @@ def make_handler(
                 })
                 return
 
-            match = match_known_family_from_bbox(mesh_report.bounding_box_mm)
-            if match is None:
+            candidates = match_known_families_from_bbox(mesh_report.bounding_box_mm)
+            if not candidates:
                 reject(PipelineStatus.needs_experimental.value, {
                     "error": "Imported mesh did not confidently match a known parametric part family.",
                     "reverse_import": {
@@ -2735,40 +2742,58 @@ def make_handler(
                 })
                 return
 
-            plan = plan_from_match(match, filename)
-            try:
-                with render_lock:
-                    result = pipeline.rerender(
-                        plan, match.family.name, match.values, out_dir, basename="part"
-                    )
-            except Exception as e:  # never leak a traceback to the browser
-                self.log_error("reverse import render failed: %s: %s", type(e).__name__, e)
-                shutil.rmtree(out_dir, ignore_errors=True)
-                self._json(500, {"error": "Something went wrong while rebuilding the imported part."})
-                return
+            # QA-1 (gate 2026-07-09): a bounding box can't distinguish families that share an
+            # envelope (solid cylinder vs hollow box), and ties used to be broken by registration
+            # order — rejecting a dowel pin because snap_box came first. Rebuild each ranked
+            # candidate and keep the FIRST whose mesh-scale signature (volume/surface) agrees
+            # with the upload. Bounded: each attempt is one template render behind render_lock,
+            # and the route itself is single-slot.
+            match = None
+            result = None
+            signature = None
+            best_rejected: tuple[Any, Any] | None = None  # (match, signature) for diagnostics
+            for candidate in candidates[:_MAX_REVERSE_IMPORT_CANDIDATES]:
+                plan = plan_from_match(candidate, filename)
+                try:
+                    with render_lock:
+                        attempt = pipeline.rerender(
+                            plan, candidate.family.name, candidate.values, out_dir, basename="part"
+                        )
+                except Exception as e:  # never leak a traceback to the browser
+                    self.log_error("reverse import render failed: %s: %s", type(e).__name__, e)
+                    shutil.rmtree(out_dir, ignore_errors=True)
+                    self._json(500, {"error": "Something went wrong while rebuilding the imported part."})
+                    return
+                check = geometry_signature_matches(mesh_report, attempt.report)
+                if check.ok:
+                    match, result, signature = candidate, attempt, check
+                    break
+                if best_rejected is None:
+                    best_rejected = (candidate, check)
 
-            signature = geometry_signature_matches(mesh_report, result.report)
-            if not signature.ok:
+            if match is None or result is None or signature is None:
+                rej_match, rej_sig = best_rejected if best_rejected else (candidates[0], None)
                 reject(PipelineStatus.needs_experimental.value, {
                     "error": (
                         "Imported mesh matched a known envelope, but its volume or surface area "
-                        "does not match the trusted parametric twin closely enough."
+                        "does not match any trusted parametric twin closely enough."
                     ),
                     "reverse_import": {
                         "source_filename": filename,
-                        "matched_family": match.family.name,
-                        "confidence": round(float(match.confidence), 3),
-                        "measured_bbox_mm": [round(float(v), 2) for v in match.measured_bbox_mm],
-                        "matched_bbox_mm": [round(float(v), 2) for v in match.expected_bbox_mm],
+                        "matched_family": rej_match.family.name,
+                        "candidates_tried": min(len(candidates), _MAX_REVERSE_IMPORT_CANDIDATES),
+                        "confidence": round(float(rej_match.confidence), 3),
+                        "measured_bbox_mm": [round(float(v), 2) for v in rej_match.measured_bbox_mm],
+                        "matched_bbox_mm": [round(float(v), 2) for v in rej_match.expected_bbox_mm],
                         "volume_delta": (
-                            round(float(signature.volume_delta), 4)
-                            if signature.volume_delta is not None else None
+                            round(float(rej_sig.volume_delta), 4)
+                            if rej_sig is not None and rej_sig.volume_delta is not None else None
                         ),
                         "surface_delta": (
-                            round(float(signature.surface_delta), 4)
-                            if signature.surface_delta is not None else None
+                            round(float(rej_sig.surface_delta), 4)
+                            if rej_sig is not None and rej_sig.surface_delta is not None else None
                         ),
-                        "rejected_reasons": list(signature.reasons),
+                        "rejected_reasons": list(rej_sig.reasons) if rej_sig is not None else [],
                     },
                 })
                 return

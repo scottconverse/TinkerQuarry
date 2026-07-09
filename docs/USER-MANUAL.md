@@ -1,8 +1,8 @@
 # TinkerQuarry User Manual
 
-**Product:** TinkerQuarry v1.3.1 Windows beta
-**Engine:** KimCad 0.9.3
-**Last updated:** 2026-07-02
+**Product:** TinkerQuarry v1.4.0 Windows beta
+**Engine:** KimCad 0.9.4
+**Last updated:** 2026-07-09
 **License:** GPL-2.0-only
 
 This manual has three sections:
@@ -56,17 +56,44 @@ That is an opt-in setting. The app should be read as private by default, not clo
 
 ## Installing On Windows
 
-1. Download `TinkerQuarry_1.3.1_x64-setup.exe` from the
-   [v1.3.1 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
+1. Download `TinkerQuarry_1.4.0_x64-setup.exe` from the
+   [v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
 2. Double-click the installer.
-3. If SmartScreen appears, verify that the file came from the GitHub Release and continue only if
-   you trust the source.
+3. If SmartScreen appears, follow the steps in the next section.
 4. Launch **TinkerQuarry**.
 5. Choose your default printer and material.
 6. Start with a simple part.
 
-The beta installer is unsigned. That is expected for this beta line and is documented in the release
-status rather than hidden.
+### The SmartScreen Prompt, Step By Step
+
+The beta installer is not yet code-signed, so Windows SmartScreen will usually show
+**"Windows protected your PC"** the first time you run it. That warning means "this publisher is
+not yet known to Microsoft," not "this file is unsafe." To continue:
+
+1. On the blue SmartScreen dialog, click **More info**.
+
+   ![Step 1: the SmartScreen dialog with the More info link highlighted (illustration)](assets/smartscreen-step1-more-info.svg)
+
+2. Click the **Run anyway** button that appears.
+
+   ![Step 2: after More info, the Run anyway button appears next to Don't run (illustration)](assets/smartscreen-step2-run-anyway.svg)
+
+3. If your browser also flagged the download, choose **Keep** on the download bar first
+   (Edge: `...` menu on the download, then **Keep**, then **Keep anyway**).
+
+Only do this for installers you downloaded yourself from the official
+[GitHub Releases page](https://github.com/scottconverse/TinkerQuarry/releases). When provenance
+matters, verify the checksum before installing:
+
+```powershell
+Get-FileHash .\TinkerQuarry_1.4.0_x64-setup.exe -Algorithm SHA256
+```
+
+Compare the output against `SHA256SUMS.txt` on the release page. A match proves the file is
+byte-for-byte the published artifact.
+
+The unsigned state is expected for this beta line and is documented in the release status rather
+than hidden. Code signing through SignPath Foundation is in progress for a future release.
 
 ## Your First Part
 
@@ -243,18 +270,18 @@ twins.
 
 | Surface | Version | Notes |
 | --- | ---: | --- |
-| Product release | v1.3.1 | Desktop product, README, docs, installer filename |
-| `apps/ui` | 1.3.1 | React/Tauri Studio package |
-| Tauri config | 1.3.1 | Native Windows app metadata |
-| Tauri Rust package | 1.3.1 | Native shell crate metadata |
-| KimCad engine | 0.9.3 | Internal Python engine and `/api/health` version |
+| Product release | v1.4.0 | Desktop product, README, docs, installer filename |
+| `apps/ui` | 1.4.0 | React/Tauri Studio package |
+| Tauri config | 1.4.0 | Native Windows app metadata |
+| Tauri Rust package | 1.4.0 | Native shell crate metadata |
+| KimCad engine | 0.9.4 | Internal Python engine and `/api/health` version |
 | `apps/web` | 0.6.0 | Optional share web surface |
 | `packages/shared` | 0.4.0 | Shared TypeScript helpers |
 | OpenSCAD | 2026.03.16 | Bundled Windows snapshot, Manifold default |
 | PrintProof3D | 0.6.2 | Arm's-length printability tool |
 
-These numbers are intentionally not collapsed into one version. The product line is v1.3.1; the
-engine reports 0.9.3.
+These numbers are intentionally not collapsed into one version. The product line is v1.4.0; the
+engine reports 0.9.4.
 
 ## Repository Layout
 
@@ -425,13 +452,13 @@ Current-tree gate evidence:
 Fresh NSIS rerun artifact:
 
 ```text
-Name: TinkerQuarry_1.3.1_x64-setup.exe
+Name: TinkerQuarry_1.4.0_x64-setup.exe
 SHA-256: 7C0E1E9B5CC2840FA44F568040D132B3CD8E34F4C214C86EBA34D7373708F05F
 Verified: native runtime smoke and installed NSIS smoke
 ```
 
 Public release assets are hosted on the
-[v1.3.1 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
+[v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
 
 ---
 

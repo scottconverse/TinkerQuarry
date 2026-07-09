@@ -152,7 +152,9 @@ describe('ModelSelector provider refresh', () => {
   it('refreshes a mounted selector when an OpenAI key is added after mount', async () => {
     renderWithProviders(<ModelSelectorHarness />);
 
-    expect(screen.getByText('Local or cloud AI not connected')).toBeTruthy();
+    // Gate 2026-07-09 (W-4): the no-BYOK fallback is scoped to what the selector actually
+    // knows — it must not claim local AI is disconnected.
+    expect(screen.getByText('No cloud AI configured')).toBeTruthy();
 
     act(() => {
       storeApiKey('openai', 'openai-test-key');
@@ -164,8 +166,22 @@ describe('ModelSelector provider refresh', () => {
       expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
     });
     await waitFor(() => {
-      expect(screen.queryByText('Local or cloud AI not connected')).toBeNull();
+      expect(screen.queryByText('No cloud AI configured')).toBeNull();
     });
+  });
+
+  it('names the serving engine model instead of the no-cloud fallback when the caller knows it', () => {
+    // W-4: the workspace panel passes the engine's live model so the fallback stays truthful.
+    renderWithProviders(
+      <ModelSelector
+        currentModel="qwen2.5:7b"
+        availableProviders={[]}
+        onChange={() => {}}
+        engineModelLabel="qwen2.5:7b"
+      />,
+    );
+    expect(screen.getByText('Local AI: qwen2.5:7b')).toBeTruthy();
+    expect(screen.queryByText('No cloud AI configured')).toBeNull();
   });
 
   it('adds OpenAI models to an already-mounted Anthropic selector without manual refresh', async () => {

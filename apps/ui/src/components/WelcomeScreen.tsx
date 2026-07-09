@@ -22,7 +22,9 @@ import {
   type RecentFile,
 } from "../utils/recentFiles";
 import {
+  describeModelPull,
   engine,
+  modelPullFinished,
   type ModelPullProgressResult,
   type ModelStatusResult,
   type SavedDesignEntry,
@@ -129,6 +131,9 @@ export function WelcomeScreen({
     null,
   );
   const [modelPulling, setModelPulling] = useState(false);
+  // W-2: the native (Tauri) app bundles + auto-starts its engine; the source-checkout
+  // recovery steps only make sense in a browser dev session.
+  const isNativeApp = getPlatform().capabilities.hasNativeMenu;
   const [portableImportError, setPortableImportError] = useState<string | null>(
     null,
   );
@@ -288,13 +293,20 @@ export function WelcomeScreen({
           return;
         }
         setModelPull(r.data);
-        if (
-          r.data.done ||
-          r.data.status === "done" ||
-          r.data.status === "error"
-        ) {
+        // Gate 2026-07-09 (W-1/T4): completion lives in the per-row snapshot (running flag +
+        // every row done/error) — the flat done/status fields this used to read never exist,
+        // so the interval previously never cleared.
+        if (modelPullFinished(r.data)) {
           window.clearInterval(poll);
           setModelPulling(false);
+          const failed = Object.values(r.data.models ?? {}).find(
+            (row) => row.status === "error",
+          );
+          if (failed) {
+            setModelStatusError(
+              failed.error || "Local AI setup failed. Try again.",
+            );
+          }
           void refreshModelStatus();
         }
       });
@@ -444,17 +456,29 @@ export function WelcomeScreen({
                     <div style={{ color: "var(--text-primary)" }}>
                       {modelStatusError}
                     </div>
-                    <div>
-                      The Windows app starts the bundled engine automatically. In
-                      a source checkout, run these PowerShell commands once:
-                    </div>
-                    <ol className="list-decimal space-y-1 pl-5">
-                      {SOURCE_ENGINE_STEPS.map((step) => (
-                        <li key={step}>
-                          <code>{step}</code>
-                        </li>
-                      ))}
-                    </ol>
+                    {isNativeApp ? (
+                      // Gate 2026-07-09 (W-2): the installed app bundles and auto-starts its
+                      // engine — venv/pip developer steps are meaningless (and alarming) here.
+                      <div>
+                        The engine starts with the app. Wait a few seconds and
+                        click Check again; if it keeps failing, restart
+                        TinkerQuarry.
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          In a source checkout, run these PowerShell commands
+                          once to start the engine:
+                        </div>
+                        <ol className="list-decimal space-y-1 pl-5">
+                          {SOURCE_ENGINE_STEPS.map((step) => (
+                            <li key={step}>
+                              <code>{step}</code>
+                            </li>
+                          ))}
+                        </ol>
+                      </>
+                    )}
                   </div>
                 ) : modelNeedsSetup ? (
                   <span>
@@ -493,15 +517,12 @@ export function WelcomeScreen({
                     {modelPulling ? "Setting up..." : "Set up local AI"}
                   </Button>
                 ) : null}
-                {modelPull && !modelReady && (
+                {modelPull && !modelReady && describeModelPull(modelPull) && (
                   <span
                     className="ml-3"
                     data-testid="welcome-model-pull-progress"
                   >
-                    {modelPull.detail || modelPull.phase || modelPull.status}
-                    {typeof modelPull.percent === "number"
-                      ? ` ${Math.round(modelPull.percent)}%`
-                      : ""}
+                    {describeModelPull(modelPull)}
                   </span>
                 )}
               </div>

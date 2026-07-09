@@ -39,16 +39,65 @@ export interface ModelStatusResult {
   error?: string;
 }
 
+export interface ModelPullRow {
+  status?: string; // queued | pulling | done | error
+  completed?: number;
+  total?: number;
+  error?: string;
+}
+
+// The REAL shape the engine serves (pull_job.snapshot()): per-row progress keyed by row name
+// ("AI engine" for the runtime fetch, then one row per model). Gate 2026-07-09 (W-1/T4): the UI
+// previously read flat percent/phase/detail fields the server never sends, so multi-minute
+// setup downloads rendered as a silent "Setting up...".
 export interface ModelPullProgressResult {
-  status?: string;
-  phase?: string;
-  detail?: string;
+  status?: string; // POST response ("ok" | "not_local")
   error?: string;
   running?: boolean;
-  done?: boolean;
-  total?: number;
-  completed?: number;
-  percent?: number;
+  models?: Record<string, ModelPullRow>;
+}
+
+/** The single line the welcome status shows while local-AI setup runs: the active row's name
+ * plus real progress ("AI engine 42%" / "qwen2.5:7b 310 of 4700 MB"), an error row's message,
+ * or null when there is nothing to say. */
+export function describeModelPull(
+  snapshot: ModelPullProgressResult | null | undefined,
+): string | null {
+  const rows = snapshot?.models;
+  if (!rows) return null;
+  const entries = Object.entries(rows);
+  if (!entries.length) return null;
+  const failed = entries.find(([, r]) => r.status === "error");
+  if (failed) {
+    return failed[1].error || `${failed[0]}: setup failed`;
+  }
+  const active =
+    entries.find(([, r]) => r.status === "pulling") ||
+    entries.find(([, r]) => r.status === "queued");
+  if (!active) {
+    return entries.every(([, r]) => r.status === "done") ? "Finishing up..." : null;
+  }
+  const [name, row] = active;
+  const completed = row.completed ?? 0;
+  const total = row.total ?? 0;
+  if (total > 0) {
+    if (total > 10_000_000) {
+      const mb = (n: number) => Math.round(n / 1_000_000);
+      return `${name}: ${mb(completed)} of ${mb(total)} MB`;
+    }
+    return `${name}: ${Math.round((completed / total) * 100)}%`;
+  }
+  return row.status === "queued" ? `${name}: waiting...` : `${name}: downloading...`;
+}
+
+/** True when a pull snapshot says the job has finished (successfully or not). */
+export function modelPullFinished(
+  snapshot: ModelPullProgressResult | null | undefined,
+): boolean {
+  if (!snapshot) return false;
+  if (snapshot.running) return false;
+  const rows = snapshot.models ? Object.values(snapshot.models) : [];
+  return rows.length > 0 && rows.every((r) => r.status === "done" || r.status === "error");
 }
 
 export interface GateFinding {

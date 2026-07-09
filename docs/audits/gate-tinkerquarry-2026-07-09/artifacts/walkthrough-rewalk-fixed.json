@@ -1,0 +1,184 @@
+{
+  "phase": "rewalk-fixed",
+  "exe": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateInstall2\\tinkerquarry.exe",
+  "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileRewalk",
+  "ollamaBefore": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  },
+  "consoleErrors": [],
+  "title": "TinkerQuarry",
+  "modelStatusText": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Set up local AI",
+  "buildButton": {
+    "visible": true,
+    "enabled": false
+  },
+  "rootTextStart": "TinkerQuarry\n\nDescribe a printable part, turn it into local CAD, then slice it for the printer you choose.\n\nDrop up to 4 images\nBuild\nLocal AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Set up local AI\n\nC:\\Users\\Scott\\Documents\\TinkerQuarry/fleet-plume\n\nChange\nTry an example:\nCreate a 3D printable mini lamp\nDesign a parametric phone stand\nMake a custom gear with 20 teeth\nCreate a simple mounting bracket\nDesign a pencil holder with holes\n\nExamples need the local engine. You can still import a saved design, open a file, or start from code.\n\nMy Designs:\nImport .kimcad\na 45mm cube\n×\nRecent:\ncopper-lever\nC:\\Users\\Scott\\Documents\\TinkerQuarry/copper-lever\ncosmic-wing\nC:\\Users\\Scott\\Documents\\TinkerQuarry/cosmic-wing\ndaring-brace\nC:\\Users\\Scott\\Documents\\TinkerQuarry/daring-brace\nOpen File\nOpen Folder\nStart from code →",
+  "clickSetup": {
+    "visible": true,
+    "timeline": [
+      {
+        "atSec": 0,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 0
+      },
+      {
+        "atSec": 5,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: waiting...",
+        "managedBytes": 0
+      },
+      {
+        "atSec": 10,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 8 of 1462 MB",
+        "managedBytes": 23068672
+      },
+      {
+        "atSec": 15,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 79 of 1462 MB",
+        "managedBytes": 95420416
+      },
+      {
+        "atSec": 20,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 141 of 1462 MB",
+        "managedBytes": 147849216
+      },
+      {
+        "atSec": 25,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 190 of 1462 MB",
+        "managedBytes": 189792256
+      },
+      {
+        "atSec": 30,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 229 of 1462 MB",
+        "managedBytes": 229638144
+      },
+      {
+        "atSec": 35,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 276 of 1462 MB",
+        "managedBytes": 275775488
+      },
+      {
+        "atSec": 40,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 318 of 1462 MB",
+        "managedBytes": 318767104
+      },
+      {
+        "atSec": 45,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 364 of 1462 MB",
+        "managedBytes": 364904448
+      },
+      {
+        "atSec": 50,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 411 of 1462 MB",
+        "managedBytes": 412090368
+      },
+      {
+        "atSec": 55,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 442 of 1462 MB",
+        "managedBytes": 442499072
+      },
+      {
+        "atSec": 60,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 455 of 1462 MB",
+        "managedBytes": 456130560
+      },
+      {
+        "atSec": 65,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 496 of 1462 MB",
+        "managedBytes": 495976448
+      },
+      {
+        "atSec": 70,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 534 of 1462 MB",
+        "managedBytes": 534773760
+      },
+      {
+        "atSec": 75,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 571 of 1462 MB",
+        "managedBytes": 572522496
+      },
+      {
+        "atSec": 80,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 610 of 1462 MB",
+        "managedBytes": 611319808
+      },
+      {
+        "atSec": 85,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 651 of 1462 MB",
+        "managedBytes": 652214272
+      },
+      {
+        "atSec": 90,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 690 of 1462 MB",
+        "managedBytes": 691011584
+      },
+      {
+        "atSec": 95,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 732 of 1462 MB",
+        "managedBytes": 732954624
+      },
+      {
+        "atSec": 100,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 776 of 1462 MB",
+        "managedBytes": 778043392
+      },
+      {
+        "atSec": 105,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 820 of 1462 MB",
+        "managedBytes": 822083584
+      },
+      {
+        "atSec": 110,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 863 of 1462 MB",
+        "managedBytes": 865075200
+      },
+      {
+        "atSec": 115,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 908 of 1462 MB",
+        "managedBytes": 910163968
+      },
+      {
+        "atSec": 120,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 958 of 1462 MB",
+        "managedBytes": 959447040
+      },
+      {
+        "atSec": 125,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 979 of 1462 MB",
+        "managedBytes": 981467136
+      },
+      {
+        "atSec": 130,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 1031 of 1462 MB",
+        "managedBytes": 1031798784
+      },
+      {
+        "atSec": 135,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 1076 of 1462 MB",
+        "managedBytes": 1077936128
+      },
+      {
+        "atSec": 140,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 1118 of 1462 MB",
+        "managedBytes": 1119879168
+      },
+      {
+        "atSec": 145,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 1154 of 1462 MB",
+        "managedBytes": 1156579328
+      }
+    ],
+    "finalStatusText": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...AI engine: 1154 of 1462 MB"
+  },
+  "isolation": {
+    "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileRewalk",
+    "engineLogs": [
+      "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileRewalk\\TinkerQuarryAppData\\engine-output\\engine.log"
+    ],
+    "appDataDirExists": true
+  },
+  "ollamaAfter": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  }
+}

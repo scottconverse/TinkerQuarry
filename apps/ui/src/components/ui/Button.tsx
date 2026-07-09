@@ -12,6 +12,10 @@ const DISABLED_STYLE: CSSProperties = {
   color: "var(--text-secondary)",
   cursor: "not-allowed",
   border: "1px solid var(--border-primary)",
+  // Gate 2026-07-09 (UX-1): without this, a disabled secondary button is visually identical
+  // to an enabled one (same bg/border) — exactly during the first-run "Local AI setup needed"
+  // window where the Example/Import buttons are disabled and looked clickable.
+  opacity: 0.65,
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

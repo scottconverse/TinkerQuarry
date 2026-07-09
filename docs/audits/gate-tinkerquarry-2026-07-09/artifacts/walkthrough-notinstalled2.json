@@ -1,0 +1,31 @@
+{
+  "phase": "notinstalled2",
+  "exe": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateInstall\\tinkerquarry.exe",
+  "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled2",
+  "ollamaBefore": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  },
+  "consoleErrors": [],
+  "title": "TinkerQuarry",
+  "modelStatusText": "Checking local AI...",
+  "buildButton": {
+    "visible": true,
+    "enabled": false
+  },
+  "rootTextStart": "TinkerQuarry\n\nDescribe a printable part, turn it into local CAD, then slice it for the printer you choose.\n\nDrop up to 4 images\nBuild\nChecking local AI...\nTry an example:\nCreate a 3D printable mini lamp\nDesign a parametric phone stand\nMake a custom gear with 20 teeth\nCreate a simple mounting bracket\nDesign a pencil holder with holes\n\nExamples need the local engine. You can still import a saved design, open a file, or start from code.\n\nMy Designs:\nImport .kimcad\n\nBuilt parts you save or import will appear here.\n\nOpen File\nOpen Folder\nStart from code →",
+  "clickSetup": {
+    "visible": false
+  },
+  "isolation": {
+    "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled2",
+    "engineLogs": [
+      "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled2\\TinkerQuarryAppData\\engine-output\\engine.log"
+    ],
+    "appDataDirExists": true
+  },
+  "ollamaAfter": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  }
+}

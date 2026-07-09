@@ -5,7 +5,7 @@
 KimCad remains the engine/CLI/protocol name inside the TinkerQuarry product. The user-facing app,
 installer, status, and release proof live at the repository root and under `apps/ui`.
 
-![engine](https://img.shields.io/badge/beta-0.9.3-2563eb)
+![engine](https://img.shields.io/badge/beta-0.9.4-2563eb)
 ![platform](https://img.shields.io/badge/platform-Windows-0078D6)
 ![python](https://img.shields.io/badge/python-3.13-3776AB)
 ![license](https://img.shields.io/badge/license-GPL--2.0-1d7a4e)

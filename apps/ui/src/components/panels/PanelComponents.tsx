@@ -4,6 +4,7 @@ import {
   TbCamera,
   TbCode,
   TbEye,
+  TbFingerprint,
   TbInfoCircle,
   TbRuler,
   TbSparkles,
@@ -127,6 +128,13 @@ const AiChatPanel: React.FC<IDockviewPanelProps> = () => {
         currentProvider={ws.currentProvider}
         currentModel={ws.currentModel}
         availableProviders={ws.availableProviders}
+        engineModelLabel={
+          // W-4: name the engine's serving local model so the selector's no-BYOK fallback
+          // doesn't claim "not connected" while the local model is doing the work.
+          ws.workspaceModelStatus?.running && ws.workspaceModelStatus?.model_present
+            ? (ws.workspaceModelStatus.model ?? null)
+            : null
+        }
         onModelChange={ws.setCurrentModel}
         onRestoreCheckpoint={ws.handleRestoreCheckpoint}
         onOpenSettings={ws.onOpenAiSettings}
@@ -289,7 +297,8 @@ export const PANEL_TYPES: PanelTypeInfo[] = [
   { id: 'intent', label: 'Intent', icon: TbInfoCircle },
   { id: 'properties', label: 'Properties', icon: TbRuler },
   { id: 'visual-inspection', label: 'Visual', icon: TbCamera },
-  { id: 'provenance', label: 'Provenance', icon: TbInfoCircle },
+  // UX-4: distinct from the Intent tab's TbInfoCircle so a truncated tab strip stays legible.
+  { id: 'provenance', label: 'Provenance', icon: TbFingerprint },
 ];
 
 export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
