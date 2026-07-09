@@ -1,7 +1,7 @@
 # TinkerQuarry Architecture
 
-**Product:** TinkerQuarry v1.3.1 Windows beta
-**Engine:** KimCad 0.9.3
+**Product:** TinkerQuarry v1.4.0 Windows beta
+**Engine:** KimCad 0.9.4
 **Last updated:** 2026-07-02
 
 TinkerQuarry is a desktop-first, local-first AI CAD system for functional 3D-printed parts. The

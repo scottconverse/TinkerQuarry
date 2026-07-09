@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -8,8 +8,13 @@ if (process.platform !== "win32") {
   process.exit(1);
 }
 
+// The installer filename tracks tauri.conf.json's version — read it so this smoke
+// can never drift behind a release bump again.
+const { version } = JSON.parse(
+  readFileSync(resolve("apps/ui/src-tauri/tauri.conf.json"), "utf8"),
+);
 const installer = resolve(
-  "apps/ui/src-tauri/target/release/bundle/nsis/TinkerQuarry_1.3.1_x64-setup.exe",
+  `apps/ui/src-tauri/target/release/bundle/nsis/TinkerQuarry_${version}_x64-setup.exe`,
 );
 if (!existsSync(installer)) {
   console.error(`NSIS installer not found: ${installer}`);

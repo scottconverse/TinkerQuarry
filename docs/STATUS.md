@@ -1,8 +1,8 @@
 # TinkerQuarry Status Matrix
 
 **As of:** 2026-07-02
-**Product release:** v1.3.1
-**Engine:** KimCad 0.9.3
+**Product release:** v1.4.0
+**Engine:** KimCad 0.9.4
 **Current gate:** clean current-tree gate plus native Windows installer rerun
 
 ## Plain-English Truth
@@ -43,14 +43,14 @@ intended behavior.
 Fresh current-tree NSIS artifact:
 
 ```text
-Name: TinkerQuarry_1.3.1_x64-setup.exe
+Name: TinkerQuarry_1.4.0_x64-setup.exe
 SHA-256: 7C0E1E9B5CC2840FA44F568040D132B3CD8E34F4C214C86EBA34D7373708F05F
 Build path: C:\tqbuild\TinkerQuarry
 Smoke: direct Tauri runtime and installed NSIS workflow both passed
 ```
 
-The public v1.3.1 release is at
-[github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.3.1).
+The public v1.4.0 release is at
+[github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
 
 ## Product Surfaces
 
@@ -88,12 +88,12 @@ Known limits:
 
 | Surface | Version |
 | --- | ---: |
-| Product / desktop release | v1.3.1 |
-| `package.json` | 1.3.1 |
-| `apps/ui/package.json` | 1.3.1 |
-| `apps/ui/src-tauri/tauri.conf.json` | 1.3.1 |
-| `apps/ui/src-tauri/Cargo.toml` | 1.3.1 |
-| KimCad engine | 0.9.3 |
+| Product / desktop release | v1.4.0 |
+| `package.json` | 1.4.0 |
+| `apps/ui/package.json` | 1.4.0 |
+| `apps/ui/src-tauri/tauri.conf.json` | 1.4.0 |
+| `apps/ui/src-tauri/Cargo.toml` | 1.4.0 |
+| KimCad engine | 0.9.4 |
 | `apps/web` | 0.6.0 |
 | `packages/shared` | 0.4.0 |
 
