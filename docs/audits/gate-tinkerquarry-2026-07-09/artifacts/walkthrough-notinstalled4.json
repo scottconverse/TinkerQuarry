@@ -1,0 +1,74 @@
+{
+  "phase": "notinstalled4",
+  "exe": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateInstall\\tinkerquarry.exe",
+  "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled4",
+  "ollamaBefore": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  },
+  "consoleErrors": [],
+  "title": "TinkerQuarry",
+  "modelStatusText": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Set up local AI",
+  "buildButton": {
+    "visible": true,
+    "enabled": false
+  },
+  "rootTextStart": "TinkerQuarry\n\nDescribe a printable part, turn it into local CAD, then slice it for the printer you choose.\n\nDrop up to 4 images\nBuild\nLocal AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Set up local AI\n\nC:\\Users\\Scott\\Documents\\TinkerQuarry/north-latch\n\nChange\nTry an example:\nCreate a 3D printable mini lamp\nDesign a parametric phone stand\nMake a custom gear with 20 teeth\nCreate a simple mounting bracket\nDesign a pencil holder with holes\n\nExamples need the local engine. You can still import a saved design, open a file, or start from code.\n\nMy Designs:\nImport .kimcad\na 45mm cube\n×\nRecent:\ncopper-lever\nC:\\Users\\Scott\\Documents\\TinkerQuarry/copper-lever\ncosmic-wing\nC:\\Users\\Scott\\Documents\\TinkerQuarry/cosmic-wing\ndaring-brace\nC:\\Users\\Scott\\Documents\\TinkerQuarry/daring-brace\nOpen File\nOpen Folder\nStart from code →",
+  "clickSetup": {
+    "visible": true,
+    "timeline": [
+      {
+        "atSec": 0,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 0
+      },
+      {
+        "atSec": 30,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 63963136
+      },
+      {
+        "atSec": 60,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 176160768
+      },
+      {
+        "atSec": 90,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 242221056
+      },
+      {
+        "atSec": 120,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 321912832
+      },
+      {
+        "atSec": 150,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 409993216
+      },
+      {
+        "atSec": 180,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 640679936
+      },
+      {
+        "atSec": 210,
+        "text": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up...",
+        "managedBytes": 953155584
+      }
+    ],
+    "finalStatusText": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Setting up..."
+  },
+  "isolation": {
+    "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled4",
+    "engineLogs": [
+      "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled4\\TinkerQuarryAppData\\engine-output\\engine.log"
+    ],
+    "appDataDirExists": true
+  },
+  "ollamaAfter": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  }
+}

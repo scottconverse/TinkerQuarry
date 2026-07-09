@@ -1,0 +1,36 @@
+{
+  "phase": "notinstalled",
+  "exe": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateInstall\\tinkerquarry.exe",
+  "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled",
+  "ollamaBefore": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  },
+  "consoleErrors": [
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+  ],
+  "title": "TinkerQuarry",
+  "modelStatusText": "Local AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Set up local AI",
+  "buildButton": {
+    "visible": true,
+    "enabled": false
+  },
+  "rootTextStart": "TinkerQuarry\n\nDescribe a printable part, turn it into local CAD, then slice it for the printer you choose.\n\nDrop up to 4 images\nBuild\nLocal AI setup needed for qwen2.5:7b + qwen2.5vl:3b.Set up local AI\n\nC:\\Users\\Scott\\Documents\\TinkerQuarry/deep-spool\n\nChange\nTry an example:\nCreate a 3D printable mini lamp\nDesign a parametric phone stand\nMake a custom gear with 20 teeth\nCreate a simple mounting bracket\nDesign a pencil holder with holes\n\nExamples need the local engine. You can still import a saved design, open a file, or start from code.\n\nMy Designs:\nImport .kimcad\na 45mm cube\n×\nRecent:\ncopper-lever\nC:\\Users\\Scott\\Documents\\TinkerQuarry/copper-lever\ncosmic-wing\nC:\\Users\\Scott\\Documents\\TinkerQuarry/cosmic-wing\ndaring-brace\nC:\\Users\\Scott\\Documents\\TinkerQuarry/daring-brace\nOpen File\nOpen Folder\nStart from code →",
+  "clickSetup": {
+    "visible": true,
+    "finalStatusText": "Could not reach the local engine.\nThe Windows app starts the bundled engine automatically. In a source checkout, run these PowerShell commands once:\ncd packages\\engine\npy -3.13 -m venv .venv\n.venv\\Scripts\\python.exe -m pip install -r requirements.lock\n.venv\\Scripts\\python.exe -m pip install -e .\n$env:TINKERQUARRY_DEV_TOKEN = \"tq-dev-token\"\n.venv\\Scripts\\kimcad.exe web --port 8765 --demo\nCheck again"
+  },
+  "isolation": {
+    "profile": "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled",
+    "engineLogs": [
+      "C:\\Users\\Scott\\AppData\\Local\\Temp\\TQGateProfileNotInstalled\\TinkerQuarryAppData\\engine-output\\engine.log"
+    ],
+    "appDataDirExists": true
+  },
+  "ollamaAfter": {
+    "present": false,
+    "detail": "Error: connect ECONNREFUSED 127.0.0.1:11434"
+  }
+}
