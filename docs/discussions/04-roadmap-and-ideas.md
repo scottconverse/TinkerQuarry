@@ -4,7 +4,7 @@
 
 Use this thread for feature requests, beta feedback, workflow ideas, and rough edges.
 
-## v1.3.1 baseline
+## v1.4.0 baseline
 
 TinkerQuarry now has a verified Windows beta path:
 

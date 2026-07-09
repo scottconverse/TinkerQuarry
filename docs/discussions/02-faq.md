@@ -31,7 +31,7 @@ hardware connector certification is still beta field work.
 
 ## Does the installer work from a double-click `.exe`?
 
-Yes. The Windows NSIS installer builds as `TinkerQuarry_1.3.1_x64-setup.exe`, and the installed-app
+Yes. The Windows NSIS installer builds as `TinkerQuarry_1.4.0_x64-setup.exe`, and the installed-app
 smoke test passed.
 
 ## Why did a malformed reverse-import mesh test pass?

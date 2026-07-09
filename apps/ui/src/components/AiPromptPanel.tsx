@@ -403,6 +403,8 @@ export interface AiPromptPanelProps {
   currentProvider?: AiProvider;
   currentModel?: string;
   availableProviders?: AiProvider[];
+  /** Engine-side local model serving right now, for the selector's no-BYOK fallback (W-4). */
+  engineModelLabel?: string | null;
   onModelChange?: (
     model: string,
     sourceSurface?: ModelSelectionSurface,
@@ -442,6 +444,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       currentProvider,
       currentModel = "claude-sonnet-4-5",
       availableProviders = [],
+      engineModelLabel = null,
       onModelChange,
       onRestoreCheckpoint,
       onOpenSettings,
@@ -940,6 +943,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 currentModel={currentModel}
                 currentProvider={currentProvider}
                 availableProviders={availableProviders}
+                engineModelLabel={engineModelLabel}
                 onChange={(model, provider) =>
                   onModelChange?.(model, "ai_panel", provider)
                 }

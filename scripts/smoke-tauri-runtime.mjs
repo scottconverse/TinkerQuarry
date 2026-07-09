@@ -39,6 +39,24 @@ if (!explicitProfile) {
   rmSync(isolatedProfile, { recursive: true, force: true });
 }
 
+// Gate 2026-07-09 (W-3): an engine process can survive the app kill and get silently REUSED by
+// the next launch (ensure_engine adopts a healthy running engine), carrying another profile's
+// state into this run. Kill stray TinkerQuarry engine pythons before launch and after the run.
+function killStrayEngines() {
+  spawnSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-Command",
+      "Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='pythonw.exe'\" | " +
+        "Where-Object { $_.CommandLine -match 'kimcad_launcher|TinkerQuarryAppData' } | " +
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+    ],
+    { stdio: "ignore" },
+  );
+}
+killStrayEngines();
+
 if (isolatedProfile) {
   for (const name of ["LocalAppData", "AppData"]) {
     mkdirSync(resolve(isolatedProfile, name), { recursive: true });
@@ -365,6 +383,7 @@ main()
       spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
         stdio: "ignore",
       });
+      killStrayEngines();
     } else if (!child.killed) {
       child.kill();
     }

@@ -18,12 +18,14 @@ function PanelShell({
         color: 'var(--text-primary)',
       }}
     >
-      <div
+      {/* Gate 2026-07-09 (UX-3): real headings — screen-reader heading navigation found
+          nothing across the four evidence panels when these were plain divs. */}
+      <h3
         className="mb-3 text-[11px] font-semibold uppercase tracking-wide"
         style={{ color: 'var(--text-tertiary)' }}
       >
         {title}
-      </div>
+      </h3>
       {children}
     </div>
   );
@@ -77,9 +79,9 @@ function Section({
         backgroundColor: 'var(--bg-primary)',
       }}
     >
-      <div className="mb-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+      <h4 className="mb-2 font-medium" style={{ color: 'var(--text-primary)' }}>
         {title}
-      </div>
+      </h4>
       {children}
     </section>
   );

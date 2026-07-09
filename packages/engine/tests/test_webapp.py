@@ -831,6 +831,31 @@ def test_token_on_post_to_get_only_route_is_405_with_json_body(tmp_path):
         httpd.server_close()
 
 
+def test_get_on_post_only_route_is_405_with_json_body(tmp_path):
+    """Gate 2026-07-09 (QA-2): the MIRROR of the test above — a GET to a POST-only route must
+    carry the same truthful Allow header AND the same JSON error envelope. The old inline
+    responder in do_GET sent an empty, content-type-less 405, breaking the uniform contract
+    (and this exact direction had no test, which is how it regressed)."""
+    import http.client
+    import json as _j
+
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        for path in ("/api/design", "/api/reverse-import", "/api/model-pull",
+                     "/api/libraries/admit", "/api/libraries/remove"):
+            conn = http.client.HTTPConnection(host, port, timeout=10)
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            body = resp.read()
+            allow = resp.getheader("Allow")
+            ctype = resp.getheader("Content-Type") or ""
+            conn.close()
+            assert resp.status == 405, f"{path} should be 405, got {resp.status}"
+            assert (allow or "") == "POST", f"{path} Allow header wrong: {allow!r}"
+            assert "application/json" in ctype, f"{path} missing JSON content type: {ctype!r}"
+            assert _j.loads(body) == {"error": "Method not allowed."}, f"{path} body: {body!r}"
+
+
 def test_tauri_desktop_origin_can_preflight_and_send_tokened_posts(tmp_path):
     """The packaged desktop shell runs from Tauri's app origin, not the engine's origin.
 

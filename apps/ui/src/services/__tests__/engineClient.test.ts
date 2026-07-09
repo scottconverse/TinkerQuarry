@@ -184,3 +184,62 @@ describe("EngineClient — request shape + CSRF token (Phase 4)", () => {
     expect(String(res.data.error)).toMatch(/reach the local engine/i);
   });
 });
+
+// Gate 2026-07-09 (W-1/T4): the pull-progress helpers must read the engine's REAL nested
+// snapshot ({running, models:{row:{status,completed,total,error}}}) — the UI previously read
+// flat percent/phase/detail fields the server never sends, so a multi-minute runtime download
+// rendered as a silent "Setting up..." and the poll interval never cleared.
+import { describeModelPull, modelPullFinished } from "../engineClient";
+
+describe("model-pull snapshot helpers (gate W-1/T4)", () => {
+  it("describes the actively pulling row with MB progress for large downloads", () => {
+    expect(
+      describeModelPull({
+        running: true,
+        models: {
+          "AI engine": { status: "pulling", completed: 321_912_832, total: 953_155_584 },
+          "qwen2.5:7b": { status: "queued", completed: 0, total: 0 },
+        },
+      }),
+    ).toBe("AI engine: 322 of 953 MB");
+  });
+
+  it("falls back to a percent for small totals and to waiting/downloading without totals", () => {
+    expect(
+      describeModelPull({ running: true, models: { probe: { status: "pulling", completed: 5, total: 10 } } }),
+    ).toBe("probe: 50%");
+    expect(
+      describeModelPull({ running: true, models: { "qwen2.5:7b": { status: "queued" } } }),
+    ).toBe("qwen2.5:7b: waiting...");
+  });
+
+  it("surfaces an error row's message and reports completion only when every row settled", () => {
+    const failed = {
+      running: false,
+      models: { "AI engine": { status: "error", error: "Not enough disk space." } },
+    };
+    expect(describeModelPull(failed)).toBe("Not enough disk space.");
+    expect(modelPullFinished(failed)).toBe(true);
+    expect(
+      modelPullFinished({
+        running: true,
+        models: { "AI engine": { status: "pulling", completed: 1, total: 2 } },
+      }),
+    ).toBe(false);
+    expect(modelPullFinished({ running: false, models: {} })).toBe(false);
+    expect(
+      modelPullFinished({
+        running: false,
+        models: {
+          "AI engine": { status: "done" },
+          "qwen2.5:7b": { status: "done" },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("says nothing when there is no snapshot content to describe", () => {
+    expect(describeModelPull(null)).toBeNull();
+    expect(describeModelPull({ status: "ok" })).toBeNull();
+  });
+});

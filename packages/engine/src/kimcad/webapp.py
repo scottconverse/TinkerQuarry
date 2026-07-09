@@ -1333,11 +1333,11 @@ def make_handler(
                 return
             # QA-1002 (stage-10 gate): GET on a POST-only resource is 405 with a TRUTHFUL
             # Allow header, mirroring the do_POST tail's rule for GET-only resources.
+            # Gate 2026-07-09 (QA-2): route through _method_not_allowed so this path carries
+            # the SAME JSON error envelope as every other 405 — the inline responder sent an
+            # empty, content-type-less body that broke the uniform error contract.
             if _is_post_only(self.path):
-                self.send_response(405)
-                self.send_header("Allow", "POST")
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                self._method_not_allowed()
                 return
             self._json(404, {"error": "Not found."})
 

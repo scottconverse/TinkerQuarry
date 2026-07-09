@@ -2,7 +2,7 @@
 
 **Product:** TinkerQuarry v1.4.0 Windows beta
 **Engine:** KimCad 0.9.4
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-09
 **License:** GPL-2.0-only
 
 This manual has three sections:
@@ -71,7 +71,13 @@ The beta installer is not yet code-signed, so Windows SmartScreen will usually s
 not yet known to Microsoft," not "this file is unsafe." To continue:
 
 1. On the blue SmartScreen dialog, click **More info**.
+
+   ![Step 1: the SmartScreen dialog with the More info link highlighted (illustration)](assets/smartscreen-step1-more-info.svg)
+
 2. Click the **Run anyway** button that appears.
+
+   ![Step 2: after More info, the Run anyway button appears next to Don't run (illustration)](assets/smartscreen-step2-run-anyway.svg)
+
 3. If your browser also flagged the download, choose **Keep** on the download bar first
    (Edge: `...` menu on the download, then **Keep**, then **Keep anyway**).
 

@@ -20,6 +20,9 @@ interface ModelSelectorProps {
   onChange: (model: string, provider: AiProvider) => void;
   disabled?: boolean;
   compact?: boolean;
+  /** The engine-side local model currently serving (e.g. "qwen2.5:7b"), when the caller knows
+   * it — shown instead of a false "not connected" when no BYOK provider is configured (W-4). */
+  engineModelLabel?: string | null;
 }
 
 function encodeModelValue(provider: AiProvider, modelId: string): string {
@@ -49,6 +52,7 @@ export function ModelSelector({
   onChange,
   disabled,
   compact = false,
+  engineModelLabel = null,
 }: ModelSelectorProps) {
   const { groupedByProvider, isLoading, error, fromCache, refreshModels } =
     useModels(availableProviders);
@@ -89,9 +93,14 @@ export function ModelSelector({
   }, [currentModel, disabled, isLoading, onChange, openAiCompatibleModels, selectedProvider]);
 
   if (!hasModels && !isLoading) {
+    // Gate 2026-07-09 (W-4): this selector only knows about BYOK cloud providers — when none
+    // are configured but the ENGINE's local model is serving (the common local-first case),
+    // claiming "not connected" was false. Name the engine model when the caller knows it.
     return (
       <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-        Local or cloud AI not connected
+        {engineModelLabel
+          ? `Local AI: ${engineModelLabel}`
+          : 'No cloud AI configured'}
       </span>
     );
   }

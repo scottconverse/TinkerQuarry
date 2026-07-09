@@ -124,16 +124,25 @@ def _browser_available(browser_channel: str | None = None) -> bool:
     return False
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Skip browser e2e during collection when pytest-playwright is not installed.
+def _skip_browser_items_without_playwright(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip browser e2e during collection when the pytest-playwright PLUGIN is not active —
+    not installed, or disabled (``-p no:playwright``).
 
-    Without this, pytest can fail while resolving the plugin's `page` fixture before
+    Without this, pytest fails while resolving the plugin's `page` fixture before
     pytest_runtest_setup has a chance to evaluate the `needs_browser` marker.
+    (Gate 2026-07-09, T3: this used to be its own ``pytest_collection_modifyitems`` — a
+    SECOND definition of that hook lower in this file silently rebound the name, so this
+    guard never ran. There must be exactly ONE hook function; it calls this helper. The
+    check is plugin-registration, not importability: an installed-but-disabled plugin
+    still cannot provide the fixtures.)
     """
-    if _pytest_playwright_available():
+    if config.pluginmanager.hasplugin("playwright") and _pytest_playwright_available():
         return
     skip_browser = pytest.mark.skip(
-        reason="needs_browser: pytest-playwright is not installed (run: pip install pytest-playwright)"
+        reason="needs_browser: the pytest-playwright plugin is not active "
+        "(install it with `pip install pytest-playwright`, and don't disable it)"
     )
     for item in items:
         if item.get_closest_marker("needs_browser"):
@@ -196,6 +205,9 @@ def _geometry_backends_status() -> tuple[bool, str]:
 
 
 def pytest_collection_modifyitems(config, items):  # noqa: ARG001
+    # The ONE collection hook (T3): a duplicate definition of this name silently disables the
+    # earlier one (Python rebinds; pytest registers only the last). Compose behaviors here.
+    _skip_browser_items_without_playwright(config, items)
     ok, reason = _geometry_backends_status()
     if ok:
         return

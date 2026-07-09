@@ -137,6 +137,72 @@ describe('ProductEvidencePanels', () => {
     expect(screen.getByAltText('front view')).toHaveClass('object-contain');
   });
 
+  it('renders a populated intent plan: summary, dimensions, features, assumptions, open questions', () => {
+    // T6 (gate 2026-07-09): the populated-plan branch was untested — only empty states were.
+    renderPanel(
+      <IntentPanel />,
+      workspace({
+        currentDesignResult: {
+          status: 'completed',
+          has_mesh: true,
+          plan: {
+            object_type: 'wall hook',
+            summary: 'A wall hook for a 12 mm dowel.',
+            target_bbox_mm: [40, 20, 60],
+            dimensions: { dowel_diameter: 12, plate_height: 60 },
+            features: [{ type: 'hole', description: 'two screw holes' }],
+            assumptions: ['Assumed 4 mm screws.'],
+            open_questions: ['Wall material?'],
+          },
+        } as WorkspaceState['currentDesignResult'],
+      }),
+    );
+    expect(screen.getByText('A wall hook for a 12 mm dowel.')).toBeInTheDocument();
+    expect(screen.getByText(/Envelope: 40 mm x 20 mm x 60 mm/)).toBeInTheDocument();
+    expect(screen.getByText('dowel_diameter')).toBeInTheDocument();
+    expect(screen.getByText('12 mm')).toBeInTheDocument();
+    expect(screen.getByText(/hole: two screw holes/)).toBeInTheDocument();
+    expect(screen.getByText('Assumed 4 mm screws.')).toBeInTheDocument();
+    expect(screen.getByText(/Open: Wall material\?/)).toBeInTheDocument();
+    // UX-3: the panel shell + sections expose REAL headings for screen-reader navigation.
+    expect(screen.getByRole('heading', { name: 'Intent' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dimensions' })).toBeInTheDocument();
+  });
+
+  it('shows honest fallbacks when the report lacks measurements', () => {
+    // T6: PropertiesPanel's Not-measured/Not-estimated branches.
+    renderPanel(
+      <PropertiesPanel />,
+      workspace({
+        currentDesignResult: {
+          status: 'completed',
+          has_mesh: true,
+          report: {},
+        } as WorkspaceState['currentDesignResult'],
+      }),
+    );
+    expect(screen.getAllByText(/Not measured|Not estimated/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('heading', { name: 'Properties' })).toBeInTheDocument();
+  });
+
+  it('offers STEP through settings when no CadQuery interpreter is available', () => {
+    // T6: ProvenancePanel's step_offer branch (vs a live currentStepUrl).
+    renderPanel(
+      <ProvenancePanel />,
+      workspace({
+        currentDesignResult: {
+          status: 'completed',
+          has_mesh: true,
+          template: 'snap_box',
+          step_offer: 'settings',
+          report: { backend: 'openscad' },
+        } as WorkspaceState['currentDesignResult'],
+      }),
+    );
+    expect(screen.getByRole('heading', { name: 'Provenance' })).toBeInTheDocument();
+    expect(screen.getByText(/STEP/)).toBeInTheDocument();
+  });
+
   it('discloses reverse-import provenance checks', () => {
     renderPanel(
       <ProvenancePanel />,
