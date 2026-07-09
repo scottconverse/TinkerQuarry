@@ -273,11 +273,15 @@ def test_resolve_raises_when_configured_name_missing(tmp_path):
 
 def test_elegoo_tpu_is_honestly_not_available():
     # The Neptune 4 Max has no shipped TPU filament profile, so TPU is a clear "not available"
-    # (raised before any file lookup), not a wrong-vendor generic. Config-only, no tree needed.
+    # (raised before any file lookup), not a wrong-vendor generic. Config-only, no tree needed —
+    # a dummy profiles root PROVES the error precedes any file lookup, and keeps this running
+    # on machines without the bundled tools (orca_profiles_root() raises there).
     cfg = Config.load()
     with pytest.raises(OrcaProfileError, match="not available on printer"):
         resolve_slice_settings(
-            cfg.orca_profiles_root(), cfg.printer("elegoo_neptune_4_max"), cfg.material("tpu")
+            Path("profiles-root-never-touched"),
+            cfg.printer("elegoo_neptune_4_max"),
+            cfg.material("tpu"),
         )
 
 

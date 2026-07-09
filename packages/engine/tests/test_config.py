@@ -302,10 +302,17 @@ def _resolve_orca_machine_value(profiles_root, profile_name: str, key: str):
     return None
 
 
+def _orca_profiles_present() -> bool:
+    # orca_profiles_root() raises when the bundled binary isn't fetched (e.g. CI runners),
+    # which would abort collection if called bare in the skipif — same guard as test_slicer.py.
+    try:
+        return Config.load().orca_profiles_root().exists()
+    except Exception:  # pragma: no cover - config/binary absent
+        return False
+
+
 @pytest.mark.real_tool
-@pytest.mark.skipif(
-    not Config.load().orca_profiles_root().exists(), reason="OrcaSlicer profiles not fetched"
-)
+@pytest.mark.skipif(not _orca_profiles_present(), reason="OrcaSlicer profiles not fetched")
 def test_configured_build_volumes_match_the_shipped_orca_profiles():
     """KC-7 (#12): the build_volume each printer is gate-checked against must MATCH the
     printable area of the very Orca machine profile we slice with — verified against the

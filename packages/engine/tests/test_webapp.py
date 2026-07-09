@@ -450,6 +450,13 @@ def _design_and_get_content_type(tmp_path, suffix):
         return resp.headers.get("Content-Type")
 
 
+def _openscad_present() -> bool:
+    try:
+        return Config.load().binary_path("openscad").exists()
+    except Exception:
+        return False
+
+
 def _trimesh_can_export_3mf() -> bool:
     """Whether trimesh can export a .3mf in this runtime (it needs a 3MF backend, e.g. lxml).
     Without it, /api/design 500s on the .3mf path; skip cleanly rather than muddy the gate
@@ -2301,6 +2308,8 @@ def _fake_step_renderer(monkeypatch):
     return calls
 
 
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_template_step_is_offered_and_built_lazily(tmp_path, monkeypatch):
     """KC-2 (#8): a template design offers step_url with a CadQuery interpreter present;
     the STEP itself builds on FIRST download (never on the render path), is cached for the
@@ -2339,6 +2348,8 @@ def test_template_step_is_offered_and_built_lazily(tmp_path, monkeypatch):
         assert "100" in calls[1], "the rebuild must use the NEW slider values"
 
 
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_template_step_without_interpreter_offers_settings(tmp_path, monkeypatch):
     """KC-11 (#15): no CadQuery interpreter -> no dead step_url; the payload points the UI
     at Settings instead, and the download endpoint stays a clean 404."""
@@ -2355,6 +2366,8 @@ def test_template_step_without_interpreter_offers_settings(tmp_path, monkeypatch
         assert st == 404
 
 
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_templates_endpoint_lists_the_library(tmp_path):
     """UI-v2 slice 3 (#23): GET /api/templates — the library browser's data. Every shipped
     family appears with its display fields; the registry is the single source (the modal
@@ -2502,13 +2515,6 @@ def test_rerender_into_a_gate_failed_shape_blocks_slice_and_send(tmp_path, monke
         assert snd.get("sent") is not True, "a gate-failed re-rendered part must not be sendable"
 
 
-def _openscad_present() -> bool:
-    try:
-        return Config.load().binary_path("openscad").exists()
-    except Exception:
-        return False
-
-
 @pytest.mark.real_tool
 @pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_render_endpoint_reshapes_a_template_part_without_the_model(tmp_path):
@@ -2566,6 +2572,8 @@ def test_rerender_invalidates_a_cached_slice(tmp_path, monkeypatch):
     assert calls["n"] == 2, "re-render must invalidate the cached slice, forcing a re-slice"
 
 
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_a_slice_that_finishes_after_a_rerender_is_dropped_as_stale(tmp_path, monkeypatch):
     # ENG-001: a re-render landing WHILE a slice is in flight (the two use different locks) makes
     # that slice's geometry stale. The stub slicer simulates the interleave by firing a re-render
@@ -2668,6 +2676,8 @@ def test_rerender_unknown_family_is_render_failed(tmp_path):
     assert "unknown template family" in (res.error or "")
 
 
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_demo_gatefail_scenario_offers_experimental_then_gate_fails(tmp_path):
     # QA-002 / RTEST-006: the demo:gatefail prompt routes to a non-template part (needs_experimental,
     # an OFFER not an auto-run); running it experimental emits an oversized cube whose mesh FAILS the
@@ -3643,6 +3653,8 @@ def test_transient_keyring_downgrade_is_signalled_in_the_settings_response(tmp_p
 # --- Stage 8.5 Slice 6 MS-5: tools health + version ----------------------------
 
 
+@pytest.mark.real_tool
+@pytest.mark.skipif(not _openscad_present(), reason="OpenSCAD binary not fetched")
 def test_health_reports_tools_and_version(tmp_path):
     """GET /api/health reports OpenSCAD/OrcaSlicer presence + the app version; never 500s."""
     from kimcad import __version__

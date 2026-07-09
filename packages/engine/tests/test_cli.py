@@ -1,10 +1,30 @@
 import io
 
+import pytest
+
 import kimcad.cli as cli
 from kimcad.cli import _force_utf8_output, _normalize_argv, build_parser, main
 
 from conftest import BAMBU, PLA, FakeProvider
 from conftest import box_renderer, make_plan
+
+
+def _binary_and_profiles_present() -> bool:
+    # The --slice/--send paths resolve the real shipped Orca profiles up front (the printer
+    # confirmation line), so these tests need the bundled tool tree even with a fake slicer —
+    # same guard idiom as test_slicer.py / test_webapp.py.
+    from kimcad.config import Config
+
+    try:
+        cfg = Config.load()
+        return cfg.binary_path("orcaslicer").exists() and cfg.orca_profiles_root().exists()
+    except Exception:  # pragma: no cover - config/binary absent
+        return False
+
+
+_needs_orca_tree = pytest.mark.skipif(
+    not _binary_and_profiles_present(), reason="OrcaSlicer binary/profiles not present"
+)
 
 
 def test_normalize_bare_prompt_becomes_design():
@@ -211,6 +231,8 @@ def test_parser_design_slice_flag_defaults_off():
     assert parser.parse_args(["design", "x", "--slice"]).do_slice is True
 
 
+@pytest.mark.real_tool
+@_needs_orca_tree
 def test_design_slice_flag_confirms_and_reports(monkeypatch, capsys, tmp_path):
     """--slice is the explicit print confirmation: it announces the printer + material
     + resolved profiles up front, slices, and the report shows the proven G-code."""
@@ -291,6 +313,8 @@ def _real_gcode_slicer():
     return fake_slicer
 
 
+@pytest.mark.real_tool
+@_needs_orca_tree
 def test_design_send_to_mock_connector(monkeypatch, capsys, tmp_path):
     """--send slices then sends to the named connector; 'mock' is the built-in loopback."""
     _patch_pipeline(
@@ -307,6 +331,8 @@ def test_design_send_to_mock_connector(monkeypatch, capsys, tmp_path):
     assert "Printer:" in out
 
 
+@pytest.mark.real_tool
+@_needs_orca_tree
 def test_gate_failed_part_is_never_sent(monkeypatch, capsys, tmp_path):
     """The stage's headline safety property: a part that FAILS the gate must not be sent,
     even with --send (the slicer is never invoked, the connector never built)."""
@@ -325,6 +351,8 @@ def test_gate_failed_part_is_never_sent(monkeypatch, capsys, tmp_path):
     assert "Sent to" not in out
 
 
+@pytest.mark.real_tool
+@_needs_orca_tree
 def test_gate_failed_part_not_sent_even_with_proceed_anyway(monkeypatch, capsys, tmp_path):
     """ENG-201: --proceed-anyway lets a gate-FAILED part be sliced for export/inspection,
     but a part the printability gate rejected is never dispatched to a printer."""
@@ -341,6 +369,8 @@ def test_gate_failed_part_not_sent_even_with_proceed_anyway(monkeypatch, capsys,
     assert "Simulated send" not in out
 
 
+@pytest.mark.real_tool
+@_needs_orca_tree
 def test_send_with_no_gcode_says_nothing_to_send(monkeypatch, capsys, tmp_path):
     # --send on a passing part whose slicer produced no real SliceResult -> nothing to send.
     def no_gcode_slicer(mesh_path, out_dir, basename):
