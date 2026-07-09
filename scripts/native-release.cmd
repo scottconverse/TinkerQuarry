@@ -2,26 +2,18 @@
 setlocal
 
 rem VsDevCmd.bat (NOT LaunchDevCmd.bat): LaunchDevCmd spawns an interactive `cmd /k` developer
-rem prompt that waits on stdin forever, hanging any unattended run (it stalled the v1.4.0 release
-rem gate for 76 minutes). VsDevCmd sets the environment in-place and returns.
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-set "VS_DEV_CMD="
+rem prompt that blocks on stdin forever, hanging any unattended test:release run (it stalled the
+rem v1.4.0 release gate for 76 minutes). VsDevCmd sets the environment in-place and returns.
+rem Known install locations are probed directly; vswhere-in-for/f quoting breaks on the ")" in
+rem "%ProgramFiles(x86)%" inside parenthesized blocks, so no vswhere and no ( ) blocks here.
+set "VS_DEV_CMD=%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
+if not exist "%VS_DEV_CMD%" set "VS_DEV_CMD=%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
+if not exist "%VS_DEV_CMD%" set "VS_DEV_CMD=%ProgramFiles%\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+if not exist "%VS_DEV_CMD%" set "VS_DEV_CMD=%ProgramFiles%\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat"
+if not exist "%VS_DEV_CMD%" set "VS_DEV_CMD=%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
 
-if exist "%VSWHERE%" (
-  for /f "usebackq tokens=*" %%i in (`""%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath"`) do (
-    set "VS_DEV_CMD=%%i\Common7\Tools\VsDevCmd.bat"
-  )
-)
-
-if not defined VS_DEV_CMD (
-  set "VS_DEV_CMD=%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
-)
-
-if not exist "%VS_DEV_CMD%" (
-  echo ERROR: Could not find Visual Studio Build Tools VsDevCmd.bat.
-  echo Install Visual Studio 2022 Build Tools with the C++ toolchain, or ensure vswhere.exe can find it.
-  exit /b 2
-)
+if not exist "%VS_DEV_CMD%" echo ERROR: Could not find Visual Studio 2022 VsDevCmd.bat. Install VS 2022 Build Tools with the C++ toolchain.
+if not exist "%VS_DEV_CMD%" exit /b 2
 
 call "%VS_DEV_CMD%" -arch=x64 -no_logo
 if errorlevel 1 exit /b %errorlevel%
