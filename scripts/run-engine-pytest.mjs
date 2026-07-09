@@ -39,7 +39,9 @@ function pickPython() {
 }
 
 const { command, args } = pickPython();
-const result = spawnSync(command, [...args, '-m', 'pytest', '-q'], {
+// --strict-no-skips: this script is the release gate's engine lane (pnpm test:gate), where a
+// skipped test is a failure. The hosted CI smoke lane calls pytest directly without the flag.
+const result = spawnSync(command, [...args, '-m', 'pytest', '-q', '--strict-no-skips'], {
   cwd: engineRoot,
   env: { ...process.env, PYTHONPATH: resolve(engineRoot, 'src') },
   stdio: 'inherit',

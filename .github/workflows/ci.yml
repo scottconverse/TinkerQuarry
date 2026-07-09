@@ -27,7 +27,9 @@ jobs:
         # source build then fails the install. node-gyp >= 12.1.0 fixes discovery.
         run: |
           npm install -g node-gyp@latest
-          "npm_config_node_gyp=$env:APPDATA\npm\node_modules\node-gyp\bin\node-gyp.js" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $gyp = Join-Path (npm root -g) "node-gyp\bin\node-gyp.js"
+          if (-not (Test-Path $gyp)) { throw "node-gyp not found at $gyp" }
+          "npm_config_node_gyp=$gyp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
@@ -76,8 +78,10 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Engine non-live test lane
+        # -rs surfaces every skip reason: this lane may skip env-dependent tests (no bundled
+        # tools on hosted runners), and the log should say exactly which and why.
         run: >
           python -m pytest
           tests
           -m "not live and not real_tool and not needs_cadquery and not needs_browser"
-          -q
+          -q -rs

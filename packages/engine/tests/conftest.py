@@ -218,8 +218,22 @@ def pytest_collection_modifyitems(config, items):  # noqa: ARG001
         item.add_marker(skip)
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--strict-no-skips",
+        action="store_true",
+        default=False,
+        help="release-gate policy: any skipped test fails the session (pnpm test:gate sets this; "
+        "hosted CI smoke lanes and contributor boxes legitimately skip env-dependent tests)",
+    )
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
-    """Release policy: skipped tests are failures. Provision the lane or make the proof runnable."""
+    """Release policy (opt-in via --strict-no-skips): skipped tests are failures — provision the
+    lane or make the proof runnable. Unconditional enforcement would contradict the env-skip
+    taxonomy above and turn every tool-less box (hosted CI smoke, fresh contributor clone) red."""
+    if not session.config.getoption("--strict-no-skips"):
+        return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     skipped = reporter.stats.get("skipped", []) if reporter is not None else []
     if skipped:
