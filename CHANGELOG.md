@@ -20,8 +20,9 @@ telemetry code, matching the README's "no telemetry" claim.
 - Conservative STL/3MF/OBJ reverse import for known trusted part families.
 - SmartScreen guidance for the unsigned beta installer in the README, User Manual, and landing page.
 
-(The five product features above were previously listed under 1.3.1 in error — they landed on `main`
-after the v1.3.1 tag and ship for the first time in v1.4.0.)
+(The five product features above — everything except the SmartScreen guidance — were previously
+listed under 1.3.1 in error: they landed on `main` after the v1.3.1 tag and ship for the first time
+in v1.4.0.)
 
 ### Removed
 
@@ -51,6 +52,9 @@ after the v1.3.1 tag and ship for the first time in v1.4.0.)
 
 - Engine test collection no longer aborts on machines without the bundled OrcaSlicer (a bare
   `skipif` raised `UnknownConfigKey` at import time, failing CI on every push since 2026-06-24).
+- The CI lanes now pass on tool-less GitHub runners: twelve tool-tree-dependent engine tests are
+  presence-guarded, the printer-catalog proof-of-record is compared by content hash instead of
+  file mtime, and the frontend job installs a node-gyp that can discover Visual Studio 2026.
 
 ### Documentation
 
