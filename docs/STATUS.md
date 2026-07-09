@@ -1,9 +1,9 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-07-02
+**As of:** 2026-07-09
 **Product release:** v1.4.0
 **Engine:** KimCad 0.9.4
-**Current gate:** clean current-tree gate plus native Windows installer rerun
+**Current gate:** full `pnpm test:release` (gate + native build + runtime smoke + installed-NSIS smoke) passed on the release tree
 
 ## Plain-English Truth
 
@@ -29,28 +29,20 @@ intended behavior.
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Full repo gate | Passed | `pnpm test:gate` completed cleanly |
-| UI unit coverage | Passed | 94 Jest suites / 660 tests in final gate run |
-| Web unit coverage | Passed | 4 Jest suites / 20 tests in final gate run |
-| Engine coverage | Passed | 1746 pytest tests in final gate run |
-| Browser e2e | Passed | 7 Playwright tests in final gate run |
+| Full repo gate | Passed 2026-07-09 | `pnpm test:gate` completed cleanly on the release tree |
+| UI unit coverage | Passed | 94 Jest suites / 660 tests in the gate run |
+| Web unit coverage | Passed | 4 Jest suites / 20 tests in the gate run |
+| Engine coverage | Passed | 1746 pytest tests, 0 skipped, with the gate's `--strict-no-skips` flag |
+| Browser e2e | Passed | 7 Playwright tests (accessibility, manufacturing flow, workspace, mobile/tablet) |
 | Rust/Tauri tests | Passed | `pnpm test:rust` in gate |
 | Rust dependency audit | Passed with scoped upstream exception | `pnpm test:rust:audit` ignores only `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195`, both from the currently latest `plist -> quick-xml` dependency path |
-| Native release build | Passed | `scripts\native-release.cmd` from `C:\tqbuild\TinkerQuarry` |
-| Tauri runtime smoke | Passed | `pnpm test:e2e:tauri` |
-| Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed` |
+| Native release build | Passed | `scripts\native-release.cmd` (VsDevCmd; unattended-safe) built the NSIS installer in-repo |
+| Tauri runtime smoke | Passed | `pnpm test:e2e:tauri` against a fresh isolated profile: engine health `0.9.4`, OpenSCAD + OrcaSlicer present |
+| Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed`: installs the built setup.exe into a temp dir and drives the native build/slice/send workflow; engine health `0.9.4` |
 
-Fresh current-tree NSIS artifact:
-
-```text
-Name: TinkerQuarry_1.4.0_x64-setup.exe
-SHA-256: 7C0E1E9B5CC2840FA44F568040D132B3CD8E34F4C214C86EBA34D7373708F05F
-Build path: C:\tqbuild\TinkerQuarry
-Smoke: direct Tauri runtime and installed NSIS workflow both passed
-```
-
-The public v1.4.0 release is at
-[github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
+The published installer, its SHA-256 (`SHA256SUMS.txt`), and the release manifest live on the
+[v1.4.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0); the
+manifest pins the exact commit the artifacts were built from.
 
 ## Product Surfaces
 

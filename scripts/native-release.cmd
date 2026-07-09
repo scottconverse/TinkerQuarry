@@ -25,3 +25,10 @@ if errorlevel 1 exit /b %errorlevel%
 
 pnpm.cmd --dir apps/ui exec tauri build --bundles nsis
 if errorlevel 1 exit /b %errorlevel%
+
+rem Refresh the raw exe's resource-dir engine from staging: tauri does not overwrite an existing
+rem target\release\engine tree on rebuild, so the runtime smoke was exercising a stale engine
+rem (0.9.3) while the NSIS payload shipped fresh (0.9.4). robocopy exit codes below 8 = success.
+robocopy packages\engine\dist\staging apps\ui\src-tauri\target\release\engine /MIR /NFL /NDL /NJH /NJS /NP
+if %errorlevel% GEQ 8 exit /b %errorlevel%
+exit /b 0

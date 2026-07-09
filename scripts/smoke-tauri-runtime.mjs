@@ -1,6 +1,6 @@
 import { chromium, expect } from "@playwright/test";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -18,15 +18,25 @@ const exe = resolve(
   exeArg?.slice("--exe=".length) ||
     (existsSync(defaultExe) ? defaultExe : legacyDefaultExe),
 );
-const isolatedProfile = isolatedProfileArg
+const explicitProfile = isolatedProfileArg
   ? resolve(isolatedProfileArg.slice("--isolated-profile=".length))
   : process.env.TQ_TAURI_ISOLATED_PROFILE
     ? resolve(process.env.TQ_TAURI_ISOLATED_PROFILE)
-    : resolve(tmpdir(), "TQSmokeRuntimeProfileRelease");
+    : null;
+const isolatedProfile =
+  explicitProfile || resolve(tmpdir(), "TQSmokeRuntimeProfileRelease");
 
 if (!existsSync(exe)) {
   console.error(`Tauri executable not found: ${exe}`);
   process.exit(1);
+}
+
+if (!explicitProfile) {
+  // Reset the default profile: a leftover TinkerQuarryAppData from an earlier run makes
+  // ensure_engine reuse a STALE engine payload (this smoke reported engine 0.9.3 while the
+  // freshly built installer shipped 0.9.4). The installed-NSIS smoke already wipes its dirs;
+  // mirror that here. An explicitly passed profile is the caller's to manage.
+  rmSync(isolatedProfile, { recursive: true, force: true });
 }
 
 if (isolatedProfile) {
@@ -99,7 +109,9 @@ async function main() {
 
     await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
     await page.setViewportSize({ width: 1600, height: 1000 }).catch(() => {});
-    const title = await page.title();
+    // First-run against a fresh profile navigates during engine setup; a bare page.title()
+    // races that ("Execution context was destroyed"). Use the navigation-safe helper.
+    const title = await evaluateWithNavigationRetry(page, () => document.title);
     const engine = await evaluateWithNavigationRetry(page, async () => {
       const internals = globalThis.__TAURI_INTERNALS__;
       if (!internals || typeof internals.invoke !== "function") {
