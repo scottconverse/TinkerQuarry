@@ -101,29 +101,28 @@ def test_catalog_was_reverified_after_its_last_edit():
         )
         return
 
-    # The record exists -> enforce freshness: it must be at least as new as the catalog it proves.
+    # The record exists -> enforce freshness by CONTENT, not mtime: a fresh `git clone` resets
+    # every file's mtime to checkout time (which failed this test on CI), while the recorded
+    # catalog_sha256 — written by --verify over the same sort_keys JSON dump of the printers
+    # block — proves the exact catalog content that live-sliced, wherever the tree is checked out.
+    import hashlib
     import json
-    from datetime import datetime, timezone
 
-    catalog_mtime = DEFAULT_CONFIG.stat().st_mtime
     try:
         record = json.loads(VERIFY_RECORD.read_text(encoding="utf-8"))
-        verified_at = datetime.fromisoformat(record["verified_at"])
-        if verified_at.tzinfo is None:
-            verified_at = verified_at.replace(tzinfo=timezone.utc)
-        verified_ts = verified_at.timestamp()
+        recorded_sha = record["catalog_sha256"]
     except (ValueError, KeyError, OSError) as e:
         # A malformed record is a real failure, not a skip: the proof can't be trusted.
         raise AssertionError(
-            f"{VERIFY_RECORD.name} is unreadable/missing 'verified_at' ({e!r}); re-run "
+            f"{VERIFY_RECORD.name} is unreadable/missing 'catalog_sha256' ({e!r}); re-run "
             "`scripts/build_printer_catalog.py --verify`"
         ) from e
 
-    assert verified_ts >= catalog_mtime, (
-        f"the printer catalog ({DEFAULT_CONFIG.name}) was edited at "
-        f"{datetime.fromtimestamp(catalog_mtime, timezone.utc).isoformat()} but the all-printer "
-        f"slice proof-of-record ({VERIFY_RECORD.name}) is older "
-        f"({datetime.fromtimestamp(verified_ts, timezone.utc).isoformat()}). Re-run "
-        "`scripts/build_printer_catalog.py --verify` to re-prove every printer slices, then commit "
-        "the refreshed record."
+    catalog_blob = json.dumps(Config.load().raw.get("printers", {}), sort_keys=True).encode("utf-8")
+    current_sha = hashlib.sha256(catalog_blob).hexdigest()
+    assert current_sha == recorded_sha, (
+        f"the printer catalog ({DEFAULT_CONFIG.name}) printers block (sha256 {current_sha[:12]}…) "
+        f"no longer matches the all-printer slice proof-of-record ({VERIFY_RECORD.name}, "
+        f"sha256 {recorded_sha[:12]}…). Re-run `scripts/build_printer_catalog.py --verify` to "
+        "re-prove every printer slices, then commit the refreshed record."
     )

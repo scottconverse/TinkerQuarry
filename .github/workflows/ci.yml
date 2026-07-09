@@ -21,6 +21,14 @@ jobs:
         with:
           version: 10.12.4
 
+      - name: Use a node-gyp that knows Visual Studio 2026
+        # The windows-2025 runner image ships VS 2026, which pnpm's bundled node-gyp 11.x
+        # cannot discover (nodejs/node-gyp#3282, pnpm/pnpm#10268) — tree-sitter-openscad's
+        # source build then fails the install. node-gyp >= 12.1.0 fixes discovery.
+        run: |
+          npm install -g node-gyp@latest
+          "npm_config_node_gyp=$env:APPDATA\npm\node_modules\node-gyp\bin\node-gyp.js" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
