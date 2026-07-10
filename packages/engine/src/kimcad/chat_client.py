@@ -138,4 +138,13 @@ class HttpChatClient:
                 f"HTTP {response.status_code}: {_error_detail(response)}",
                 response=response,
             )
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as e:
+            # A 200 with a garbled/truncated body (proxy hiccup, server mid-restart) must
+            # surface as an APIError-family failure, not a raw JSONDecodeError no caller
+            # catches (REVIEW finding, v1.5-1).
+            raise APIStatusError(
+                f"malformed JSON in a {response.status_code} response: {e}",
+                response=response,
+            ) from e

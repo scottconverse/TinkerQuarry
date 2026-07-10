@@ -19,15 +19,20 @@ is out of scope by construction, not by exemption list.
    allowlist. Unknown/unparseable metadata FAILS the gate — triage it into OVERRIDES with the
    verified license and a source, so every exception is explicit and reviewable.
 
-License-expression semantics: ``OR`` (and multiple License classifiers, which declare a
-choice) passes if ANY branch is allowed — we elect the compatible branch; ``AND`` requires
-every part allowed.
+License-expression semantics: only a real SPDX ``License-Expression`` (PEP 639) carries a
+formal grammar, so only there does ``OR`` mean a choice we may elect (ANY branch allowed
+passes; ``AND`` requires every part). Bare ``License ::`` classifier lists have NO defined
+OR/AND semantics — a second classifier may be a dual-license choice or may cover a bundled
+component — so the fallback is conservative: EVERY classifier must be allowlisted, and a
+genuine dual-license package that fails that goes into OVERRIDES as a human-verified,
+documented election (see paho-mqtt).
 
 Exit 0 = clean; exit 1 = violations (each printed); exit 2 = usage error.
 """
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from importlib import metadata
@@ -85,36 +90,43 @@ def _canon(name: str) -> str:
     return re.sub(r"[-_.]+", "-", _norm(name))
 
 
-def _dist_license(dist: metadata.Distribution) -> str | None:
-    """Best license signal: PEP 639 License-Expression, else OSI classifiers, else the
-    free-text License field (first line)."""
+def _dist_license(dist: metadata.Distribution) -> tuple[str, str] | None:
+    """Best license signal as ``(kind, value)``: a PEP 639 ``("expression", ...)`` with real
+    SPDX grammar, else ``("classifiers", "a; b")`` (no grammar — treated conservatively),
+    else ``("freetext", ...)`` from the License field's first line."""
     meta = dist.metadata
     expr = meta.get("License-Expression")
     if expr:
-        return expr
+        return ("expression", expr)
     classifiers = [v for k, v in meta.items() if k == "Classifier"]
     lic = [c.split("::")[-1].strip() for c in classifiers if c.startswith("License ::")]
     if lic:
-        return "; ".join(lic)
+        return ("classifiers", "; ".join(lic))
     raw = meta.get("License")
     if raw:
-        return raw.splitlines()[0][:120]
+        return ("freetext", raw.splitlines()[0][:120])
     return None
 
 
-def _license_ok(name: str, license_str: str | None) -> bool:
+def _license_ok(name: str, signal: tuple[str, str] | None) -> bool:
     if name in OVERRIDES:
-        license_str = OVERRIDES[name].split("(")[0]
-    if not license_str:
+        # A human-verified election (e.g. the EDL branch of a dual license) — the override
+        # text before the parenthesized source is the license we ship under.
+        signal = ("freetext", OVERRIDES[name].split("(")[0])
+    if not signal:
         return False
-    # OR-branches (and ';'-joined classifier lists, which declare a licensing CHOICE) pass if
-    # any branch is allowed; each branch may be an AND-compound where every part must pass.
-    branches = re.split(r"\s+OR\s+|;", license_str)
-    for branch in branches:
-        parts = [p for p in (_norm(p) for p in re.split(r"\s+AND\s+", branch)) if p]
-        if parts and all(p in ALLOWED_LICENSES for p in parts):
-            return True
-    return False
+    kind, license_str = signal
+    if kind == "expression":
+        # Real SPDX grammar: OR is a choice (any allowed branch passes); AND needs all parts.
+        for branch in re.split(r"\s+OR\s+", license_str):
+            parts = [p for p in (_norm(p) for p in re.split(r"\s+AND\s+", branch)) if p]
+            if parts and all(p in ALLOWED_LICENSES for p in parts):
+                return True
+        return False
+    # Classifier lists / free text carry no OR grammar: conservatively require EVERY listed
+    # license to be allowlisted. A genuine dual-license that fails this goes to OVERRIDES.
+    parts = [p for p in (_norm(p) for p in license_str.split(";")) if p]
+    return bool(parts) and all(p in ALLOWED_LICENSES for p in parts)
 
 
 def _shipped_names(lock_file: Path = LOCK_FILE) -> set[str]:
@@ -163,21 +175,33 @@ def check_installed() -> list[str]:
     return violations
 
 
-_IMPORT_RE = re.compile(
-    r"^\s*(?:import|from)\s+(" + "|".join(sorted(FORBIDDEN | ISOLATED_ONLY)) + r")\b",
-    re.MULTILINE,
-)
+def _imported_roots(tree: "ast.Module"):
+    """Yield ``(root_module, line)`` for every Import/ImportFrom node, however nested
+    (function-local lazy imports included). AST-based so prose in docstrings/comments can
+    never trip the gate (REVIEW finding, v1.5-1)."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                yield alias.name.split(".", 1)[0], node.lineno
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            yield node.module.split(".", 1)[0], node.lineno
 
 
 def check_imports(src_root: Path = ENGINE_SRC) -> list[str]:
+    watched = FORBIDDEN | ISOLATED_ONLY
     violations: list[str] = []
     for py in sorted(src_root.rglob("*.py")):
         text = py.read_text(encoding="utf-8", errors="replace")
-        for m in _IMPORT_RE.finditer(text):
-            pkg = m.group(1)
+        try:
+            tree = ast.parse(text, filename=str(py))
+        except SyntaxError as e:
+            violations.append(f"cannot parse {py.relative_to(REPO)} for the import check: {e}")
+            continue
+        for pkg, line in _imported_roots(tree):
+            if pkg not in watched:
+                continue
             if pkg in ISOLATED_ONLY and py.name.endswith("_worker.py"):
                 continue  # the worker subprocess files are the isolation boundary
-            line = text.count("\n", 0, m.start()) + 1
             violations.append(
                 f"in-process import of {pkg} at {py.relative_to(REPO)}:{line} "
                 f"({'forbidden package' if pkg in FORBIDDEN else 'isolated-only: workers may import it, engine code may not'})"

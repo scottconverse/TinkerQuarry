@@ -105,6 +105,19 @@ def test_other_4xx_5xx_raise_apistatuserror_with_status():
     assert not isinstance(ei.value, NotFoundError)
 
 
+def test_200_with_malformed_json_raises_apistatuserror():
+    # A proxy/server mid-restart can 200 with a truncated body; that must be an
+    # APIError-family failure, never a raw JSONDecodeError.
+    def handler(request):
+        return httpx.Response(200, text='{"choices": [{"mess')
+
+    with pytest.raises(APIStatusError) as ei:
+        _client(handler).chat.completions.create(
+            model="m", messages=[], temperature=0, max_tokens=1
+        )
+    assert "malformed JSON" in str(ei.value)
+
+
 def test_connect_error_maps_to_apiconnectionerror():
     def handler(request):
         raise httpx.ConnectError("refused")

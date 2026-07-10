@@ -126,6 +126,64 @@ def test_harden_never_imports_manifold3d_in_process():
             sys.modules["manifold3d"] = saved
 
 
+def test_harden_worker_timeout_never_raises(monkeypatch):
+    # ENG-007 through the REAL _invoke_worker machinery: a hung worker (TimeoutExpired from
+    # subprocess.run) must degrade to the validated mesh, never raise.
+    import subprocess
+
+    from kimcad import hardening
+
+    def _hangs(*a, **kw):
+        raise subprocess.TimeoutExpired(cmd="manifold_worker", timeout=1)
+
+    monkeypatch.setattr(hardening.subprocess, "run", _hangs)
+    box = trimesh.creation.box(extents=[10, 10, 10])
+    out, rep = harden_mesh(box)
+    assert out is box
+    assert rep.engine == "manifold3d" and rep.ok is False
+    assert "hardening raised" in rep.note
+
+
+def test_harden_worker_writing_no_result_never_raises(monkeypatch):
+    # A worker that dies before writing result.json (crash, OOM-kill) hits the protocol
+    # branch: original mesh back, reason recorded, no exception.
+    import subprocess
+
+    from kimcad import hardening
+
+    def _dies_silently(*a, **kw):
+        return subprocess.CompletedProcess(args=a, returncode=1, stdout="", stderr="boom")
+
+    monkeypatch.setattr(hardening.subprocess, "run", _dies_silently)
+    box = trimesh.creation.box(extents=[10, 10, 10])
+    out, rep = harden_mesh(box)
+    assert out is box
+    assert rep.engine == "manifold3d" and rep.ok is False
+    assert "hardening raised" in rep.note
+
+
+@pytest.mark.needs_manifold
+@pytest.mark.skipif(not _HAS_MANIFOLD, reason="manifold3d not installed")
+def test_manifold_worker_reports_protocol_error_on_garbage_stdin():
+    # The REAL worker process, fed a malformed request: it must answer with a clean
+    # protocol-error JSON on stdout (no result_path known) and exit 0 — never traceback.
+    import json
+    import subprocess
+
+    from kimcad import manifold_worker
+
+    proc = subprocess.run(
+        [sys.executable, manifold_worker.__file__],
+        input="this is not json",
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert proc.returncode == 0
+    result = json.loads(proc.stdout)
+    assert result["ok"] is False and result["kind"] == "protocol"
+
+
 def test_harden_report_summary_strings():
     ok = HardenReport(
         engine="manifold3d", ok=True, status="Error.NoError", genus=0,

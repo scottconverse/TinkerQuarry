@@ -25,6 +25,10 @@ jobs:
 
   windows-release-gate:
     name: Windows release gate
+    # A red license gate must block the build/upload of real installer artifacts — without
+    # this `needs`, the jobs run in parallel and a non-compliant bundle still produces a
+    # downloadable release candidate (REVIEW finding, v1.5-1).
+    needs: license-gate
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 180
     steps:
