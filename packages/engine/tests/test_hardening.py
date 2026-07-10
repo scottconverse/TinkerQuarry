@@ -68,17 +68,18 @@ def test_harden_rejects_real_nonmanifold_mesh_keeps_original():
     assert out is open_mesh  # the validated mesh is returned unchanged
 
 
-@pytest.mark.needs_manifold
-@pytest.mark.skipif(not _HAS_MANIFOLD, reason="manifold3d not installed")
 def test_harden_exception_path_keeps_validated_mesh(monkeypatch):
-    # TEST-003: if the Manifold round-trip raises, hardening must swallow it and return
-    # the original mesh (the "never raises" contract), driven through the real function.
-    import manifold3d
+    # TEST-003: if the worker fails mid-run (crash/timeout/raise), hardening must swallow it
+    # and return the original mesh (the "never raises" contract). Since v1.5-1 the manifold
+    # round-trip lives in a subprocess, so the failure is injected at the worker seam — the
+    # real in-worker exception path is the same reporting branch, exercised end-to-end by
+    # test_harden_rejects_real_nonmanifold_mesh_keeps_original.
+    from kimcad import hardening
 
-    def boom(*args, **kwargs):
-        raise RuntimeError("manifold boom")
-
-    monkeypatch.setattr(manifold3d, "Manifold", boom)
+    monkeypatch.setattr(
+        hardening, "_invoke_worker",
+        lambda mesh: {"ok": False, "kind": "exec", "error": "RuntimeError: manifold boom"},
+    )
     box = trimesh.creation.box(extents=[10, 10, 10])
     out, rep = harden_mesh(box)
     assert rep.engine == "manifold3d"
@@ -88,15 +89,41 @@ def test_harden_exception_path_keeps_validated_mesh(monkeypatch):
 
 
 def test_harden_skips_cleanly_when_manifold3d_absent(monkeypatch):
-    # Simulate manifold3d not being installed: import inside harden_mesh must raise
-    # ImportError, and the original mesh is returned unchanged with a clear note.
-    monkeypatch.setitem(sys.modules, "manifold3d", None)
+    # Simulate manifold3d not being installed: the worker reports the import failure and
+    # the original mesh is returned unchanged with a clear note. (The worker-side ImportError
+    # branch itself is three lines of manifold_worker._run; this drives the parent mapping.)
+    from kimcad import hardening
+
+    monkeypatch.setattr(
+        hardening, "_invoke_worker",
+        lambda mesh: {
+            "ok": False, "kind": "import",
+            "error": "manifold3d unavailable (No module named 'manifold3d')",
+        },
+    )
     box = trimesh.creation.box(extents=[10, 10, 10])
     out, rep = harden_mesh(box)
     assert rep.engine == "skipped"
     assert rep.ok is False
     assert out is box  # untouched pass-through
     assert "unavailable" in rep.summary()
+
+
+@pytest.mark.needs_manifold
+@pytest.mark.skipif(not _HAS_MANIFOLD, reason="manifold3d not installed")
+def test_harden_never_imports_manifold3d_in_process():
+    """v1.5-1 license boundary: manifold3d (Apache-2.0) must run only in the worker
+    subprocess — a successful harden leaves no manifold3d module in THIS interpreter."""
+    saved = sys.modules.pop("manifold3d", None)
+    try:
+        box = trimesh.creation.box(extents=[15, 15, 15])
+        out, rep = harden_mesh(box)
+        assert rep.engine == "manifold3d" and rep.ok is True
+        assert out.is_watertight
+        assert "manifold3d" not in sys.modules
+    finally:
+        if saved is not None:
+            sys.modules["manifold3d"] = saved
 
 
 def test_harden_report_summary_strings():

@@ -7,9 +7,7 @@
 annotated-types==0.7.0
     # via pydantic
 anyio==4.14.0
-    # via
-    #   httpx
-    #   openai
+    # via httpx
 bambulabs-api==2.6.6
     # via kimcad (packages/engine/pyproject.toml)
 bottle==0.13.4
@@ -22,16 +20,12 @@ cffi==2.0.0
     # via clr-loader
 clr-loader==0.3.1
     # via pythonnet
-colorama==0.4.6
-    # via tqdm
-distro==1.9.0
-    # via openai
 h11==0.16.0
     # via httpcore
 httpcore==1.0.9
     # via httpx
 httpx==0.28.1
-    # via openai
+    # via kimcad (packages/engine/pyproject.toml)
 idna==3.18
     # via
     #   anyio
@@ -42,8 +36,6 @@ jaraco-context==6.1.2
     # via keyring
 jaraco-functools==4.5.0
     # via keyring
-jiter==0.15.0
-    # via openai
 keyring==25.7.0
     # via kimcad (packages/engine/pyproject.toml)
 lxml==6.1.1
@@ -63,8 +55,6 @@ numpy==2.2.6
     #   manifold3d
     #   scipy
     #   trimesh
-openai==2.43.0
-    # via kimcad (packages/engine/pyproject.toml)
 paho-mqtt==2.1.0
     # via bambulabs-api
 pillow==12.2.0
@@ -74,9 +64,7 @@ proxy-tools==0.1.0
 pycparser==3.0
     # via cffi
 pydantic==2.13.4
-    # via
-    #   kimcad (packages/engine/pyproject.toml)
-    #   openai
+    # via kimcad (packages/engine/pyproject.toml)
 pydantic-core==2.46.4
     # via pydantic
 pyserial==3.5
@@ -93,15 +81,10 @@ scipy==1.17.1
     # via
     #   -c packages/engine/requirements.constraints
     #   kimcad (packages/engine/pyproject.toml)
-sniffio==1.3.1
-    # via openai
-tqdm==4.68.3
-    # via openai
 trimesh==4.12.2
     # via kimcad (packages/engine/pyproject.toml)
 typing-extensions==4.15.0
     # via
-    #   openai
     #   pydantic
     #   pydantic-core
     #   pywebview

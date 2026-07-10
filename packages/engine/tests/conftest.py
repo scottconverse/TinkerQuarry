@@ -26,7 +26,7 @@ import pytest
 # import-time hard deps first, with the same one-clear-line contract.
 for _mod, _hint in (
     ("pydantic", "pip install -e \".[dev]\" (pydantic/pydantic-core missing or broken)"),
-    ("openai", "pip install -e \".[dev]\" (openai SDK missing)"),
+    ("httpx", "pip install -e \".[dev]\" (httpx missing — v1.5-1 chat client transport)"),
     ("trimesh", "pip install -e \".[dev]\" (trimesh missing)"),
     ("yaml", "pip install -e \".[dev]\" (pyyaml missing)"),
 ):

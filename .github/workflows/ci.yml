@@ -77,6 +77,12 @@ jobs:
           python -m pip install -r requirements.lock
           python -m pip install -e ".[dev]"
 
+      - name: License gate (GPL-2.0-only bundle — v1.5-1)
+        # Fails on: openai/distro present anywhere in the venv; manifold3d/cadquery imported
+        # by in-process engine code (workers only); any shipped dep without an allowlisted
+        # GPL-2.0-compatible license. See scripts/license_scan.py.
+        run: python ../../scripts/license_scan.py
+
       - name: Engine non-live test lane
         # -rs surfaces every skip reason: this lane may skip env-dependent tests (no bundled
         # tools on hosted runners), and the log should say exactly which and why.

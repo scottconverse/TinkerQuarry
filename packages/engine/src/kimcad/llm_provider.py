@@ -96,7 +96,8 @@ class PlanParseError(Exception):
 
 
 class ChatClient(Protocol):
-    """Minimal structural type for the bit of the OpenAI client we use."""
+    """Minimal structural type for the chat client (kimcad.chat_client.HttpChatClient in
+    production; tests substitute simple fakes)."""
 
     @property
     def chat(self) -> Any: ...
@@ -231,7 +232,7 @@ class LLMProvider:
 
     @staticmethod
     def _build_client(backend: LLMBackend, *, api_key: str | None = None) -> ChatClient:
-        from openai import OpenAI
+        from kimcad.chat_client import HttpChatClient
 
         # An explicit (saved) key wins; otherwise fall back to the backend's env var.
         key = api_key
@@ -254,16 +255,10 @@ class LLMProvider:
             Config.validate_cloud_base_url(backend.base_url)
         else:
             key = "not-needed"
-        # QA-004: split connect vs read. A generation may legitimately take many minutes on the
-        # CPU target (the long read budget), but a TCP connect to a server that's up answers in
-        # well under 5 s — so a wedged/absent server fails an attempt in seconds, not in
-        # `timeout_s`. httpx ships with the openai client.
-        import httpx
-
-        # ENG-002 (stage-A gate): max_retries=0 — KimCad's own loop owns retry policy; the
-        # SDK's default 2 internal retries stacked under it (up to 18 connect cycles).
-        timeout = httpx.Timeout(backend.timeout_s, connect=5.0)
-        return OpenAI(base_url=backend.base_url, api_key=key, timeout=timeout, max_retries=0)
+        # QA-004 (connect/read split) and ENG-002 (no client-internal retries) now live inside
+        # HttpChatClient by construction — v1.5-1 replaced the Apache-2.0 openai SDK with our
+        # own thin client over the BSD-licensed httpx.
+        return HttpChatClient(backend.base_url, key, timeout_s=backend.timeout_s)
 
     def _complete(self, messages: list[dict[str, str]], *, json_mode: bool) -> str:
         kwargs: dict[str, Any] = {
@@ -275,7 +270,7 @@ class LLMProvider:
         if json_mode and self.backend.supports_structured_output:
             kwargs["response_format"] = {"type": "json_object"}
 
-        from openai import APIConnectionError, APITimeoutError
+        from kimcad.chat_client import APIConnectionError, APITimeoutError
 
         last_err: Exception | None = None
         for attempt in range(1, self.max_attempts + 1):
@@ -602,7 +597,7 @@ class FallbackProvider:
         return getattr(self._local, "on_alt", False)
 
     def _call(self, method_name: str, *args: Any, **kwargs: Any) -> Any:
-        from openai import APIConnectionError, APITimeoutError, NotFoundError
+        from kimcad.chat_client import APIConnectionError, APITimeoutError, NotFoundError
 
         # Once switched on this thread, stay on alt for the rest of the request.
         if self._on_alt and self.alt is not None:
