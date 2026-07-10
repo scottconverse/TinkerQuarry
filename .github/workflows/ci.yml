@@ -40,23 +40,25 @@ jobs:
       - name: UI type check
         run: pnpm --dir apps/ui type-check
 
-      - name: Focused UI unit tests
-        run: >
-          pnpm --dir apps/ui test -- --runTestsByPath
-          src/components/__tests__/WelcomeScreen.test.tsx
-          src/components/__tests__/AiPromptPanel.test.tsx
-          src/services/__tests__/engineClient.test.ts
-          --runInBand
+      - name: Full UI unit tests (non-live lane)
+        # v1.5 CI expansion: the focused 3-file lane was a historical artifact — the full
+        # suite (94 suites / 670 tests) is green and runs in ~90 s locally.
+        # No `--` separator: pnpm 10 forwards it literally and jest then reads the args as
+        # a test-name pattern (0 matches -> exit 1). Caught live on this PR's first CI run.
+        # engineLive.integration is DESELECTED via TQ_CI_NO_LIVE (not skipped — the no-skips
+        # reporter forbids green-by-skip): hosted runners have no engine venv to spawn. This
+        # mirrors the engine lane's `-m "not live"`; the live file still runs locally and in
+        # the self-hosted release proof. Config-level, because the CLI flag REPLACES the
+        # whole ignore list (proven locally: 810 tests collected, 68 red).
+        run: pnpm --dir apps/ui test --runInBand --ci
+        env:
+          TQ_CI_NO_LIVE: "1"
 
       - name: Web build
         run: pnpm --dir apps/web build
 
-      - name: Focused web share tests
-        run: >
-          pnpm --dir apps/web test -- --runTestsByPath
-          functions/_lib/__tests__/share.test.ts
-          functions/api/__tests__/share.test.ts
-          --runInBand
+      - name: Full web tests
+        run: pnpm --dir apps/web test --runInBand --ci
 
   engine:
     name: Engine smoke
@@ -66,6 +68,9 @@ jobs:
         working-directory: packages/engine
     steps:
       - uses: actions/checkout@v4
+        with:
+          # diff-cover needs the merge-base with main to compute changed-line coverage
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -83,7 +88,7 @@ jobs:
         # GPL-2.0-compatible license. See scripts/license_scan.py.
         run: python ../../scripts/license_scan.py
 
-      - name: Engine non-live test lane
+      - name: Engine non-live test lane (with coverage)
         # -rs surfaces every skip reason: this lane may skip env-dependent tests (no bundled
         # tools on hosted runners), and the log should say exactly which and why.
         run: >
@@ -91,3 +96,13 @@ jobs:
           tests
           -m "not live and not real_tool and not needs_cadquery and not needs_browser"
           -q -rs
+          --cov=kimcad --cov-report=xml
+
+      - name: Diff coverage gate (PRs — changed engine lines must be tested)
+        if: github.event_name == 'pull_request'
+        # v1.5 CI expansion: >=80% of changed executable lines under packages/engine must be
+        # covered by the lane above. Doc/workflow-only PRs pass trivially (empty diff).
+        # *_worker.py files are excluded: they execute in child processes where coverage
+        # can't trace (validated: manifold_worker showed 13% despite real subprocess tests);
+        # their behavior is proven by the tests that drive the actual worker process.
+        run: python -m diff_cover.diff_cover_tool coverage.xml --compare-branch origin/${{ github.base_ref }} --fail-under 80 --exclude "**/*_worker.py"
