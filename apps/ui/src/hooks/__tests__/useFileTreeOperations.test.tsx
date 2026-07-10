@@ -87,6 +87,8 @@ describe('useFileTreeOperations (extracted from App.tsx, phase 1b) — real stor
     let id = '';
     act(() => {
       id = h.current().createNewTab(null, 'x();', 'x.scad');
+      // addFile seeds new files isDirty (never saved to disk); mark saved so the tab is clean
+      getProjectStore().getState().markFileSaved('x.scad');
     });
     const count = getWorkspaceState().tabs.length;
     await act(async () => {
