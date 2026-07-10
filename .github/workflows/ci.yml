@@ -43,13 +43,15 @@ jobs:
       - name: Full UI unit tests
         # v1.5 CI expansion: the focused 3-file lane was a historical artifact — the full
         # suite (94 suites / 670 tests) is green and runs in ~90 s locally.
-        run: pnpm --dir apps/ui test -- --runInBand --ci
+        # No `--` separator: pnpm 10 forwards it literally and jest then reads the args as
+        # a test-name pattern (0 matches -> exit 1). Caught live on this PR's first CI run.
+        run: pnpm --dir apps/ui test --runInBand --ci
 
       - name: Web build
         run: pnpm --dir apps/web build
 
       - name: Full web tests
-        run: pnpm --dir apps/web test -- --runInBand --ci
+        run: pnpm --dir apps/web test --runInBand --ci
 
   engine:
     name: Engine smoke

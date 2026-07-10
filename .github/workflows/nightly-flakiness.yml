@@ -70,7 +70,7 @@ jobs:
         run: |
           $codes = @()
           foreach ($i in 1..5) {
-            pnpm --dir apps/ui test -- --runInBand --ci
+            pnpm --dir apps/ui test --runInBand --ci
             $codes += $LASTEXITCODE
             Write-Output "run $i exit: $($codes[-1])"
           }
