@@ -54,6 +54,8 @@ import {
 } from "./stores/layoutStore";
 import { useRenderOrchestrator } from "./hooks/useRenderOrchestrator";
 import { useAiAgent } from "./hooks/useAiAgent";
+import { useGlobalErrorReporting } from "./hooks/useGlobalErrorReporting";
+import { useGlobalKeyboardShortcuts } from "./hooks/useGlobalKeyboardShortcuts";
 import {
   describeIntoStudio,
   reopenIntoStudio,
@@ -213,38 +215,6 @@ function pickFolder(): Promise<{
     input.oncancel = () => resolve(null);
     input.click();
   });
-}
-
-function isIgnorableError(reason: unknown): boolean {
-  // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error message.
-  if (typeof Event !== "undefined" && reason instanceof Event) {
-    return true;
-  }
-
-  const message =
-    reason instanceof Error
-      ? reason.message
-      : typeof reason === "string"
-        ? reason
-        : typeof reason === "object" &&
-            reason !== null &&
-            "message" in reason &&
-            typeof (reason as { message?: unknown }).message === "string"
-          ? (reason as { message: string }).message
-          : "";
-
-  const normalized = message.trim().toLowerCase();
-  return (
-    normalized === "canceled" ||
-    normalized === "cancelled" ||
-    normalized === "render cancelled" ||
-    normalized === "render canceled" ||
-    normalized.includes("aborterror") ||
-    normalized.includes("aborted") ||
-    // drei/three.js asset loader errors (e.g. HDR environment map fetch failures)
-    // are handled locally by EnvironmentWithFallback and should not surface as toasts.
-    normalized.startsWith("could not load ")
-  );
 }
 
 function revokeBlobUrl(url: string | null | undefined) {
@@ -3558,42 +3528,17 @@ function App() {
     }
   }, [printOutcome]);
 
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or Ctrl+K to focus AI prompt
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        openPanel("ai-chat", "ai-chat", "AI");
-        setTimeout(() => {
-          aiPromptPanelRef.current?.focusPrompt();
-        }, 0);
-      }
-      // ⌘, or Ctrl+, to open settings
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
-        e.preventDefault();
-        setShowSettingsDialog(true);
-      }
-      // ⌘T or Ctrl+T for new tab
-      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
-        e.preventDefault();
-        createNewTab();
-      }
-      // ⌘W or Ctrl+W to close tab
-      if ((e.metaKey || e.ctrlKey) && e.key === "w") {
-        e.preventDefault();
-        closeTab(activeTabId);
-      }
-      // ⌘⌥S or Ctrl+Alt+S to save all
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === "s") {
-        e.preventDefault();
-        eventBus.emit("menu:file:save_all");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [createNewTab, closeTab, activeTabId]);
+  // Global keyboard shortcuts + window error reporting — extracted (v1.5 phase 1a) to
+  // hooks/useGlobalKeyboardShortcuts.ts and hooks/useGlobalErrorReporting.ts.
+  const openSettingsShortcut = useCallback(() => setShowSettingsDialog(true), []);
+  useGlobalKeyboardShortcuts({
+    aiPromptPanelRef,
+    openSettings: openSettingsShortcut,
+    createNewTab,
+    closeTab,
+    activeTabId,
+  });
+  useGlobalErrorReporting();
 
   useEffect(() => {
     if (aiError) {
@@ -3607,46 +3552,6 @@ function App() {
       clearAiError();
     }
   }, [aiError, aiErrorObject, clearAiError]);
-
-  useEffect(() => {
-    const handleWindowError = (event: ErrorEvent) => {
-      if (isIgnorableError(event.error ?? event.message)) {
-        return;
-      }
-      notifyError({
-        operation: "unexpected-runtime-error",
-        error: event.error ?? event.message,
-        fallbackMessage: "Something went wrong in the app",
-        toastId: "unexpected-runtime-error",
-        logLabel: "[App] Unhandled window error",
-      });
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isIgnorableError(event.reason)) {
-        return;
-      }
-
-      notifyError({
-        operation: "unexpected-runtime-error",
-        error: event.reason,
-        fallbackMessage: "An unexpected error interrupted the current action",
-        toastId: "unexpected-runtime-error",
-        logLabel: "[App] Unhandled promise rejection",
-      });
-    };
-
-    window.addEventListener("error", handleWindowError);
-    window.addEventListener("unhandledrejection", handleUnhandledRejection);
-
-    return () => {
-      window.removeEventListener("error", handleWindowError);
-      window.removeEventListener(
-        "unhandledrejection",
-        handleUnhandledRejection,
-      );
-    };
-  }, []);
 
   const onDockviewReady = useCallback(
     (event: DockviewReadyEvent) => {
