@@ -48,17 +48,17 @@ def _request() -> httpx.Request:
 
 
 def _conn_err() -> Exception:
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
     return APIConnectionError(request=_request())
 
 
 def _timeout_err() -> Exception:
-    from openai import APITimeoutError
+    from kimcad.chat_client import APITimeoutError
     return APITimeoutError(request=_request())
 
 
 def _not_found_err() -> Exception:
-    from openai import NotFoundError
+    from kimcad.chat_client import NotFoundError
     resp = httpx.Response(
         404,
         request=_request(),
@@ -128,7 +128,7 @@ def test_fallback_on_model_not_found():
 
 
 def test_no_alt_connection_error_propagates():
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
     primary = _mock_provider(error=_conn_err())
     fp = FallbackProvider(primary, alt=None)
     with pytest.raises(APIConnectionError):
@@ -136,7 +136,7 @@ def test_no_alt_connection_error_propagates():
 
 
 def test_no_alt_timeout_error_propagates():
-    from openai import APITimeoutError
+    from kimcad.chat_client import APITimeoutError
     primary = _mock_provider(error=_timeout_err())
     fp = FallbackProvider(primary, alt=None)
     with pytest.raises(APITimeoutError):

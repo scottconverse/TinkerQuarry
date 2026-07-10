@@ -53,20 +53,27 @@ The permissive SCAD stack is vendored into the approved `library/` path. All are
 
 ## 5. Python runtime dependencies
 
-Installed separately via `pip` (declared in `pyproject.toml`); **not redistributed in this
-repository**, so this is aggregation / mere use rather than a combined-work distribution.
+Installed separately via `pip` (declared in `pyproject.toml`); the installer additionally
+bundles this set in its private venv. Since v1.5-1 the bundle is **license-clean by
+construction and CI-enforced**: `scripts/license_scan.py` runs in CI and the release gate,
+and fails on any GPL-2.0-incompatible license linking in-process.
 
 | Package | License |
 |---|---|
 | pydantic, pyyaml, trimesh | MIT |
 | numpy, scipy, networkx, lxml | BSD-3-Clause |
+| httpx (chat transport for `kimcad.chat_client`) | BSD-3-Clause |
 | manifold3d | Apache-2.0 \* |
-| openai (client) | Apache-2.0 \* |
 
-\* Apache-2.0 is not GPLv2-*compatible* for *combining into one distributed work*, but these are
-installed by the user as separate packages and used at arm's length (imported at runtime, not
-vendored/redistributed here) — aggregation, which GPL-2.0 permits. If KimCad ever vendors them into
-its own distribution, revisit this.
+\* Apache-2.0 is not GPLv2-*compatible* for combining into one work, so manifold3d is **never
+imported in-process**: it runs behind the `manifold_worker.py` subprocess, the same
+arm's-length process boundary used for OpenSCAD, OrcaSlicer, and CadQuery (see section 3).
+The license gate enforces that only `*_worker.py` files may import it.
+
+*History:* through v1.4.0 the bundle also shipped the `openai` client (Apache-2.0, with
+`distro` in its dependency tail) under an aggregation rationale. v1.5-1 removed both —
+`kimcad.chat_client` now implements the OpenAI-compatible calls directly over `httpx` — and
+made their reappearance a CI failure (`FORBIDDEN` list in the license gate).
 
 ## 6. Front-end dependencies
 

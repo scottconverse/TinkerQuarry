@@ -644,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        if type(e).__name__ == "NotFoundError" and type(e).__module__.startswith("openai"):
+        if type(e).__name__ == "NotFoundError" and type(e).__module__ == "kimcad.chat_client":
             print(
                 "Error: the model isn't available on your local AI server. "
                 f"Pull it first (`ollama pull {_model_name()}`), then try again. "

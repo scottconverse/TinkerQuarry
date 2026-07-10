@@ -60,7 +60,7 @@ def test_slice_model_missing_binary_raises_tool_missing(tmp_path):
 
 def _conn_error():
     import httpx
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
 
     return APIConnectionError(request=httpx.Request("POST", "http://localhost:11434/v1"))
 
@@ -92,7 +92,7 @@ def test_never_up_server_fails_fast_no_retry_loop(monkeypatch):
     client = _AlwaysDownClient()
     provider = LLMProvider(_backend(), client=client, max_attempts=6, retry_wait_s=30.0)
     monkeypatch.setattr(LLMProvider, "_server_reachable", lambda self, timeout_s=2.0: False)
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
 
     with pytest.raises(APIConnectionError):
         provider._complete([{"role": "user", "content": "x"}], json_mode=False)
@@ -160,12 +160,33 @@ def test_probe_never_judges_non_local_hosts():
 
 
 def test_built_client_owns_no_sdk_retries(monkeypatch):
-    """ENG-002 / WALK-A-002: KimCad's loop owns retry policy — the built OpenAI client must
-    carry max_retries=0 so SDK-internal retries can't stack under it."""
+    """ENG-002 / WALK-A-002: KimCad's loop owns retry policy — the built client must not
+    retry internally. The old openai SDK needed max_retries=0 to be told that; the v1.5-1
+    HttpChatClient is proven here by counting transport hits: one create() = exactly one
+    HTTP attempt, even on a connection error."""
+    import httpx
+
+    from kimcad.chat_client import APIConnectionError, HttpChatClient
     from kimcad.llm_provider import LLMProvider
 
     client = LLMProvider._build_client(_backend())
-    assert client.max_retries == 0
+    assert isinstance(client, HttpChatClient)
+
+    hits = {"n": 0}
+
+    def _always_refused(request):
+        hits["n"] += 1
+        raise httpx.ConnectError("refused")
+
+    counted = HttpChatClient(
+        "http://localhost:11434/v1", "k", timeout_s=5.0,
+        transport=httpx.MockTransport(_always_refused),
+    )
+    with pytest.raises(APIConnectionError):
+        counted.chat.completions.create(
+            model="m", messages=[], temperature=0, max_tokens=1
+        )
+    assert hits["n"] == 1  # no client-internal retry stacked under KimCad's own loop
 
 
 # --- CLI mapping (QA-001): friendly line + exit 2, never a traceback ----------------------
@@ -239,7 +260,7 @@ def test_cli_tool_missing_exits_2_with_fetch_hint(monkeypatch, capsys, tmp_path)
 def test_cli_model_not_pulled_exits_2_with_pull_hint(monkeypatch, capsys, tmp_path):
     """The openai NotFoundError (model not pulled) maps to the pull command + exit 2."""
     import httpx
-    from openai import NotFoundError
+    from kimcad.chat_client import NotFoundError
 
     from conftest import box_renderer
 
@@ -270,9 +291,9 @@ def test_bench_model_down_aborts_with_friendly_exit_2(monkeypatch, capsys, tmp_p
         raise _conn_error()
 
     cases = [BenchCase(id="c1", prompt="a box"), BenchCase(id="c2", prompt="a tube")]
-    import openai
+    from kimcad import chat_client
 
-    with pytest.raises(openai.APIConnectionError):
+    with pytest.raises(chat_client.APIConnectionError):
         run_benchmark(cases, _run_one)
 
 

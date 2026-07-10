@@ -17,7 +17,10 @@ requires-python = ">=3.13,<3.14"
 license = { text = "GPL-2.0-only" }
 authors = [{ name = "Scott Converse" }]
 dependencies = [
-    "openai>=1.40",
+    # v1.5-1 license-clean: the Apache-2.0 openai SDK is gone (GPL-2.0-only bundle);
+    # kimcad.chat_client implements the same OpenAI-compatible calls directly over httpx (BSD),
+    # which was already in the bundle as the SDK's transport and is now a direct dependency.
+    "httpx>=0.28",
     "pydantic>=2.8",
     "pyyaml>=6.0",
     "trimesh>=4.4",
@@ -28,9 +31,10 @@ dependencies = [
     "networkx>=3.3",
     "lxml>=5.0",  # trimesh's 3MF reader (default output format) requires it
     # Manifold3D guarantees a clean 2-manifold mesh before slicing (pre-slice hardening).
-    # HARD dependency — always installed. The import guard in hardening.py is a DEFENSIVE
-    # fallback for a broken/partial install (degrades to the gate-validated mesh), NOT an
-    # "optional feature" switch; see hardening.py's module docstring (ENG-007).
+    # HARD dependency — always installed, but NEVER imported in-process (v1.5-1: it is
+    # Apache-2.0 in a GPL-2.0-only bundle, so it runs behind the manifold_worker.py
+    # subprocess boundary like CadQuery/OpenSCAD/OrcaSlicer; the license-scan gate enforces
+    # this). Worker problems degrade to the gate-validated mesh (ENG-007), never crash.
     "manifold3d>=3.0",
     # ENG-001: the OpenRouter key lives in the OS credential store (Windows Credential
     # Manager) at rest. settings_store degrades to the disclosed file fallback if the

@@ -178,7 +178,7 @@ def test_connection_error_is_not_swallowed_as_plan_failed(tmp_path):
     # or the CLI's error handler owns it), not be masked as plan_failed.
     import httpx
     import pytest
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
 
     down = _RaisingPlanProvider(
         APIConnectionError(request=httpx.Request("POST", "http://localhost:11434/v1"))

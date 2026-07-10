@@ -233,7 +233,7 @@ def test_complete_retries_then_succeeds_on_connection_error(monkeypatch):
     # probe to True ("server is listening — this is a mid-run drop") so the test stays
     # hermetic regardless of whether a real Ollama is running on the host.
     import httpx
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
 
     class FlakyClient:
         def __init__(self, fail_n: int):
@@ -257,7 +257,7 @@ def test_complete_retries_then_succeeds_on_connection_error(monkeypatch):
 
 def test_complete_raises_after_exhausting_retries(monkeypatch):
     import httpx
-    from openai import APIConnectionError
+    from kimcad.chat_client import APIConnectionError
 
     class DeadClient:
         def __init__(self):
