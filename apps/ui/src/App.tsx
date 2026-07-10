@@ -66,6 +66,7 @@ import {
 import {
   engine,
   type ConnectorInfo,
+  connectorLabel,
   type DesignResult,
   type ModelStatusResult,
   type VisualReviewResult,
@@ -4394,12 +4395,7 @@ function App() {
               >
                 {engineConnectors.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.name}
-                    {c.simulated
-                      ? " (simulated)"
-                      : c.configured === false
-                        ? " (setup)"
-                        : ""}
+                    {connectorLabel(c)}
                   </option>
                 ))}
               </select>
@@ -4416,7 +4412,9 @@ function App() {
                   canSendCurrentSlice
                     ? selectedConnector?.simulated
                       ? "Send to the simulated printer connection"
-                      : "Send this sliced G-code to the selected printer"
+                      : selectedConnector?.hardware_validated
+                        ? "Send this sliced G-code to the selected printer"
+                        : "Send this sliced G-code to the selected printer (this connection type is simulator-tested; not yet certified on physical hardware)"
                     : "Make it real first"
                 }
               >
@@ -4754,12 +4752,7 @@ function App() {
               >
                 {engineConnectors.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.name}
-                    {c.simulated
-                      ? " (simulated)"
-                      : c.configured === false
-                        ? " (setup)"
-                        : ""}
+                    {connectorLabel(c)}
                   </option>
                 ))}
               </select>

@@ -75,6 +75,18 @@ def test_get_lists_effective_fields_and_never_a_secret(tmp_path, monkeypatch):
     assert "super-secret-code" not in json.dumps(data)
     mock = next(c for c in data["connections"] if c["name"] == "mock")
     assert mock["simulated"] is True and mock["configured"] is True
+    # v1.5 honesty label: no connector type is field-certified on physical hardware yet
+    # (STATUS.md beta boundary); the API must say so per connector so no UI can imply
+    # otherwise. A real hardware type reports False until the project certifies it.
+    assert bambu["hardware_validated"] is False
+    assert mock["hardware_validated"] is False
+
+
+def test_connectors_listing_carries_hardware_validated(tmp_path):
+    with _serve(tmp_path, _cfg(tmp_path)) as (host, port):
+        _, data = _jreq(host, port, "GET", "/api/connectors")
+    assert all("hardware_validated" in c for c in data["connectors"])
+    assert all(c["hardware_validated"] is False for c in data["connectors"])
 
 
 # --- POST validation ------------------------------------------------------------------

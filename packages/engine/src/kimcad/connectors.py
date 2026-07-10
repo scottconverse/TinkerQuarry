@@ -46,6 +46,16 @@ def connector_is_simulated(cc: ConnectorConfig) -> bool:
     return cls is not None and not getattr(cls, "drives_hardware", True)
 
 
+def connector_hardware_validated(cc: ConnectorConfig) -> bool:
+    """Whether the named connector TYPE is certified against a physical printer, derived from
+    the class's ``hardware_validated`` (v1.5 honesty label). Unknown types report False — the
+    safe direction: never imply field certification that doesn't exist. Today every type is
+    protocol simulator-tested only, so this is False across the board; it exists so the UI
+    label can never drift from the class when a type does get certified."""
+    cls = _CONNECTOR_CLASSES.get(cc.type)
+    return cls is not None and bool(getattr(cls, "hardware_validated", False))
+
+
 def connector_is_configured(config: Any, name: str) -> bool:
     """Whether the named connector is set up enough to actually send — right config plus any
     required secret present — *without* driving the printer. A loopback is always usable; a real

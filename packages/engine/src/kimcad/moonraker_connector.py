@@ -85,6 +85,7 @@ class MoonrakerConnector:
     """
 
     drives_hardware = True  # a real send reaches a real printer
+    hardware_validated = False  # protocol simulator-tested only; no field certification yet (v1.5)
 
     def __init__(
         self,

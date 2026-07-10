@@ -173,10 +173,17 @@ class PrinterConnector(Protocol):
     ``drives_hardware`` tells callers whether a send reaches a *real* printer (True) or is a
     simulation/loopback (False), so a UI/CLI can label honestly instead of narrating a mock
     send as a real print.
+
+    ``hardware_validated`` (v1.5 honesty label) tells callers whether this connector TYPE has
+    been certified by the project against a physical printer. Every current type is protocol
+    simulator-tested only (STATUS.md beta boundary: "real hardware connector certification
+    remains field-validation work"), so every class sets False; flip a type to True only with
+    recorded evidence of a real-hardware print driven through it.
     """
 
     name: str
     drives_hardware: bool
+    hardware_validated: bool
 
     def capabilities(self) -> PrinterCapabilities: ...
 
@@ -359,6 +366,7 @@ class LoopbackConnector:
     """
 
     drives_hardware = False  # a simulation — no real printer is touched
+    hardware_validated = False  # nothing to certify: it never drives hardware by design
 
     def __init__(
         self,

@@ -74,6 +74,40 @@ describe("EngineClient — request shape + CSRF token (Phase 4)", () => {
     expect(calls[0].init.method).toBe("POST");
   });
 
+  it("connectorLabel never lets a simulator-tested type read as hardware-certified (v1.5)", async () => {
+    const { connectorLabel } = await import("../engineClient");
+    // Loopback: the send itself is a simulation.
+    expect(connectorLabel({ name: "mock", simulated: true, configured: true })).toBe(
+      "mock (simulated)",
+    );
+    // Real but unconfigured: setup wins (you can't send at all yet).
+    expect(
+      connectorLabel({ name: "p2s", simulated: false, configured: false }),
+    ).toBe("p2s (setup)");
+    // Real, configured, protocol simulator-tested only — the honest default today.
+    expect(
+      connectorLabel({
+        name: "p2s",
+        simulated: false,
+        configured: true,
+        hardware_validated: false,
+      }),
+    ).toBe("p2s (simulator-tested)");
+    // Only an explicitly hardware-certified type earns the bare name.
+    expect(
+      connectorLabel({
+        name: "mk4",
+        simulated: false,
+        configured: true,
+        hardware_validated: true,
+      }),
+    ).toBe("mk4");
+    // Missing field (older engine) must NOT imply certification.
+    expect(connectorLabel({ name: "octo", simulated: false, configured: true })).toBe(
+      "octo (simulator-tested)",
+    );
+  });
+
   it("lists connectors, sends sliced G-code, and records real print outcomes (§6.10)", async () => {
     const c = new EngineClient();
     await c.connectors();

@@ -1254,19 +1254,26 @@ def make_handler(
                 self._handle_health()
                 return
             if self.path == "/api/connectors":
-                from kimcad.connectors import connector_is_configured, connector_is_simulated
+                from kimcad.connectors import (
+                    connector_hardware_validated,
+                    connector_is_configured,
+                    connector_is_simulated,
+                )
 
                 cfg = get_config()
                 names = list(cfg.connectors())
                 # Each entry carries `simulated` (a loopback/no-hardware connection) so the UI
-                # can label honestly instead of narrating a mock send as a real print (UX-001), and
+                # can label honestly instead of narrating a mock send as a real print (UX-001),
                 # `configured` (QA-002) so a real-but-unset connector — e.g. the default OctoPrint
-                # template with no API key — reads honestly as not-yet-ready, not just "not a mock".
+                # template with no API key — reads honestly as not-yet-ready, not just "not a mock",
+                # and `hardware_validated` (v1.5) so a protocol-simulator-tested type can never
+                # present as field-certified on physical hardware.
                 conns = [
                     {
                         "name": n,
                         "simulated": connector_is_simulated(cfg.connector_config(n)),
                         "configured": connector_is_configured(cfg, n),
+                        "hardware_validated": connector_hardware_validated(cfg.connector_config(n)),
                     }
                     for n in names
                 ]
@@ -1890,6 +1897,7 @@ def make_handler(
 
             from kimcad.connectors import (
                 build_connector,
+                connector_hardware_validated,
                 connector_is_simulated,
                 apply_saved_connector_overrides,
                 _saved_connector_overrides,
@@ -1914,6 +1922,7 @@ def make_handler(
                     "name": name,
                     "type": cc.type,
                     "simulated": connector_is_simulated(cc),
+                    "hardware_validated": connector_hardware_validated(cc),
                     "configured": configured,
                     "note": note,
                     "base_url": cc.base_url or "",

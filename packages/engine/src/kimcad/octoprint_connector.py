@@ -67,6 +67,7 @@ class OctoPrintConnector:
     """
 
     drives_hardware = True  # a real send reaches a real printer
+    hardware_validated = False  # protocol simulator-tested only; no field certification yet (v1.5)
 
     def __init__(
         self, base_url: str, api_key: str, *, name: str = "octoprint", timeout_s: float = 15.0
