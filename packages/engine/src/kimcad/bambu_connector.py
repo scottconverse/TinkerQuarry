@@ -101,6 +101,7 @@ class BambuConnector:
     """
 
     drives_hardware = True  # a real send starts a real Bambu printer
+    hardware_validated = False  # protocol simulator-tested only; no field certification yet (v1.5)
 
     def __init__(
         self,

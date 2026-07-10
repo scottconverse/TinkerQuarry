@@ -270,6 +270,21 @@ export interface ConnectorInfo {
   name: string;
   simulated?: boolean;
   configured?: boolean;
+  /** v1.5 honesty label: whether this connector TYPE is certified against a physical
+   * printer. Every current type is protocol simulator-tested only; absence of the field
+   * (an older engine) must read as NOT certified. */
+  hardware_validated?: boolean;
+}
+
+/** The one honest display label for a connector (v1.5): a loopback says "(simulated)", an
+ * unconfigured real connection says "(setup)", and a real, ready connection whose TYPE has
+ * never driven a physical printer says "(simulator-tested)" — only a hardware-certified type
+ * earns the bare name. Single source for every picker so the label can't drift. */
+export function connectorLabel(c: ConnectorInfo): string {
+  if (c.simulated) return `${c.name} (simulated)`;
+  if (c.configured === false) return `${c.name} (setup)`;
+  if (!c.hardware_validated) return `${c.name} (simulator-tested)`;
+  return c.name;
 }
 
 export interface ConnectorsResult {

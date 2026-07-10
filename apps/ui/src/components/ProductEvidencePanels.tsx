@@ -373,7 +373,13 @@ export function ProvenancePanel() {
         ? `Print profile: ${selectedPrinterName} / ${selectedMaterial.toUpperCase()}`
         : 'Print profile: not selected',
       selectedConnector
-        ? `Printer connection: ${selectedConnector.name}${selectedConnector.simulated ? ' (simulated)' : ''}`
+        ? `Printer connection: ${selectedConnector.name}${
+            selectedConnector.simulated
+              ? ' (simulated)'
+              : selectedConnector.hardware_validated
+                ? ''
+                : ' (simulator-tested — not field-certified)'
+          }`
         : 'Printer connection: not selected',
       currentStepUrl
         ? 'CAD handoff: STEP from the trusted twin is available'
