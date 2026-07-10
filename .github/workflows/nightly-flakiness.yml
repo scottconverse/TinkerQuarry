@@ -67,6 +67,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run the full UI suite 5 times
         shell: pwsh
+        env:
+          TQ_CI_NO_LIVE: "1"
         run: |
           $codes = @()
           foreach ($i in 1..5) {
