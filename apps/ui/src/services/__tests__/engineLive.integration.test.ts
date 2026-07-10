@@ -41,6 +41,23 @@ function localEngineCommand(root: string, port: number, outDir: string): { comma
   return { command: venvPython, args: ['-m', 'kimcad.cli', ...commonArgs] };
 }
 
+function engineAvailable(): boolean {
+  if (process.env.TQ_ENGINE || process.env.TINKERQUARRY_ENGINE_PYTHON) return true;
+  const root = engineRoot();
+  if (existsSync(path.join(root, '.venv', 'Scripts', 'python.exe'))) return true;
+  return (
+    existsSync(path.join(root, 'dist', 'staging', 'python', 'python.exe')) &&
+    existsSync(path.join(root, 'dist', 'staging', 'kimcad_launcher.py'))
+  );
+}
+
+// KC-16 discipline (mirrors the engine suite): env-dependent tests SKIP cleanly off their
+// environment, never FAIL there. Hosted CI runners have no engine venv, so this suite skips
+// there; dev boxes and the release box have one, so it runs. Set TQ_REQUIRE_LIVE_ENGINE=1
+// (e.g. in the release proof) to forbid the skip — absence of an engine then fails loudly.
+const describeLive =
+  engineAvailable() || process.env.TQ_REQUIRE_LIVE_ENGINE === '1' ? describe : describe.skip;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -134,7 +151,7 @@ afterAll(() => {
   engineProcess?.kill();
 });
 
-describe('engine integration (LIVE) - anchors the manual "verified LIVE" FE claims', () => {
+describeLive('engine integration (LIVE) - anchors the manual "verified LIVE" FE claims', () => {
   it(
     'reopen -> /api/source serves real SCAD (the section 6.12 path the unit tests stub away)',
     async () => {
