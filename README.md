@@ -196,9 +196,16 @@ frontend/          Historical prototype reference, not release evidence
 - [Architecture](docs/ARCHITECTURE.md)
 - [Status Matrix](docs/STATUS.md)
 - [Changelog](CHANGELOG.md)
-- [CAD Agent Roadmap](docs/roadmap-zookeeper-inspired-cad-agent.md)
 - [Discussion Seeds](docs/discussions/README.md)
 - [Third-Party Licenses](packages/engine/THIRD_PARTY_LICENSES.md)
+
+Project governance (why, what, how, when):
+
+- [Project Charter](docs/governance/PROJECT-CHARTER.md) — goals, scope, constraints, risks
+- [Product Requirements](docs/governance/PRD.md) — features by Verified/Implemented/Planned
+- [Software Architecture Document](docs/governance/SAD.md) — decision records, license and trust boundaries
+- [Roadmap](docs/governance/ROADMAP.md) — v1.5 → v1.6 → v2.0 with exit proofs
+- [CAD Agent Roadmap](docs/roadmap-zookeeper-inspired-cad-agent.md) — longer-horizon agent concept
 
 ## Share Web Deployment
 
