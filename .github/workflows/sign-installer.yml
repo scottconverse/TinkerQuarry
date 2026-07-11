@@ -10,6 +10,10 @@ name: Sign installer
 # touches no release.
 
 on:
+  # TEMP (remove before merge): proves the preflight step pre-merge.
+  push:
+    branches: [v1.5-azure-signing]
+    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
@@ -25,6 +29,35 @@ jobs:
   sign:
     runs-on: windows-latest
     steps:
+      # Standing rule (all repos): prove the service-principal secret is valid in
+      # seconds, before any longer work, by hitting the AAD token endpoint directly.
+      - name: Azure token preflight (fail fast)
+        shell: pwsh
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          $body = @{
+            client_id     = $env:CLIENT_ID
+            client_secret = $env:CLIENT_SECRET
+            grant_type    = 'client_credentials'
+            scope         = 'https://codesigning.azure.net/.default'
+          }
+          try {
+            Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body -ErrorAction Stop | Out-Null
+            Write-Host "Preflight token acquired."
+          } catch {
+            # Hard-fail only on definitive credential errors; transient network noise
+            # must not kill a signing run - the signing step is the real test.
+            $msg = "$($_.ErrorDetails.Message)"
+            if ($msg -match 'invalid_client|unauthorized_client|invalid_grant') {
+              Write-Error "Azure credential preflight failed: $msg"
+              exit 1
+            }
+            Write-Warning "Preflight inconclusive (transient?): $($_.Exception.Message) - continuing"
+          }
+
       - name: Get file to sign
         id: get
         shell: pwsh
