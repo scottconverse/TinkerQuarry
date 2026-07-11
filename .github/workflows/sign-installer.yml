@@ -10,12 +10,6 @@ name: Sign installer
 # touches no release.
 
 on:
-  # TEMP (remove before merge): lets the smoke test run pre-merge, since GitHub
-  # won't dispatch a workflow that isn't on the default branch yet. Push events
-  # carry no inputs, so this path always runs the no-release smoke test.
-  push:
-    branches: [v1.5-azure-signing]
-    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
