@@ -10,6 +10,11 @@ name: Sign installer
 # touches no release.
 
 on:
+  # TEMP (remove before merge): re-proves the smoke path pre-merge after the
+  # review fixes, since workflow_dispatch needs the file on the default branch.
+  push:
+    branches: [v1.5-azure-signing]
+    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
@@ -36,8 +41,12 @@ jobs:
           if ($env:TAG) {
             gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --dir artifacts
             if ($LASTEXITCODE -ne 0) { exit 1 }
-            $exe = Get-ChildItem artifacts -Filter *.exe | Select-Object -First 1
-            if (-not $exe) { Write-Error "no *-setup.exe asset on release $env:TAG"; exit 1 }
+            $exes = @(Get-ChildItem artifacts -Filter *.exe)
+            if ($exes.Count -ne 1) {
+              Write-Error "expected exactly 1 installer exe on release $env:TAG, found $($exes.Count) - refusing to guess which to sign"
+              exit 1
+            }
+            $exe = $exes[0]
           } else {
             Set-Content smoke.cs 'class Smoke { static void Main() {} }'
             $csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64\v4*\csc.exe" | Select-Object -First 1
@@ -64,11 +73,19 @@ jobs:
 
       - name: Verify signature
         shell: pwsh
+        env:
+          EXE: ${{ steps.get.outputs.exe }}
         run: |
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
             Sort-Object FullName -Descending | Select-Object -First 1
-          & $signtool.FullName verify /pa /v "${{ steps.get.outputs.exe }}"
+          $out = & $signtool.FullName verify /pa /v $env:EXE 2>&1 | Out-String
+          Write-Host $out
           if ($LASTEXITCODE -ne 0) { Write-Error "signature verification failed"; exit 1 }
+          # exit code alone does not prove a timestamp exists; require it explicitly
+          if ($out -notmatch 'The signature is timestamped') {
+            Write-Error "signature verified but no timestamp found - failing"
+            exit 1
+          }
 
       - name: Re-hash and update release assets
         if: inputs.release-tag != ''
@@ -76,24 +93,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release-tag }}
+          EXE: ${{ steps.get.outputs.exe }}
+          EXE_NAME: ${{ steps.get.outputs.exe_name }}
         run: |
-          $exe  = "${{ steps.get.outputs.exe }}"
-          $name = "${{ steps.get.outputs.exe_name }}"
-          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          $name = $env:EXE_NAME
+          $hash = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLower()
 
           gh release download $env:TAG --repo ${{ github.repository }} --pattern SHA256SUMS.txt --pattern release-manifest.json --dir artifacts --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+          # Exact filename-field match; anything but exactly one replaced line means
+          # the release assets do not look like we expect - stop before uploading.
+          $matched = 0
           $sums = Get-Content artifacts\SHA256SUMS.txt | ForEach-Object {
-            if ($_ -match [regex]::Escape($name)) { "$hash  $name" } else { $_ }
+            if (($_ -split '\s+', 2)[1] -eq $name) { $matched++; "$hash  $name" } else { $_ }
+          }
+          if ($matched -ne 1) {
+            Write-Error "expected exactly 1 SHA256SUMS.txt line for $name, matched $matched"
+            exit 1
           }
           [IO.File]::WriteAllLines("$PWD\artifacts\SHA256SUMS.txt", $sums)
 
           $m = Get-Content artifacts\release-manifest.json -Raw | ConvertFrom-Json
-          foreach ($a in $m.artifacts) { if ($a.file -eq $name) { $a.sha256 = $hash } }
+          $updated = 0
+          foreach ($a in $m.artifacts) { if ($a.file -eq $name) { $a.sha256 = $hash; $updated++ } }
+          if ($updated -ne 1) {
+            Write-Error "expected exactly 1 release-manifest.json artifact entry for $name, updated $updated"
+            exit 1
+          }
           $m.unsigned_build = $false
           [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
 
-          gh release upload $env:TAG $exe artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
+          gh release upload $env:TAG $env:EXE artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Write-Host "signed $name  sha256=$hash"
