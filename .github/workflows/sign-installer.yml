@@ -1,0 +1,155 @@
+name: Sign installer
+
+# Signs a release installer with Azure Trusted Signing. Release builds are made
+# locally (NSIS path-length constraint), so this runs on demand against a draft
+# release: download the unsigned exe -> Azure signs it with its HSM-held key ->
+# verify -> recompute checksums -> re-upload. Checksums are regenerated AFTER
+# signing because signing changes the file hash.
+#
+# Run with no tag to smoke-test the signing chain: it signs a scratch exe and
+# touches no release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Release tag holding the unsigned installer (e.g. v1.5.0). Leave empty for a smoke test that signs a scratch exe and touches no release."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: windows-latest
+    steps:
+      # Standing rule (all repos): prove the service-principal secret is valid in
+      # seconds, before any longer work, by hitting the AAD token endpoint directly.
+      - name: Azure token preflight (fail fast)
+        shell: pwsh
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          $body = @{
+            client_id     = $env:CLIENT_ID
+            client_secret = $env:CLIENT_SECRET
+            grant_type    = 'client_credentials'
+            scope         = 'https://codesigning.azure.net/.default'
+          }
+          try {
+            Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body -ErrorAction Stop | Out-Null
+            Write-Host "Preflight token acquired."
+          } catch {
+            # Any structured AAD error response is a definitive config/credential
+            # failure (bad secret, bad client id, bad tenant, ...) except AAD's one
+            # transient code. Warn-and-continue is reserved for a response-less
+            # network-level failure - the signing step is the real test there.
+            $msg = "$($_.ErrorDetails.Message)"
+            if ($msg -and $msg -notmatch 'temporarily_unavailable') {
+              Write-Error "Azure credential preflight failed: $msg"
+              exit 1
+            }
+            Write-Warning "Preflight inconclusive (no AAD response): $($_.Exception.Message) - continuing"
+          }
+
+      - name: Get file to sign
+        id: get
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          if ($env:TAG) {
+            gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --dir artifacts
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $exes = @(Get-ChildItem artifacts -Filter *.exe)
+            if ($exes.Count -ne 1) {
+              Write-Error "expected exactly 1 installer exe on release $env:TAG, found $($exes.Count) - refusing to guess which to sign"
+              exit 1
+            }
+            $exe = $exes[0]
+          } else {
+            Set-Content smoke.cs 'class Smoke { static void Main() {} }'
+            $csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64\v4*\csc.exe" | Select-Object -First 1
+            & $csc.FullName /nologo /out:artifacts\smoke-test.exe smoke.cs
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $exe = Get-Item artifacts\smoke-test.exe
+          }
+          "exe=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Sign with Azure Trusted Signing
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: https://wcus.codesigning.azure.net
+          signing-account-name: scottconverse-signing
+          certificate-profile-name: ScottConversePublic
+          files: ${{ steps.get.outputs.exe }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Verify signature
+        shell: pwsh
+        env:
+          EXE: ${{ steps.get.outputs.exe }}
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          $out = & $signtool.FullName verify /pa /v $env:EXE 2>&1 | Out-String
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { Write-Error "signature verification failed"; exit 1 }
+          # exit code alone does not prove a timestamp exists; require it explicitly
+          if ($out -notmatch 'The signature is timestamped') {
+            Write-Error "signature verified but no timestamp found - failing"
+            exit 1
+          }
+
+      - name: Re-hash and update release assets
+        if: inputs.release-tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+          EXE: ${{ steps.get.outputs.exe }}
+          EXE_NAME: ${{ steps.get.outputs.exe_name }}
+        run: |
+          $name = $env:EXE_NAME
+          $hash = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLower()
+
+          gh release download $env:TAG --repo ${{ github.repository }} --pattern SHA256SUMS.txt --pattern release-manifest.json --dir artifacts --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          # Exact filename-field match; anything but exactly one replaced line means
+          # the release assets do not look like we expect - stop before uploading.
+          $matched = 0
+          $sums = Get-Content artifacts\SHA256SUMS.txt | ForEach-Object {
+            if (($_ -split '\s+', 2)[1] -eq $name) { $matched++; "$hash  $name" } else { $_ }
+          }
+          if ($matched -ne 1) {
+            Write-Error "expected exactly 1 SHA256SUMS.txt line for $name, matched $matched"
+            exit 1
+          }
+          [IO.File]::WriteAllLines("$PWD\artifacts\SHA256SUMS.txt", $sums)
+
+          $m = Get-Content artifacts\release-manifest.json -Raw | ConvertFrom-Json
+          $updated = 0
+          foreach ($a in $m.artifacts) { if ($a.file -eq $name) { $a.sha256 = $hash; $updated++ } }
+          if ($updated -ne 1) {
+            Write-Error "expected exactly 1 release-manifest.json artifact entry for $name, updated $updated"
+            exit 1
+          }
+          $m.unsigned_build = $false
+          [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
+
+          gh release upload $env:TAG $env:EXE artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "signed $name  sha256=$hash"
