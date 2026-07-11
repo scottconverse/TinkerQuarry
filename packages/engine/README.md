@@ -41,7 +41,6 @@ TinkerQuarry Studio app:
 ### Beta notes — honest status
 
 - **It's a beta.** The product happy path and a broader browser smoke are real and verified, but real-hardware print validation, comprehensive accessibility/error-path/export browser coverage, and richer visual-diff/explain surfaces remain beta work. See `../../docs/STATUS.md`.
-- **The installer is unsigned** (no code-signing cert yet), so Windows SmartScreen can warn on local builds.
 - **A curated catalog of ~29 printers** across the top makers (Bambu, Creality, Prusa, Anycubic, Elegoo, Qidi, Sovol) — each build-volume-gated and **slice-proven in CI**; three of them (Bambu P2S, A1, Elegoo Neptune 4 Max) are **reference printers** also wired for native direct-send. The rest of the 1,400-profile library is on disk and promoted into the picker as each machine clears the slice bar ([supported printers](docs/supported-printers.md)).
 
 > **For beta testers — the fastest path:** use the TinkerQuarry installer produced by the root release
@@ -469,7 +468,7 @@ recipe (briefcase `.app` / AppImage), and what's left to build.
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | **[Product user manual](../../docs/USER-MANUAL.md)**                                    | the complete TinkerQuarry guide for non-technical users, technical users, and support |
 | **[Architecture reference](../../docs/ARCHITECTURE.md)**                                | product architecture, technologies, trust boundaries, and release proof               |
-| [FAQ](docs/FAQ.md)                                                                      | quick answers — SmartScreen, the model download, printers, privacy, recovery          |
+| [FAQ](docs/FAQ.md)                                                                      | quick answers — download verification, the model download, printers, privacy, recovery |
 | [Part-library catalog](docs/templates.md)                                               | every one of the 86 template families, grouped by theme, with its honesty tier        |
 | [Install guide](docs/install-guide.md)                                                  | install the Windows beta (double-click, no terminal)                                  |
 | [Troubleshooting](docs/troubleshooting.md)                                              | fix a setup or runtime snag, symptom-first                                            |

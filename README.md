@@ -65,11 +65,10 @@ The supported beta platform is Windows.
 4. Confirm printer/material settings.
 5. Build a small first part, such as `a 70 mm round coaster, 4 mm tall`.
 
-The beta installer is not yet code-signed, so Windows SmartScreen will usually warn on first run:
-click **More info**, then **Run anyway**. Only do this for installers downloaded from the official
-GitHub Release, and verify the checksum against the release's `SHA256SUMS.txt` when provenance
-matters (`Get-FileHash .\TinkerQuarry_1.4.0_x64-setup.exe -Algorithm SHA256`). The
-[User Manual](docs/USER-MANUAL.md) walks through the prompt step by step.
+Only install from the official GitHub Release, and verify the checksum against the release's
+`SHA256SUMS.txt` when provenance matters
+(`Get-FileHash .\TinkerQuarry_1.4.0_x64-setup.exe -Algorithm SHA256`). The
+[User Manual](docs/USER-MANUAL.md) covers verification step by step.
 
 ## First Workflow
 

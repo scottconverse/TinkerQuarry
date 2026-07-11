@@ -4,13 +4,9 @@ TinkerQuarry installs like any Windows app: download `TinkerQuarry_<version>_x64
 double-click it, and follow the wizard. No terminal, no Python, no developer tools. KimCad is the
 engine bundled inside the app.
 
-## The SmartScreen warning (you will see it — here's why)
+## Verifying the file is genuine
 
-TinkerQuarry is open-source and the beta installer is **not code-signed** (signing certificates
-are an ongoing cost the project hasn't taken on yet). Windows SmartScreen therefore shows
-**"Windows protected your PC"** on first run. To proceed: click **More info → Run anyway**.
-
-How to know the file is genuine: every release publishes the installer's **SHA-256
+Every release publishes the installer's **SHA-256
 checksum** beside it. To check yours, in PowerShell:
 
 ```
@@ -39,12 +35,10 @@ you verify everything in one pass and confirm exactly what source the build came
   download — re-download from the release page.
 
 - **`release-manifest.json`** — records the build's metadata, including the **exact source commit**
-  the installer was built from and a `unsigned_build` flag. The flag is **expected**: TinkerQuarry's beta
-  is honestly unsigned (there is no code-signing certificate, and therefore **no signed
-  attestation**). The manifest is how you confirm provenance instead — match its commit against the
-  tagged release on GitHub.
+  the installer was built from and whether the build was code-signed. Match its commit against the
+  tagged release on GitHub to confirm provenance.
 
-These two files are the release's integrity story; there is no signed attestation to look for.
+These two files, plus the checksums, are the release's integrity story.
 
 ## What the installer puts where
 

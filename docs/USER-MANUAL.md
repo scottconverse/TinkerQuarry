@@ -61,29 +61,13 @@ That is an opt-in setting. The app should be read as private by default, not clo
 1. Download `TinkerQuarry_1.4.0_x64-setup.exe` from the
    [v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
 2. Double-click the installer.
-3. If SmartScreen appears, follow the steps in the next section.
-4. Launch **TinkerQuarry**.
-5. Choose your default printer and material.
-6. Start with a simple part.
+3. Launch **TinkerQuarry**.
+4. Choose your default printer and material.
+5. Start with a simple part.
 
-### The SmartScreen Prompt, Step By Step
+### Verifying Your Download
 
-The beta installer is not yet code-signed, so Windows SmartScreen will usually show
-**"Windows protected your PC"** the first time you run it. That warning means "this publisher is
-not yet known to Microsoft," not "this file is unsafe." To continue:
-
-1. On the blue SmartScreen dialog, click **More info**.
-
-   ![Step 1: the SmartScreen dialog with the More info link highlighted (illustration)](assets/smartscreen-step1-more-info.svg)
-
-2. Click the **Run anyway** button that appears.
-
-   ![Step 2: after More info, the Run anyway button appears next to Don't run (illustration)](assets/smartscreen-step2-run-anyway.svg)
-
-3. If your browser also flagged the download, choose **Keep** on the download bar first
-   (Edge: `...` menu on the download, then **Keep**, then **Keep anyway**).
-
-Only do this for installers you downloaded yourself from the official
+Only install from the official
 [GitHub Releases page](https://github.com/scottconverse/TinkerQuarry/releases). When provenance
 matters, verify the checksum before installing:
 
@@ -93,9 +77,6 @@ Get-FileHash .\TinkerQuarry_1.4.0_x64-setup.exe -Algorithm SHA256
 
 Compare the output against `SHA256SUMS.txt` on the release page. A match proves the file is
 byte-for-byte the published artifact.
-
-The unsigned state is expected for this beta line and is documented in the release status rather
-than hidden. Code signing through SignPath Foundation is in progress for a future release.
 
 ## Your First Part
 
@@ -262,7 +243,6 @@ twins.
 | Slice is blocked | Gate failed or source is stale | Read the named finding, re-render, then slice again |
 | Send is disabled | No current successful slice | Slice the current design first |
 | Imported mesh rejected | Bad mesh or unknown family | Use a known exported family or keep it as a mesh-only reference |
-| SmartScreen warning | Unsigned beta installer | Verify GitHub Release provenance before continuing |
 
 ---
 

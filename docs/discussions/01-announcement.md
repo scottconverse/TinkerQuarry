@@ -29,7 +29,6 @@ rejects the malformed mesh, which is the intended behavior.
 ## Still beta
 
 - Windows is the supported package target.
-- The installer is unsigned.
 - Hardware connector certification beyond the mock connector remains field-validation work.
 - Visual inspection is advisory and does not replace deterministic geometry checks.
 - STEP reverse-to-parametric import is a roadmap item.
