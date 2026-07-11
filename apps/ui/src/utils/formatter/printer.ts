@@ -719,10 +719,14 @@ function printParenthesizedAssignments(
         // The old grammar merged a backslash-continued '//' comment with the
         // next line into ONE node (single hardline between lines). The org
         // grammar keeps them separate - suppress the extra hardline only for
-        // that continuation shape, so other comment-after-comment cases keep
-        // their blank line exactly as before.
+        // that continuation shape: a backslash-ending comment whose sibling is
+        // on the very next source line. A blank line after such a comment (or
+        // any other comment-after-comment case) keeps its spacing as before.
         const prevIsContinuation =
-          prev !== null && isComment(prev.type) && prev.text.trimEnd().endsWith('\\');
+          prev !== null &&
+          isComment(prev.type) &&
+          prev.text.trimEnd().endsWith('\\') &&
+          child.startPosition.row === prev.endPosition.row + 1;
         if (!isInlineComment && parts.length > 0 && !prevIsContinuation) {
           parts.push(hardline());
         }
@@ -1073,10 +1077,14 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
         // The old grammar merged a backslash-continued '//' comment with the
         // next line into ONE node (single hardline between lines). The org
         // grammar keeps them separate - suppress the extra hardline only for
-        // that continuation shape, so other comment-after-comment cases keep
-        // their blank line exactly as before.
+        // that continuation shape: a backslash-ending comment whose sibling is
+        // on the very next source line. A blank line after such a comment (or
+        // any other comment-after-comment case) keeps its spacing as before.
         const prevIsContinuation =
-          prev !== null && isComment(prev.type) && prev.text.trimEnd().endsWith('\\');
+          prev !== null &&
+          isComment(prev.type) &&
+          prev.text.trimEnd().endsWith('\\') &&
+          child.startPosition.row === prev.endPosition.row + 1;
         if (!isInlineComment && parts.length > 0 && !prevIsContinuation) {
           parts.push(hardline());
         }
