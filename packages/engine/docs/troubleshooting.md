@@ -85,10 +85,9 @@ click it (or press **Ctrl+R** / **F5**, or reopen the app window). Viewing exist
 working; only actions (design, save, slice, send) are blocked until you reload. Reloading fixes
 it instantly.
 
-## (Installed app) "Windows protected your PC" when running the installer
+## (Installed app) How do I verify my download?
 
-That's SmartScreen reacting to an unsigned open-source installer — expected for the beta.
-**More info → Run anyway.** To verify the download first, check its SHA-256 against the
+Check the installer's SHA-256 against the
 release page: see [install-guide.md](install-guide.md).
 
 ## (Installed app) Where is my stuff?

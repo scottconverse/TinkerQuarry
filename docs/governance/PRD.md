@@ -55,7 +55,7 @@ v2.0 scope.
 
 ## 3. The user journey (what must work, end to end)
 
-First run: install (SmartScreen walkthrough with illustrations) → app opens to Welcome →
+First run: install (with checksum-verification guidance) → app opens to Welcome →
 local-AI status is probed and shown honestly → if absent, one click sets it up with live byte
 progress; if the engine errors, recovery guidance matches the audience (never developer
 commands in the installed app) → the Build box, example chips, and import paths are gated until

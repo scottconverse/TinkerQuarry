@@ -146,10 +146,9 @@ public-surface audit) is designed to run largely unattended with evidence at eve
 background work gets a recurring watchdog *in the same turn it starts* — a hung process never
 sends a completion notification (learned expensively).
 
-**Distribution.** Windows NSIS installer, currently unsigned: SmartScreen warns, and the docs
-walk users through it with illustrations. SignPath Foundation onboarding is prepared
-([CODE_SIGNING_POLICY](../../CODE_SIGNING_POLICY.md) honestly says *not yet signed*) but requires
-CI-built artifacts — a v2.0 work item.
+**Distribution.** Windows NSIS installer. Code-signing certificates were acquired 2026-07-10;
+wiring signing into the release build is the remaining work item
+(see [CODE_SIGNING_POLICY](../../CODE_SIGNING_POLICY.md)).
 
 ## 7. Stakeholders & decision rights
 

@@ -4,12 +4,9 @@ Quick answers to the questions beta users actually ask. Deeper detail lives in t
 [User Manual](USER-MANUAL.md); install steps in the [install guide](install-guide.md);
 problems in [troubleshooting](troubleshooting.md).
 
-### 1. Windows showed a scary blue "Windows protected your PC" screen. Is this safe?
+### 1. Is the installer safe to run?
 
-Yes — that's SmartScreen reacting to an **unsigned beta** (we don't have a code-signing
-certificate yet; signing is planned). Click **More info**, confirm the file is the TinkerQuarry
-installer you downloaded ("Unknown publisher" is expected), then **Run anyway**. Only
-download the installer from the TinkerQuarry release bundle — and if you want
+Only download the installer from the official TinkerQuarry release bundle — and if you want
 certainty, verify the SHA-256 checksum published alongside it. KimCad runs entirely on your
 computer; the installer uploads nothing.
 
@@ -140,8 +137,8 @@ first-run states.
 It's an honest beta. Software-complete and heavily gated: ~1,000 backend tests plus a fully
 tested UI run on every push, the pipeline slices end-to-end for the three reference
 printers, and the installer is verified on the real installed tree. What's *not* proven yet
-is metal: no physical print has been certified, printer connections are validated against
-conformance mocks, and the installer is unsigned. Treat it accordingly — and tell us what
+is metal: no physical print has been certified, and printer connections are validated against
+conformance mocks. Treat it accordingly — and tell us what
 you find in [Discussions](../../discussions); that's what the beta is for.
 
 ### 19. Do I have to describe everything from scratch? Is there a parts library?
