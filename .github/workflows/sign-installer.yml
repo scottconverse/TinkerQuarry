@@ -1,4 +1,4 @@
-name: Sign installer
+﻿name: Sign installer
 
 # Signs a release installer with Azure Trusted Signing. Release builds are made
 # locally (NSIS path-length constraint), so this runs on demand against a draft
@@ -10,6 +10,10 @@ name: Sign installer
 # touches no release.
 
 on:
+  # TEMP (remove before merge): proves the tightened preflight pre-merge.
+  push:
+    branches: [v1.5-azure-signing]
+    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
@@ -44,14 +48,16 @@ jobs:
             Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:TENANT_ID/oauth2/v2.0/token" -Body $body -ErrorAction Stop | Out-Null
             Write-Host "Preflight token acquired."
           } catch {
-            # Hard-fail only on definitive credential errors; transient network noise
-            # must not kill a signing run - the signing step is the real test.
+            # Any structured AAD error response is a definitive config/credential
+            # failure (bad secret, bad client id, bad tenant, ...) except AAD's one
+            # transient code. Warn-and-continue is reserved for a response-less
+            # network-level failure - the signing step is the real test there.
             $msg = "$($_.ErrorDetails.Message)"
-            if ($msg -match 'invalid_client|unauthorized_client|invalid_grant') {
+            if ($msg -and $msg -notmatch 'temporarily_unavailable') {
               Write-Error "Azure credential preflight failed: $msg"
               exit 1
             }
-            Write-Warning "Preflight inconclusive (transient?): $($_.Exception.Message) - continuing"
+            Write-Warning "Preflight inconclusive (no AAD response): $($_.Exception.Message) - continuing"
           }
 
       - name: Get file to sign
