@@ -30,7 +30,10 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
     ![
       'source_file',
       'module_declaration',
+      'module_item',
       'function_declaration',
+      'function_item',
+      'var_declaration',
       'block',
       'union_block',
       'if_statement',
@@ -46,8 +49,10 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       'transform_chain',
       'arguments',
       'parameters_declaration',
+      'parameters',
       'parameter',
       'parenthesized_assignments',
+      'assignments',
       'parenthesized_expression',
       'ternary_expression',
       'index_expression',
@@ -60,6 +65,8 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       'list_comprehension',
       'for_clause',
       'comment',
+      'line_comment',
+      'block_comment',
       'identifier',
       'number',
       'decimal',
@@ -113,10 +120,16 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       return printSourceFile(node, options);
 
     case 'module_declaration':
+    case 'module_item':
       return printModuleDeclaration(node, options);
 
     case 'function_declaration':
+    case 'function_item':
       return printFunctionDeclaration(node, options);
+
+    case 'var_declaration':
+      // The org grammar wraps top-level `x = 1;` statements: assignment + ';'
+      return printVarDeclaration(node, options);
 
     case 'block':
     case 'union_block':
@@ -194,9 +207,16 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       return printModifierChain(node, options);
 
     case 'comment':
+    case 'line_comment':
+    case 'block_comment':
       return printComment(text);
 
     case 'parameter':
+      // Org grammar wraps default-valued parameters: parameter > assignment.
+      // Recurse so '=' and operator spacing get normalized; identifier-only
+      // parameters still print as their text.
+      return node.childCount > 0 ? printChildren(node, options) : text;
+
     case 'identifier':
     case 'number':
     case 'decimal':
@@ -214,6 +234,17 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       }
       return text;
   }
+}
+
+function printVarDeclaration(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+  for (const child of node.children) {
+    if (!child) continue;
+    // Semicolons are added by the parent (printSourceFile/printBlock)
+    if (child.type === ';' || child.type === 'whitespace' || child.type === '\n') continue;
+    parts.push(printNode(child, options));
+  }
+  return concat(parts);
 }
 
 function printComment(text: string): Doc {
@@ -266,7 +297,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
 
     // Check if this is an inline comment (comment on same line as previous statement)
     const isInlineComment =
-      child.type === 'comment' &&
+      isComment(child.type) &&
       prevChild &&
       child.startPosition.row === prevChild.endPosition.row;
 
@@ -276,7 +307,10 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
       // We need to calculate: (comment start column) - (prevChild end column) - 1 (for semicolon we added)
       const prevEndCol = prevChild.endPosition.column;
       const commentStartCol = child.startPosition.column;
-      const spacingBefore = commentStartCol - prevEndCol - 1; // -1 for the semicolon
+      // Old grammar: statements end before their ';' (we re-add it), so subtract 1.
+      // Org grammar: var_declaration/transform_chain span their own ';' — no adjustment.
+      const semicolonAdjust = prevChild.text.endsWith(';') ? 0 : 1;
+      const spacingBefore = commentStartCol - prevEndCol - semicolonAdjust;
       const spacing = ' '.repeat(Math.max(2, spacingBefore));
       parts.push(spacing, printNode(child, options));
       parts.push(hardline());
@@ -318,7 +352,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
 
     const nextIsInlineComment =
       nextChild &&
-      nextChild.type === 'comment' &&
+      isComment(nextChild.type) &&
       nextChild.startPosition.row === child.endPosition.row;
 
     if (!nextIsInlineComment) {
@@ -342,7 +376,7 @@ function printModuleDeclaration(node: TreeSitter.Node, options: Required<FormatO
       continue;
     } else if (child.type === 'identifier') {
       parts.push(child.text);
-    } else if (child.type === 'parameters_declaration') {
+    } else if (child.type === 'parameters_declaration' || child.type === 'parameters') {
       parts.push(printParameters(child, options));
     } else if (child.type === 'block' || child.type === 'union_block') {
       parts.push(' ', printBlock(child, options));
@@ -365,11 +399,18 @@ function printFunctionDeclaration(node: TreeSitter.Node, options: Required<Forma
     if (!child) continue;
     if (child.type === 'identifier') {
       parts.push(' ', child.text);
-    } else if (child.type === 'parameters_declaration') {
+    } else if (child.type === 'parameters_declaration' || child.type === 'parameters') {
       parts.push(printParameters(child, options));
     } else if (child.type === '=') {
       parts.push(' ', child.text, ' ');
-    } else if (child.type !== 'function') {
+    } else if (
+      // The org grammar's function_item spans its own trailing ';' as a child;
+      // we always append our own below, so never print the grammar's.
+      child.type !== 'function' &&
+      child.type !== ';' &&
+      child.type !== 'whitespace' &&
+      child.type !== '\n'
+    ) {
       parts.push(printNode(child, options));
     }
   }
@@ -454,14 +495,20 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
     let needsSemi = false;
     if (numericPrefixedCall) {
       needsSemi = false;
-    } else if (child.type === 'assignment') {
+    } else if (child.type === 'assignment' || child.type === 'var_declaration') {
       needsSemi = true;
     } else if (child.type === 'assert_statement' || child.type === 'assert_expression') {
       needsSemi = true;
     } else if (child.type === 'transform_chain') {
-      // Check if transform_chain ends with a block
-      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
-      needsSemi = !hasBlock;
+      // Old grammar wrapped modified statements in modifier_chain, whose direct
+      // children never include the block, so they always got a ';'. The org
+      // grammar puts the modifier inside transform_chain - keep the same output.
+      if (hasChildOfType(child, 'modifier')) {
+        needsSemi = true;
+      } else {
+        const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+        needsSemi = !hasBlock;
+      }
     } else if (child.type === 'modifier_chain') {
       // Check if modifier_chain ends with a block
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
@@ -470,7 +517,7 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
       // Module/function calls without blocks need semicolons
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
       needsSemi = !hasBlock;
-    } else if (child.type === 'module_declaration') {
+    } else if (child.type === 'module_declaration' || child.type === 'module_item') {
       // Module declarations without blocks need semicolons
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
       needsSemi = !hasBlock;
@@ -595,7 +642,7 @@ function printForStatement(node: TreeSitter.Node, options: Required<FormatOption
     if (child.type === 'for') {
       // Skip the 'for' keyword itself
       continue;
-    } else if (child.type === 'parenthesized_assignments') {
+    } else if (child.type === 'parenthesized_assignments' || child.type === 'assignments') {
       // Print the parenthesized assignments (e.g., "(i = [0:10])")
       parts.push(printParenthesizedAssignments(child, options));
       parensEndRow = child.endPosition.row;
@@ -642,7 +689,7 @@ function printParenthesizedAssignments(
     lastEntryStartLine = child.startPosition.row;
 
     entries.push(child);
-    if (child.type !== 'comment') {
+    if (!isComment(child.type)) {
       valueNodes.push(child);
     }
   }
@@ -651,7 +698,7 @@ function printParenthesizedAssignments(
     return '()';
   }
 
-  const hasComments = entries.some((child) => child.type === 'comment');
+  const hasComments = entries.some((child) => isComment(child.type));
   const isLetAssignments = node.parent?.type === 'let_expression';
   const isMultiline = isLetAssignments && (lastEntryStartLine > firstEntryStartLine || hasComments);
 
@@ -663,13 +710,24 @@ function printParenthesizedAssignments(
       const prev = index > 0 ? entries[index - 1] : null;
       const next = index < entries.length - 1 ? entries[index + 1] : null;
 
-      if (child.type === 'comment') {
+      if (isComment(child.type)) {
         const isInlineComment =
           prev !== null &&
-          prev.type !== 'comment' &&
+          !isComment(prev.type) &&
           child.startPosition.row === prev.endPosition.row;
 
-        if (!isInlineComment && parts.length > 0) {
+        // The old grammar merged a backslash-continued '//' comment with the
+        // next line into ONE node (single hardline between lines). The org
+        // grammar keeps them separate - suppress the extra hardline only for
+        // that continuation shape: a backslash-ending comment whose sibling is
+        // on the very next source line. A blank line after such a comment (or
+        // any other comment-after-comment case) keeps its spacing as before.
+        const prevIsContinuation =
+          prev !== null &&
+          isComment(prev.type) &&
+          prev.text.trimEnd().endsWith('\\') &&
+          child.startPosition.row === prev.endPosition.row + 1;
+        if (!isInlineComment && parts.length > 0 && !prevIsContinuation) {
           parts.push(hardline());
         }
 
@@ -694,7 +752,7 @@ function printParenthesizedAssignments(
 
       const nextIsInlineComment =
         next !== null &&
-        next.type === 'comment' &&
+        isComment(next.type) &&
         next.startPosition.row === child.endPosition.row;
 
       if (!nextIsInlineComment && next) {
@@ -758,10 +816,19 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
   }
 
   const isMultiline = lastCallLine > firstCallLine;
+  // Org grammar puts %/#/!/* modifiers directly inside transform_chain (no
+  // modifier_chain wrapper) - never put a space between a modifier and its call.
+  let lastWasModifier = false;
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
     if (!child) continue;
+
+    if (child.type === 'modifier') {
+      parts.push(child.text);
+      lastWasModifier = true;
+      continue;
+    }
 
     const numericPrefixedCall = getNumericPrefixedModuleCall(node, i);
     if (numericPrefixedCall) {
@@ -770,13 +837,14 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
       if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
         parts.push(indent(concat([hardline(), callText])));
       } else {
-        if (parts.length > 0) {
+        if (parts.length > 0 && !lastWasModifier) {
           parts.push(' ');
         }
         parts.push(callText);
       }
 
       i = numericPrefixedCall.consumedUntil;
+      lastWasModifier = false;
       continue;
     }
 
@@ -785,7 +853,7 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
       if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
         parts.push(indent(concat([hardline(), printCallExpression(child, options)])));
       } else {
-        if (parts.length > 0) {
+        if (parts.length > 0 && !lastWasModifier) {
           parts.push(' ');
         }
         parts.push(printCallExpression(child, options));
@@ -794,13 +862,14 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
       parts.push(' ', printBlock(child, options));
     } else if (child.type === ';') {
       // Skip - semicolon handled by parent based on whether there's a block
+      lastWasModifier = false;
       continue;
     } else if (child.type === 'transform_chain') {
       // Nested transform chain
       if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
         parts.push(indent(concat([hardline(), printTransformChain(child, options)])));
       } else {
-        if (parts.length > 0) {
+        if (parts.length > 0 && !lastWasModifier) {
           parts.push(' ');
         }
         parts.push(printTransformChain(child, options));
@@ -808,6 +877,8 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
     } else {
       parts.push(printNode(child, options));
     }
+
+    lastWasModifier = false;
   }
 
   return concat(parts);
@@ -846,6 +917,15 @@ function printUnaryExpression(node: TreeSitter.Node, options: Required<FormatOpt
 }
 
 function printCallExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  // Org grammar quirk: after a modifier, 'for'/'intersection_for' parse as an
+  // ordinary call with the keyword as the identifier. These are reserved words,
+  // so the name is unambiguous - restore keyword layout ('for (...)').
+  const nameNode = node.children.find((c) => c && c.type === 'identifier');
+  const argsNode = node.children.find((c) => c && c.type === 'arguments');
+  if (nameNode && argsNode && (nameNode.text === 'for' || nameNode.text === 'intersection_for')) {
+    return concat([nameNode.text, ' ', printParenthesizedAssignments(argsNode, options)]);
+  }
+
   const parts: Doc[] = [];
 
   for (const child of node.children) {
@@ -920,7 +1000,7 @@ function printLetExpression(node: TreeSitter.Node, options: Required<FormatOptio
     if (child.type === 'whitespace' || child.type === '\n' || child.type === 'let') {
       continue;
     }
-    if (child.type === 'parenthesized_assignments') {
+    if (child.type === 'parenthesized_assignments' || child.type === 'assignments') {
       assignments = child;
       continue;
     }
@@ -967,7 +1047,7 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
     lastItemLine = child.endPosition.row;
 
     entries.push(child);
-    if (child.type !== 'comment') {
+    if (!isComment(child.type)) {
       valueNodes.push(child);
     }
   }
@@ -978,7 +1058,7 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
   // Check if array was originally multiline
   const isMultiline =
-    lastItemLine > firstItemLine || entries.some((child) => child.type === 'comment');
+    lastItemLine > firstItemLine || entries.some((child) => isComment(child.type));
 
   if (isMultiline) {
     const parts: Doc[] = [];
@@ -988,13 +1068,24 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       const prev = index > 0 ? entries[index - 1] : null;
       const next = index < entries.length - 1 ? entries[index + 1] : null;
 
-      if (child.type === 'comment') {
+      if (isComment(child.type)) {
         const isInlineComment =
           prev !== null &&
-          prev.type !== 'comment' &&
+          !isComment(prev.type) &&
           child.startPosition.row === prev.endPosition.row;
 
-        if (!isInlineComment && parts.length > 0) {
+        // The old grammar merged a backslash-continued '//' comment with the
+        // next line into ONE node (single hardline between lines). The org
+        // grammar keeps them separate - suppress the extra hardline only for
+        // that continuation shape: a backslash-ending comment whose sibling is
+        // on the very next source line. A blank line after such a comment (or
+        // any other comment-after-comment case) keeps its spacing as before.
+        const prevIsContinuation =
+          prev !== null &&
+          isComment(prev.type) &&
+          prev.text.trimEnd().endsWith('\\') &&
+          child.startPosition.row === prev.endPosition.row + 1;
+        if (!isInlineComment && parts.length > 0 && !prevIsContinuation) {
           parts.push(hardline());
         }
 
@@ -1019,7 +1110,7 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
       const nextIsInlineComment =
         next !== null &&
-        next.type === 'comment' &&
+        isComment(next.type) &&
         next.startPosition.row === child.endPosition.row;
 
       if (!nextIsInlineComment && next) {
@@ -1086,7 +1177,7 @@ function printForClause(node: TreeSitter.Node, options: Required<FormatOptions>)
     if (child.type === 'whitespace' || child.type === '\n') {
       continue;
     }
-    if (child.type === 'parenthesized_assignments') {
+    if (child.type === 'parenthesized_assignments' || child.type === 'assignments') {
       parts.push(printParenthesizedAssignments(child, options));
     } else {
       // This is the expression after the for clause
@@ -1212,6 +1303,25 @@ function printUseStatement(node: TreeSitter.Node, options: Required<FormatOption
 }
 
 function printAssert(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  // The org grammar nests the parens inside an `arguments` child:
+  // assert_statement = 'assert' + arguments + [trailing expression] + ';'
+  const argumentsChild = node.children.find((c) => c && c.type === 'arguments');
+  if (argumentsChild) {
+    const parts: Doc[] = ['assert', printArguments(argumentsChild, options)];
+    let afterArguments = false;
+    for (const child of node.children) {
+      if (!child) continue;
+      if (child === argumentsChild) {
+        afterArguments = true;
+        continue;
+      }
+      if (!afterArguments) continue;
+      if (child.type === ';' || child.type === 'whitespace' || child.type === '\n') continue;
+      parts.push(' ', printNode(child, options));
+    }
+    return concat(parts);
+  }
+
   const parts: Doc[] = ['assert', '('];
   const args: Doc[] = [];
   let afterParens: Doc | null = null;
@@ -1294,7 +1404,7 @@ function printIntersectionFor(node: TreeSitter.Node, options: Required<FormatOpt
 
     if (child.type === 'intersection_for') {
       continue;
-    } else if (child.type === 'parenthesized_assignments') {
+    } else if (child.type === 'parenthesized_assignments' || child.type === 'assignments') {
       parts.push(printParenthesizedAssignments(child, options));
     } else if (child.type === 'block' || child.type === 'union_block') {
       block = printNode(child, options);
@@ -1363,14 +1473,18 @@ function stripTrailingSemicolon(text: string): string {
 }
 
 function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
-  if (type === 'assignment') {
+  if (type === 'assignment' || type === 'var_declaration') {
     return true;
   }
   if (type === 'assert_statement' || type === 'assert_expression') {
     return true;
   }
   if (type === 'transform_chain' && node) {
-    // Only add semicolon if transform chain doesn't have a block
+    // Modified statements always get a ';' (matches the old grammar's
+    // modifier_chain output); otherwise only chains without a block do.
+    if (hasChildOfType(node, 'modifier')) {
+      return true;
+    }
     const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
     return !hasBlock;
   }
@@ -1379,7 +1493,7 @@ function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
     const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
     return !hasBlock;
   }
-  if (type === 'module_declaration' && node) {
+  if ((type === 'module_declaration' || type === 'module_item') && node) {
     // Module declarations without blocks need semicolons
     const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
     return !hasBlock;
@@ -1412,6 +1526,11 @@ function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
     }
   }
   return false;
+}
+
+function isComment(type: string): boolean {
+  // old grammar: 'comment' · org grammar: 'line_comment' / 'block_comment'
+  return type === 'comment' || type === 'line_comment' || type === 'block_comment';
 }
 
 function hasChildOfType(node: TreeSitter.Node, type: string): boolean {

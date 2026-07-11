@@ -28,6 +28,11 @@ export async function initParser(): Promise<void> {
       // @ts-expect-error - process is a Node.js global that may not be defined in browser
       const isNode = typeof process !== 'undefined' && process.versions?.node;
 
+      // public/tree-sitter-openscad.wasm provenance: official build from the OpenSCAD org's
+      // grammar release v0.6.2 (github.com/openscad/tree-sitter-openscad, MIT),
+      // sha256 ad3e76af7199bd068095cf21b01189f2d0c629908fa59cd17a1ddf1307abd825.
+      // The @openscad/tree-sitter-openscad npm dep (0.6.1, exact-pinned) is the same grammar's
+      // package; the wasm artifact is the runtime truth the golden tests exercise.
       if (isNode) {
         // Node.js environment (tests)
         // @ts-expect-error - path is a Node.js module
