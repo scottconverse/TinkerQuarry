@@ -10,11 +10,6 @@ name: Sign installer
 # touches no release.
 
 on:
-  # TEMP (remove before merge): re-proves the smoke path pre-merge after the
-  # review fixes, since workflow_dispatch needs the file on the default branch.
-  push:
-    branches: [v1.5-azure-signing]
-    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
