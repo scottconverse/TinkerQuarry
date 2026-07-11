@@ -1,4 +1,4 @@
-﻿name: Sign installer
+name: Sign installer
 
 # Signs a release installer with Azure Trusted Signing. Release builds are made
 # locally (NSIS path-length constraint), so this runs on demand against a draft
@@ -10,10 +10,6 @@
 # touches no release.
 
 on:
-  # TEMP (remove before merge): proves the tightened preflight pre-merge.
-  push:
-    branches: [v1.5-azure-signing]
-    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
