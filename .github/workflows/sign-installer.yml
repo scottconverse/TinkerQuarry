@@ -1,0 +1,99 @@
+name: Sign installer
+
+# Signs a release installer with Azure Trusted Signing. Release builds are made
+# locally (NSIS path-length constraint), so this runs on demand against a draft
+# release: download the unsigned exe -> Azure signs it with its HSM-held key ->
+# verify -> recompute checksums -> re-upload. Checksums are regenerated AFTER
+# signing because signing changes the file hash.
+#
+# Run with no tag to smoke-test the signing chain: it signs a scratch exe and
+# touches no release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Release tag holding the unsigned installer (e.g. v1.5.0). Leave empty for a smoke test that signs a scratch exe and touches no release."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: windows-latest
+    steps:
+      - name: Get file to sign
+        id: get
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          if ($env:TAG) {
+            gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --dir artifacts
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $exe = Get-ChildItem artifacts -Filter *.exe | Select-Object -First 1
+            if (-not $exe) { Write-Error "no *-setup.exe asset on release $env:TAG"; exit 1 }
+          } else {
+            Set-Content smoke.cs 'class Smoke { static void Main() {} }'
+            $csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64\v4*\csc.exe" | Select-Object -First 1
+            & $csc.FullName /nologo /out:artifacts\smoke-test.exe smoke.cs
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $exe = Get-Item artifacts\smoke-test.exe
+          }
+          "exe=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Sign with Azure Trusted Signing
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: https://wcus.codesigning.azure.net
+          signing-account-name: scottconverse-signing
+          certificate-profile-name: ScottConversePublic
+          files: ${{ steps.get.outputs.exe }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Verify signature
+        shell: pwsh
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          & $signtool.FullName verify /pa /v "${{ steps.get.outputs.exe }}"
+          if ($LASTEXITCODE -ne 0) { Write-Error "signature verification failed"; exit 1 }
+
+      - name: Re-hash and update release assets
+        if: inputs.release-tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          $exe  = "${{ steps.get.outputs.exe }}"
+          $name = "${{ steps.get.outputs.exe_name }}"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+
+          gh release download $env:TAG --repo ${{ github.repository }} --pattern SHA256SUMS.txt --pattern release-manifest.json --dir artifacts --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          $sums = Get-Content artifacts\SHA256SUMS.txt | ForEach-Object {
+            if ($_ -match [regex]::Escape($name)) { "$hash  $name" } else { $_ }
+          }
+          [IO.File]::WriteAllLines("$PWD\artifacts\SHA256SUMS.txt", $sums)
+
+          $m = Get-Content artifacts\release-manifest.json -Raw | ConvertFrom-Json
+          foreach ($a in $m.artifacts) { if ($a.file -eq $name) { $a.sha256 = $hash } }
+          $m.unsigned_build = $false
+          [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
+
+          gh release upload $env:TAG $exe artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "signed $name  sha256=$hash"
