@@ -406,7 +406,13 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
       if (!child) continue;
 
       // Stop at first module or function declaration
-      if (child.type === 'module_declaration' || child.type === 'function_declaration') {
+      // (predecessor grammar: module_declaration/function_declaration; org grammar: module_item/function_item)
+      if (
+        child.type === 'module_declaration' ||
+        child.type === 'function_declaration' ||
+        child.type === 'module_item' ||
+        child.type === 'function_item'
+      ) {
         break;
       }
 
@@ -416,7 +422,12 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
       }
 
       // Look for tab/group comments: /* [Tab Name] */
-      if (child.type === 'comment') {
+      // (predecessor grammar: comment; org grammar: line_comment/block_comment)
+      if (
+        child.type === 'comment' ||
+        child.type === 'line_comment' ||
+        child.type === 'block_comment'
+      ) {
         const commentText = sourceCode.substring(child.startIndex, child.endIndex);
         const studioMetadata = parseStudioMetadata(commentText);
         if (studioMetadata !== null) {
@@ -443,7 +454,21 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
       }
 
       // Look for assignments: variable = value;
+      // (the org grammar wraps a top-level `x = 1;` in a var_declaration containing the
+      //  assignment; the predecessor grammar exposed the assignment directly — accept both)
+      let assignmentNode: TreeSitter.Node | null = null;
       if (child.type === 'assignment') {
+        assignmentNode = child;
+      } else if (child.type === 'var_declaration') {
+        for (let j = 0; j < child.childCount; j++) {
+          const c = child.child(j);
+          if (c && c.type === 'assignment') {
+            assignmentNode = c;
+            break;
+          }
+        }
+      }
+      if (assignmentNode) {
         // Skip if in hidden tab
         if (currentTab === '__hidden__') {
           pendingStudioMetadata = null;
@@ -454,8 +479,8 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
         let identifier: TreeSitter.Node | null = null;
         let valueNode: TreeSitter.Node | null = null;
 
-        for (let j = 0; j < child.childCount; j++) {
-          const subChild = child.child(j);
+        for (let j = 0; j < assignmentNode.childCount; j++) {
+          const subChild = assignmentNode.child(j);
           if (!subChild) continue;
 
           if (subChild.type === 'identifier' && !identifier) {
