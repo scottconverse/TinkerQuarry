@@ -212,6 +212,11 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       return printComment(text);
 
     case 'parameter':
+      // Org grammar wraps default-valued parameters: parameter > assignment.
+      // Recurse so '=' and operator spacing get normalized; identifier-only
+      // parameters still print as their text.
+      return node.childCount > 0 ? printChildren(node, options) : text;
+
     case 'identifier':
     case 'number':
     case 'decimal':
@@ -398,7 +403,14 @@ function printFunctionDeclaration(node: TreeSitter.Node, options: Required<Forma
       parts.push(printParameters(child, options));
     } else if (child.type === '=') {
       parts.push(' ', child.text, ' ');
-    } else if (child.type !== 'function') {
+    } else if (
+      // The org grammar's function_item spans its own trailing ';' as a child;
+      // we always append our own below, so never print the grammar's.
+      child.type !== 'function' &&
+      child.type !== ';' &&
+      child.type !== 'whitespace' &&
+      child.type !== '\n'
+    ) {
       parts.push(printNode(child, options));
     }
   }
@@ -488,9 +500,15 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
     } else if (child.type === 'assert_statement' || child.type === 'assert_expression') {
       needsSemi = true;
     } else if (child.type === 'transform_chain') {
-      // Check if transform_chain ends with a block
-      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
-      needsSemi = !hasBlock;
+      // Old grammar wrapped modified statements in modifier_chain, whose direct
+      // children never include the block, so they always got a ';'. The org
+      // grammar puts the modifier inside transform_chain - keep the same output.
+      if (hasChildOfType(child, 'modifier')) {
+        needsSemi = true;
+      } else {
+        const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+        needsSemi = !hasBlock;
+      }
     } else if (child.type === 'modifier_chain') {
       // Check if modifier_chain ends with a block
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
@@ -698,7 +716,14 @@ function printParenthesizedAssignments(
           !isComment(prev.type) &&
           child.startPosition.row === prev.endPosition.row;
 
-        if (!isInlineComment && parts.length > 0) {
+        // The old grammar merged a backslash-continued '//' comment with the
+        // next line into ONE node (single hardline between lines). The org
+        // grammar keeps them separate - suppress the extra hardline only for
+        // that continuation shape, so other comment-after-comment cases keep
+        // their blank line exactly as before.
+        const prevIsContinuation =
+          prev !== null && isComment(prev.type) && prev.text.trimEnd().endsWith('\\');
+        if (!isInlineComment && parts.length > 0 && !prevIsContinuation) {
           parts.push(hardline());
         }
 
@@ -787,10 +812,19 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
   }
 
   const isMultiline = lastCallLine > firstCallLine;
+  // Org grammar puts %/#/!/* modifiers directly inside transform_chain (no
+  // modifier_chain wrapper) - never put a space between a modifier and its call.
+  let lastWasModifier = false;
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
     if (!child) continue;
+
+    if (child.type === 'modifier') {
+      parts.push(child.text);
+      lastWasModifier = true;
+      continue;
+    }
 
     const numericPrefixedCall = getNumericPrefixedModuleCall(node, i);
     if (numericPrefixedCall) {
@@ -799,13 +833,14 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
       if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
         parts.push(indent(concat([hardline(), callText])));
       } else {
-        if (parts.length > 0) {
+        if (parts.length > 0 && !lastWasModifier) {
           parts.push(' ');
         }
         parts.push(callText);
       }
 
       i = numericPrefixedCall.consumedUntil;
+      lastWasModifier = false;
       continue;
     }
 
@@ -814,7 +849,7 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
       if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
         parts.push(indent(concat([hardline(), printCallExpression(child, options)])));
       } else {
-        if (parts.length > 0) {
+        if (parts.length > 0 && !lastWasModifier) {
           parts.push(' ');
         }
         parts.push(printCallExpression(child, options));
@@ -823,13 +858,14 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
       parts.push(' ', printBlock(child, options));
     } else if (child.type === ';') {
       // Skip - semicolon handled by parent based on whether there's a block
+      lastWasModifier = false;
       continue;
     } else if (child.type === 'transform_chain') {
       // Nested transform chain
       if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
         parts.push(indent(concat([hardline(), printTransformChain(child, options)])));
       } else {
-        if (parts.length > 0) {
+        if (parts.length > 0 && !lastWasModifier) {
           parts.push(' ');
         }
         parts.push(printTransformChain(child, options));
@@ -837,6 +873,8 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
     } else {
       parts.push(printNode(child, options));
     }
+
+    lastWasModifier = false;
   }
 
   return concat(parts);
@@ -875,6 +913,15 @@ function printUnaryExpression(node: TreeSitter.Node, options: Required<FormatOpt
 }
 
 function printCallExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  // Org grammar quirk: after a modifier, 'for'/'intersection_for' parse as an
+  // ordinary call with the keyword as the identifier. These are reserved words,
+  // so the name is unambiguous - restore keyword layout ('for (...)').
+  const nameNode = node.children.find((c) => c && c.type === 'identifier');
+  const argsNode = node.children.find((c) => c && c.type === 'arguments');
+  if (nameNode && argsNode && (nameNode.text === 'for' || nameNode.text === 'intersection_for')) {
+    return concat([nameNode.text, ' ', printParenthesizedAssignments(argsNode, options)]);
+  }
+
   const parts: Doc[] = [];
 
   for (const child of node.children) {
@@ -1023,7 +1070,14 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
           !isComment(prev.type) &&
           child.startPosition.row === prev.endPosition.row;
 
-        if (!isInlineComment && parts.length > 0) {
+        // The old grammar merged a backslash-continued '//' comment with the
+        // next line into ONE node (single hardline between lines). The org
+        // grammar keeps them separate - suppress the extra hardline only for
+        // that continuation shape, so other comment-after-comment cases keep
+        // their blank line exactly as before.
+        const prevIsContinuation =
+          prev !== null && isComment(prev.type) && prev.text.trimEnd().endsWith('\\');
+        if (!isInlineComment && parts.length > 0 && !prevIsContinuation) {
           parts.push(hardline());
         }
 
@@ -1115,7 +1169,7 @@ function printForClause(node: TreeSitter.Node, options: Required<FormatOptions>)
     if (child.type === 'whitespace' || child.type === '\n') {
       continue;
     }
-    if (child.type === 'parenthesized_assignments') {
+    if (child.type === 'parenthesized_assignments' || child.type === 'assignments') {
       parts.push(printParenthesizedAssignments(child, options));
     } else {
       // This is the expression after the for clause
@@ -1418,7 +1472,11 @@ function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
     return true;
   }
   if (type === 'transform_chain' && node) {
-    // Only add semicolon if transform chain doesn't have a block
+    // Modified statements always get a ';' (matches the old grammar's
+    // modifier_chain output); otherwise only chains without a block do.
+    if (hasChildOfType(node, 'modifier')) {
+      return true;
+    }
     const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
     return !hasBlock;
   }
