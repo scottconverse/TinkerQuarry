@@ -10,10 +10,6 @@ name: Sign installer
 # touches no release.
 
 on:
-  # TEMP (remove before merge): proves the preflight step pre-merge.
-  push:
-    branches: [v1.5-azure-signing]
-    paths: [".github/workflows/sign-installer.yml"]
   workflow_dispatch:
     inputs:
       release-tag:
