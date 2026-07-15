@@ -457,22 +457,32 @@ class Pipeline:
         # MS-3: a no-op default so the rest of the method calls emit() unconditionally.
         emit = progress or (lambda _phase: None)
         emit("planning")
-        try:
-            plan = self.provider.generate_design_plan(
-                prompt, self.printer, self.material, history=history
-            )
-        except PlanParseError as e:
-            # The model returned something that isn't a valid design plan. Fail closed with
-            # a clean, user-facing message instead of leaking a raw pydantic/JSON traceback.
-            # The detail is the underlying parse exception TYPE (enough to categorize the
-            # failure); the full multi-line pydantic dump would be noise even on the CLI.
-            # Only PlanParseError is caught -- a bug elsewhere propagates, never masked here.
-            detail = type(e.original).__name__ if e.original is not None else "PlanParseError"
-            return PipelineResult(
-                status=PipelineStatus.plan_failed,
-                prompt=prompt,
-                error=f"{PLAN_FAILED_MESSAGE} (details: {detail})",
-            )
+        # PLAN-003: local model output is sampled, so one unparseable response is an expected
+        # rare event, not a verdict on the request — draw ONE fresh sample before failing
+        # (squares the per-call failure rate on the default user path; the v1.5 release gate
+        # caught qwen3.5:9b flaking exactly once in the live lane). Bounded to a single retry;
+        # measurement harnesses (bakeoff) call the provider directly and stay single-shot.
+        plan = None
+        for attempt in (1, 2):
+            try:
+                plan = self.provider.generate_design_plan(
+                    prompt, self.printer, self.material, history=history
+                )
+                break
+            except PlanParseError as e:
+                if attempt == 1:
+                    continue
+                # Both samples unparseable. Fail closed with a clean, user-facing message
+                # instead of leaking a raw pydantic/JSON traceback. The detail is the
+                # underlying parse exception TYPE (enough to categorize the failure); the
+                # full multi-line pydantic dump would be noise even on the CLI. Only
+                # PlanParseError is caught -- a bug elsewhere propagates, never masked here.
+                detail = type(e.original).__name__ if e.original is not None else "PlanParseError"
+                return PipelineResult(
+                    status=PipelineStatus.plan_failed,
+                    prompt=prompt,
+                    error=f"{PLAN_FAILED_MESSAGE} (details: {detail})",
+                )
         # NOTE: a connection/timeout error is deliberately NOT caught here — the pipeline
         # propagates it so the caller owns it (the CLI's handler; the web layer maps it to the
         # recoverable `model_unavailable` response). See test_connection_error_is_not_swallowed.

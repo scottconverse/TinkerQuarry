@@ -173,6 +173,51 @@ def test_bad_json_plan_fails_clean(tmp_path):
     assert "JSONDecodeError" in (result.error or "")
 
 
+class _FlakyPlanProvider(FakeProvider):
+    """A provider whose plan call raises PlanParseError ``failures`` times, then returns the
+    fixed plan — the real shape of a nondeterministic local model that samples one unparseable
+    response (TEST-101 gate red, v1.5: qwen3.5:9b flaked once in the live lane and the pipeline
+    treated the single bad sample as terminal)."""
+
+    def __init__(self, plan: DesignPlan, failures: int):
+        super().__init__(plan)
+        self._failures = failures
+
+    def generate_design_plan(self, prompt, printer, material, history=None):  # noqa: ANN001
+        self.design_calls += 1
+        if self.design_calls <= self._failures:
+            from kimcad.llm_provider import PlanParseError
+
+            raise PlanParseError(
+                "bad json", original=__import__("json").JSONDecodeError("Expecting value", "x", 0)
+            )
+        return self._plan
+
+
+def test_one_unparseable_plan_sample_is_retried_and_completes(tmp_path):
+    # PLAN-003: a SINGLE unparseable model response must not be a terminal, user-facing
+    # failure on the default path — the pipeline draws one fresh sample before giving up.
+    provider = _FlakyPlanProvider(_plan((20, 20, 20)), failures=1)
+    renderer, _ = _box_renderer((20, 20, 20))
+    result = _pipeline(provider, renderer).run("a box", tmp_path, confirm_print=True)
+
+    assert result.status is PipelineStatus.completed
+    assert provider.design_calls == 2  # first sample failed to parse, retry succeeded
+
+
+def test_plan_retry_is_bounded_to_one(tmp_path):
+    # PLAN-003: two consecutive unparseable samples -> plan_failed. Exactly two provider
+    # calls — the retry never loops.
+    provider = _FlakyPlanProvider(_plan((20, 20, 20)), failures=2)
+    renderer, state = _box_renderer((20, 20, 20))
+    result = _pipeline(provider, renderer).run("a box", tmp_path)
+
+    assert result.status is PipelineStatus.plan_failed
+    assert provider.design_calls == 2  # one retry, then fail closed
+    assert state["n"] == 0  # never rendered
+    assert "JSONDecodeError" in (result.error or "")
+
+
 def test_connection_error_is_not_swallowed_as_plan_failed(tmp_path):
     # A genuine connection failure is NOT a bad-plan; it must propagate (the FallbackProvider
     # or the CLI's error handler owns it), not be masked as plan_failed.
