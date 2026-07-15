@@ -7,12 +7,45 @@ number below stays re-checkable.
 
 | Role | Model | Ollama tag | Size | Why this one |
 |---|---|---|---|---|
-| **Chat / design planning** — your words → a validated design plan, and the (opt-in) experimental geometry | Qwen 2.5 7B | `qwen2.5:7b` | ~4.7 GB | Planned the prompt set 4/4 on the on-machine bake-off (below) |
+| **Chat / design planning** — your words → a validated design plan, and the (opt-in) experimental geometry | Qwen3.5-9B | `qwen3.5:9b` | ~6.6 GB | Published-record research verdict, 2026-07-15 (below) |
 | **Vision** — reads photos and dimensioned sketches into editable seeds | Qwen 2.5 VL 3B | `qwen2.5vl:3b` | ~3 GB | The dedicated vision reader; the chat model's vision path produces empty output on this stack (measured, Stage 9) |
 
 The setup wizard downloads both with live progress; everything afterward runs offline.
 
-## The chat-model decision (on-machine bake-off, 2026-06-15)
+## The chat-model decision, round 2 (v1.5-6, 2026-07-15) — bake-off, then a correction
+
+Roadmap item v1.5-6 asked whether a newer open-weight model beats `qwen2.5:7b` (the round-1
+default, below). Five backends ran the real `kimcad design` pipeline — build, render, gate,
+slice — on all 10 benchmark prompts:
+
+| Backend | Completed | Graded (3-axis) | Match | Slice | Mean time | Notes |
+|---|---|---|---|---|---|---|
+| **`cand_mellum2` (the bake-off's own winner)** | **10/10** | **6/10** | 10/10 | 10/10 | **39.9s** | MoE 12B/2.5B-active, Apache-2.0; beat the incumbent on every harness axis |
+| `local_qwen2_5` (prior default, `qwen2.5:7b`) | 9/10 | 3/10 | 8/10 | 9/10 | 61.2s | 1 render_failed; still the fallback for smaller boxes |
+| `cand_seedcoder` | 7/10 | 4/10 | 8/10 | 7/10 | 135.1s | MIT, dense 8B; 2.2x slower |
+| `cand_gemma12` | 2/10 | 2/10 | 2/10 | 2/10 | 238.4s | mostly `plan_failed` |
+| `cand_gemma26` | 0/10 | 0/10 | 0/10 | 0/10 | n/a | runtime asterisk — see the full report, not a quality verdict |
+
+Mellum2 won on every axis this harness measured — completion, graded quality, request-match,
+slice success, *and* speed — and briefly shipped as the default. **It did not stay the
+default.** An independent review of the bake-off's own graded transcripts found the grader
+**feature-blind**: it scored plans "completed" that were missing requested features (8 holes
+where 4 were asked) or had dimensions declared outside their own stated bounding box (60mm legs
+inside a 40mm box). A fidelity re-grade — checking the actual *values*, not just that valid JSON
+came back — tied Mellum2 to the incumbent on feature-fidelity. JetBrains' own technical report
+then corroborated the miss from an entirely independent angle: Mellum2 scores 14–24 on BS-Bench
+(catching a false-premise/contradictory request) against Qwen3.5's 56–70, with the authors'
+own admission that their training "leans toward compliance" — the opposite of what a planner
+needs when a request contradicts itself. Deep, adversarially-verified research across the wider
+published record then ranked **Qwen3.5-9B** first for this task profile (IFEval 83.9, BFCL v3
+70.5, StructEval 90.96 — peer-reviewed — vs the incumbent's 84.40), and the owner chose to
+switch the default to it on that record. **Qwen3.5-9B is now the default** — smaller than
+Mellum2 besides (~6.6 GB disk, ~7-8 GB RAM working set vs Mellum2's ~8.1 GB / ~9-10 GB), so the
+hardware advisor's RAM floor moved down to match — a box too small for it downshifts to
+`qwen2.5:7b`, exactly as before. Full history, the review's evidence, the JetBrains corroboration,
+and the research ranking: [stage-v156-model-bakeoff.md](benchmarks/stage-v156-model-bakeoff.md).
+
+## The chat-model decision, round 1 (on-machine bake-off, 2026-06-15)
 
 The planner is chosen by **measured merit on the target box, not by origin** — KimCad runs
 fully offline through Ollama, so a model's origin carries no data-governance weight (nothing
@@ -20,22 +53,24 @@ leaves the machine). Each candidate ran the real `kimcad design` pipeline on the
 
 | Backend | Planned (renders + passes the gate) | Notes |
 |---|---|---|
-| **`qwen2.5:7b`** (default) | **4/4** | the strongest on-device planner that fits a typical box |
+| **`qwen2.5:7b`** (the default 2026-06-15 – 2026-07-15; now `local_qwen2_5`) | **4/4** | the strongest on-device planner that fits a typical box |
 | `gemma4:e4b` | 1/4 | simple template prompts only; hosts the vision model + non-China fallback |
 | `llama3.1:8b` | 0/4 | correct plans wrapped in prose the parser rejected (see the grammar fix) |
 | `qwen3:8b` | rejected | thinking mode too slow on CPU; `/no_think` returns empty |
 | `gemma4:12b` | flaky / ~2× slower | not a drop-in |
 
-Two findings drove the change. **First, the failures were mostly a JSON-*format* problem, not
-raw incapability** — `llama3.1:8b` and `gemma4:e4b` produced *correct* plans but wrapped them in
-prose, `//` comments, or fences that broke `json.loads`. The fix: design-plan calls to a local
-Ollama backend are now **schema-constrained at the token level** (Ollama's native `format`),
-which rescues weaker models on simpler prompts and makes the whole path robust. **Second, the
-earlier "Qwen rejected 0/10" verdict tested `qwen2.5-coder`** — a *code-completion* model that
-echoes the schema instead of planning. The general **instruct** model (`qwen2.5:7b`) is the right
-tool and wins outright. `gemma4:e4b` stays as the non-China fallback (and still hosts the vision
-reader); the advisor downshifts smaller boxes to `qwen2.5:3b`. Earlier write-up (superseded for
-the chat model): [stage-6-model-bakeoff.md](benchmarks/stage-6-model-bakeoff.md).
+Two findings drove that round's change. **First, the failures were mostly a JSON-*format*
+problem, not raw incapability** — `llama3.1:8b` and `gemma4:e4b` produced *correct* plans but
+wrapped them in prose, `//` comments, or fences that broke `json.loads`. The fix: design-plan
+calls to a local Ollama backend are now **schema-constrained at the token level** (Ollama's
+native `format`), which rescues weaker models on simpler prompts and makes the whole path
+robust. **Second, the earlier "Qwen rejected 0/10" verdict tested `qwen2.5-coder`** — a
+*code-completion* model that echoes the schema instead of planning. The general **instruct**
+model (`qwen2.5:7b`) was the right tool and won outright that round — and, as the round-2 table
+above shows, still stays selectable as the smaller-footprint fallback (`local_qwen2_5`).
+`gemma4:e4b` stays as the non-China fallback (and still hosts the vision reader); the advisor
+downshifts smaller boxes to `qwen2.5:3b`. Earlier write-up (superseded twice over for the chat
+model — first by round 1, now by round 2 above): [stage-6-model-bakeoff.md](benchmarks/stage-6-model-bakeoff.md).
 
 ## The vision-model decision (Stage 9)
 
@@ -54,7 +89,8 @@ Images are **always processed locally** and never leave the machine.
 - **There is no model menu.** KimCad ships THE measured default rather than a picker — a
   trust rule, not a limitation (an untested model choice would silently change quality).
   Power users can still point a different backend via `config/local.yaml` and `--backend`,
-  and `local_qwen` stays defined so the comparison can be re-run.
+  and `local_qwen2_5` (the prior default) plus `local_qwen` stay defined so either comparison
+  can be re-run.
 - **Cloud (opt-in only):** Settings → Cloud acceleration routes *prompts* (never images) to
   a model you choose via OpenRouter, with your own key, for hard requests. Local always
   works; a wrong cloud slug falls back to local rather than failing the design.
@@ -63,7 +99,8 @@ Images are **always processed locally** and never leave the machine.
 
 ```
 kimcad bench --min-success-rate 0.8     # the 10-prompt done-gate against the current model
-kimcad bakeoff --backends local,local_qwen   # head-to-head, 3-axis graded
+kimcad bakeoff --backends local,local_qwen2_5   # v1.5-6 head-to-head, 3-axis graded
+kimcad bakeoff --backends local,local_qwen      # Stage-6 head-to-head, 3-axis graded
 ```
 
 Both write their verdicts under `output/`; the lesson from Stage 6 is institutional now:

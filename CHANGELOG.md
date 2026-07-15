@@ -5,6 +5,24 @@ All notable user-facing changes to TinkerQuarry are documented here.
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses separate version numbers for the product, engine, share web app, and shared helper package.
 
+## [Unreleased]
+
+### Changed
+
+- Default local chat/planner model: `qwen2.5:7b` -> **Qwen3.5-9B** (`qwen3.5:9b`), per a
+  published-record research verdict (2026-07-15) — NOT the v1.5-6 bake-off's own pick, Mellum2.
+  The bake-off itself measured Mellum2 winning every harness axis (10/10 completed vs 9/10,
+  graded 6/10 vs 3/10, 39.9s vs 61.2s mean), but an independent review then proved that grader
+  feature-blind (a plan with 8 holes where 4 were asked, and 60mm legs declared inside a 40mm
+  bounding box, both still scored "completed"); a fidelity re-grade tied Mellum2 to the
+  incumbent, and JetBrains' own technical report corroborated the miss (BS-Bench false-premise
+  detection 14–24 vs Qwen3.5's 56–70). Deep research across the published record then ranked
+  Qwen3.5-9B first for this task profile (IFEval 83.9, BFCL v3 70.5, StructEval 90.96 vs the
+  incumbent's 84.40, peer-reviewed) and the owner chose to switch on that record. `qwen2.5:7b`
+  remains selectable (`local_qwen2_5`) as the fallback for boxes too small for Qwen3.5-9B's RAM
+  footprint (~7–8 GB working set — smaller than Mellum2's ~9–10 GB). Full history:
+  `packages/engine/docs/benchmarks/stage-v156-model-bakeoff.md`.
+
 ## [1.4.0] - 2026-07-09
 
 Product v1.4.0 ships with KimCad engine 0.9.4. This is the first release whose binaries contain no

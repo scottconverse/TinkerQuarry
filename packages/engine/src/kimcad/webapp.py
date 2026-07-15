@@ -2092,24 +2092,23 @@ def make_handler(
             vision_model = (backend.vision_model if backend else "") or DEFAULT_VISION_MODEL
             payload["vision_model"] = vision_model
             if is_local:
-                from kimcad.model_advisor import probe_ollama
+                from kimcad.model_advisor import is_model_present, probe_ollama
 
                 running, installed = probe_ollama(base_url)
                 names = {m.name for m in installed}
                 # gemma4:e4b may be pulled as the bare tag or a quantized variant
-                # (gemma4:e4b-it-q4_K_M). Match the exact tag, or one that extends it with a
-                # `-<variant>` suffix — the separator anchors the prefix so an unrelated tag that
-                # merely starts with the same characters can't false-match.
-                present = any(n == model_name or n.startswith(model_name + "-") for n in names)
+                # (gemma4:e4b-it-q4_K_M); a TAGLESS model_name (e.g. Mellum2's Ollama tag,
+                # JetBrains/mellum2-instruct-q4_k_m, pulled for the v1.5-6 bake-off) comes back
+                # from Ollama with its own implicit `:latest` tag instead. is_model_present
+                # covers both shapes (ENG-1015).
+                present = is_model_present(model_name, names)
                 payload["running"] = running
                 payload["model_present"] = present
                 # Disambiguate the honest-but-contradictory-looking {running:true, present:false}
                 # transient (server up, model still pulling/loading) from {running:false} (no server),
                 # so a status pill never reads as a contradiction. (GauntletGate W-1 / ENG-NIT-3.)
                 payload["model_loading"] = bool(running and not present)
-                payload["vision_present"] = any(
-                    n == vision_model or n.startswith(vision_model + "-") for n in names
-                )
+                payload["vision_present"] = is_model_present(vision_model, names)
             else:
                 # A cloud backend is "ready" when configured; reachability isn't probed in-band (it
                 # would need the key). MS-3 surfaces the cloud label + key state separately.

@@ -19,6 +19,7 @@ from kimcad.model_advisor import (
     ModelSpec,
     _installed_match,
     _ollama_tags_url,
+    is_model_present,
     probe_hardware,
     probe_installed_models,
     recommend,
@@ -48,21 +49,27 @@ def test_fits_gates_on_ram_for_local_and_always_true_for_cloud():
 # --- recommend(): the pure decision ----------------------------------------------
 
 def test_recommends_the_best_installed_model_that_fits():
-    # qwen2.5:7b is the top local tier (the bake-off planner). With it and gemma4 both installed,
-    # the advisor picks qwen2.5:7b on measured merit — origin no longer deprioritizes a model.
-    rec = recommend(_hw(ram_gb=32), _installed("qwen2.5:7b", "gemma4:e4b"))
-    assert rec.primary.name == "qwen2.5:7b"
+    # qwen3.5:9b is the top local tier (the research verdict, 2026-07-15 -- supersedes the
+    # v1.5-6 bake-off's own pick, Mellum2, after an independent review found that bake-off's
+    # grader feature-blind). With it, qwen2.5:7b, and gemma4 all installed, the advisor picks
+    # qwen3.5:9b on measured merit — origin no longer deprioritizes a model.
+    rec = recommend(
+        _hw(ram_gb=32),
+        _installed("qwen3.5:9b", "qwen2.5:7b", "gemma4:e4b"),
+    )
+    assert rec.primary.name == "qwen3.5:9b"
     assert rec.installed is True
-    assert rec.upgrade is None  # qwen2.5:7b is the top local tier; nothing higher to pull
+    assert rec.upgrade is None  # qwen3.5:9b is the top local tier; nothing higher to pull
 
 
 def test_recommends_installed_model_and_names_an_upgrade_the_box_could_run():
-    # Box fits qwen2.5:7b, but only the lower-tier gemma4:e4b is installed -> use gemma now,
-    # name the better qwen2.5:7b as the upgrade to pull.
+    # Box fits qwen3.5:9b (today's top tier), but only the lower-tier gemma4:e4b is installed ->
+    # use gemma now, name qwen3.5:9b as the upgrade to pull (not qwen2.5:7b -- a lower tier than
+    # qwen3.5:9b even though it would also fit this box).
     rec = recommend(_hw(ram_gb=32), _installed("gemma4:e4b"))
     assert rec.primary.name == "gemma4:e4b"
     assert rec.installed is True
-    assert rec.upgrade is not None and rec.upgrade.name == "qwen2.5:7b"
+    assert rec.upgrade is not None and rec.upgrade.name == "qwen3.5:9b"
     assert rec.upgrade.tier > rec.primary.tier
 
 
@@ -70,7 +77,19 @@ def test_recommends_a_pull_when_nothing_installed_fits():
     rec = recommend(_hw(ram_gb=32), installed=[])
     assert rec.installed is False
     assert rec.primary is not None and rec.primary.location == "local"
+    assert rec.primary.name == "qwen3.5:9b"  # today's top local tier
     assert "pull" in rec.reason.lower()
+
+
+def test_downshifts_below_qwen35_9bs_ram_floor_to_the_prior_default():
+    # qwen3.5:9b's ~7-8 GB RAM working set earns it a 10 GB floor (vs qwen2.5:7b's 8 GB). A 9 GB
+    # box can't fit qwen3.5:9b even if it's installed -- the advisor must downshift to qwen2.5:7b
+    # rather than recommend a model that won't reliably load.
+    rec = recommend(
+        _hw(ram_gb=9), _installed("qwen3.5:9b", "qwen2.5:7b")
+    )
+    assert rec.primary.name == "qwen2.5:7b"
+    assert rec.installed is True
 
 
 def test_small_box_falls_back_to_cloud():
@@ -104,8 +123,10 @@ def test_no_non_china_alternative_when_primary_is_already_non_china():
 
 def test_non_china_escape_names_gemma_when_primary_is_a_china_model():
     # qwen2.5:7b is the (China-origin) primary; the informational non-China option is the
-    # highest-tier non-China local that fits — gemma4:e4b (tier 5) over llama3.1:8b (tier 4) —
-    # flagged not-installed here.
+    # highest-tier non-China local that fits — gemma4:e4b (tier 5) over llama3.1:8b (tier 4).
+    # qwen3.5:9b (also Alibaba/China-origin, like qwen2.5:7b) never enters this pool, so this is
+    # unchanged from before the v1.5-6 bake-off's brief detour through the non-China JetBrains
+    # Mellum2 pick (now superseded — see the model-catalog comment). Flagged not-installed here.
     rec = recommend(_hw(ram_gb=32), _installed("qwen2.5:7b"))
     assert rec.primary.non_china is False
     assert rec.non_china_alternative is not None
@@ -139,6 +160,33 @@ def test_recommend_is_pure_same_inputs_same_output():
 def test_installed_match(installed_name, spec_name, expected):
     spec = ModelSpec(spec_name, "x", 1.0, min_ram_gb=4, tier=1, origin="o", non_china=True)
     assert _installed_match(spec, _installed(installed_name)) is expected
+
+
+# --- is_model_present (ENG-1015: the raw-string sibling webapp.py / model_pull.py share) --------
+
+@pytest.mark.parametrize("model_name,installed_names,expected", [
+    # Exact match.
+    ("gemma4:e4b", {"gemma4:e4b"}, True),
+    # A quant/variant suffix appended with '-'.
+    ("gemma4:e4b", {"gemma4:e4b-it-q4_K_M"}, True),
+    # A TAGLESS model_name (e.g. Mellum2's Ollama tag, pulled for the v1.5-6 bake-off) comes
+    # back from Ollama with its own implicit tag -- this is the exact bug this helper was added
+    # to fix (webapp/model_pull previously only checked the '-' suffix, so a tagless model_name
+    # always read as "not present"). Model-agnostic: this holds regardless of which model is
+    # the current default.
+    ("JetBrains/mellum2-instruct-q4_k_m", {"JetBrains/mellum2-instruct-q4_k_m:latest"}, True),
+    ("JetBrains/mellum2-instruct-q4_k_m", {"JetBrains/mellum2-instruct-q4_k_m"}, True),  # exact
+    # A quantized variant still matches even for an already-tagged model_name (Ollama's '-'
+    # variant convention applies regardless of whether the base name has a ':tag').
+    ("qwen2.5:7b", {"qwen2.5:7b-instruct-q4_K_M"}, True),
+    # A model_name that ALREADY has an explicit tag must not get a second ':'-suffix match --
+    # Ollama doesn't nest tags, so an unrelated model sharing no prefix must not false-match.
+    ("qwen2.5:7b", {"qwen2.5:3b"}, False),
+    ("qwen2.5:7b", {"llama3:8b"}, False),
+    ("qwen2.5:7b", set(), False),
+])
+def test_is_model_present(model_name, installed_names, expected):
+    assert is_model_present(model_name, installed_names) is expected
 
 
 @pytest.mark.parametrize("base,expected", [
@@ -210,6 +258,7 @@ def test_probe_installed_models_tolerates_a_malformed_body(monkeypatch, body):
     ("gemma4:e4b-it-q4_K_M", "Gemma E4B"),                       # quant/variant suffix
     ("qwen2.5:7b", "Qwen2.5 7B"),
     ("qwen2.5:3b", "Qwen2.5 3B"),
+    ("qwen3.5:9b", "Qwen3.5 9B"),                                 # the current default
     ("novaforgeai/deepseek-coder:6.7b-optimized", None),         # not a catalog family
     ("totally-unknown:1b", None),
 ])

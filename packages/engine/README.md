@@ -173,17 +173,18 @@ Finally, the local AI. **KimCad sets this up for you** — on first run it reuse
 [Ollama](https://ollama.com/) on `localhost:11434` if one is present, otherwise it downloads
 Ollama's official **portable** build (~1.4 GB, a one-time engine download — no separate
 install / no admin) into KimCad's own data folder and runs it headless; then it fetches the
-two models (~**7.7 GB** total) with progress via the in-app setup wizard's **Set up KimCad's
-AI** button (Stage 10). The default planner is `qwen2.5:7b` — the on-device model that won
-the on-machine bake-off (4/4 vs the alternatives; ~4.7 GB, ~6 GB RAM) on the target machine
-(a 32 GB box with a 780M iGPU — the v3.0 spec's reference box is the slightly stronger
-Beelink 890M, so anything that runs here runs on the spec reference too). Smaller boxes
-downshift — run `kimcad models` for a hardware-matched pick.
+two models (~**9.6 GB** total) with progress via the in-app setup wizard's **Set up KimCad's
+AI** button (Stage 10). The default planner is **Qwen3.5-9B** (`qwen3.5:9b`) — chosen 2026-07-15
+on the published research record (IFEval 83.9, BFCL v3 70.5, StructEval 90.96 vs the prior
+default's 84.40), which superseded the v1.5-6 bake-off's own pick (Mellum2) after an independent
+review found that bake-off's grader feature-blind. Smaller boxes downshift (to the prior
+default, `qwen2.5:7b`, then smaller) — run `kimcad models` for a hardware-matched pick. Full
+history: `docs/benchmarks/stage-v156-model-bakeoff.md`.
 
 To pull the models by hand instead (you have Ollama, or just prefer the terminal):
 
 ```
-ollama pull qwen2.5:7b
+ollama pull qwen3.5:9b
 ollama pull qwen2.5vl:3b
 ```
 
@@ -206,10 +207,14 @@ model tags change, and the shipped defaults are examples, not guaranteed-live ta
 Not sure which model fits your machine? `kimcad models` examines your hardware (RAM,
 CPU, a discrete GPU if present) and which models Ollama has pulled, then recommends one
 — it only advises, it never changes your config. The model stays choosable via
-`config/local.yaml` or `--backend`. (`qwen2.5:7b` is the default planner — it planned the
-bake-off prompts 4/4; `gemma4:e4b` is the non-China fallback and still hosts the vision model.
-The earlier "Qwen rejected" result tested `qwen2.5-coder`, a _code_ model — the general
-**instruct** model is the right tool. Origin no longer factors in: KimCad runs fully offline.)
+`config/local.yaml` or `--backend`. (Qwen3.5-9B is the default planner — chosen on the
+published research record over the prior default, `qwen2.5:7b` (still selectable as
+`local_qwen2_5`, and the fallback for boxes too small for Qwen3.5-9B's ~7-8 GB RAM working
+set); `gemma4:e4b` is the non-China fallback and still hosts the vision model. The earlier
+"Qwen rejected" result tested `qwen2.5-coder`, a _code_ model — the general **instruct** model
+is the right tool. Origin no longer factors in: KimCad runs fully offline. See
+`docs/benchmarks/stage-v156-model-bakeoff.md` for why the shipped default is Qwen3.5-9B and not
+Mellum2, the v1.5-6 bake-off's own measured winner.)
 
 ### Optional: the CadQuery engine (editable `.STEP` CAD export)
 

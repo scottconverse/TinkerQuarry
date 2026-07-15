@@ -615,10 +615,11 @@ def test_is_model_unreachable_covers_native_ollama_path():
 # never rendered or sliced by the gate. This is the b5 failure shape: a real path (model → SCAD →
 # render → watertight mesh → real OrcaSlicer → motion-bearing G-code) left unproven while proxy
 # assertions (plan→family in test_landing_examples; FakeProvider's box in the pipeline tests) stay
-# green. This test closes that gap: the REAL LLMProvider (default backend, qwen2.5:7b) plans 1-2
-# prompts, the pipeline builds + renders + hardens the geometry, asserts the exported mesh is
-# watertight, then slices it through the bundled OrcaSlicer and proves the .gcode.3mf carries a
-# real motion-bearing toolpath (line_count > 100) — re-proven from disk via prove_gcode_3mf.
+# green. This test closes that gap: the REAL LLMProvider (default backend, qwen3.5:9b as of the
+# v1.5-6 rework) plans 1-2 prompts, the pipeline builds + renders + hardens the geometry, asserts the exported
+# mesh is watertight, then slices it through the bundled OrcaSlicer and proves the .gcode.3mf
+# carries a real motion-bearing toolpath (line_count > 100) — re-proven from disk via
+# prove_gcode_3mf.
 #
 # Marked `live` so the gate's explicit `pytest -m live ... 0 skipped` step guards it (TEST-102),
 # not only ci.sh's STRICT skip-grep. Kept to 2 prompts to bound wall-clock (real local inference

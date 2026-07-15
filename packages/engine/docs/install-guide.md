@@ -79,8 +79,8 @@ machine unless you explicitly turn on the cloud option in Settings.
 ## Requirements
 
 Windows 11 (or Windows 10 with the WebView2 Runtime — Microsoft ships it automatically
-via Edge — and .NET Framework 4.7.2+, in-box since Windows 10 1803), about **12 GB of free
-disk space** as headroom (the AI engine ~1.4 GB plus the ~7.7 GB of models, with room to
+via Edge — and .NET Framework 4.7.2+, in-box since Windows 10 1803), about **14 GB of free
+disk space** as headroom (the AI engine ~1.4 GB plus the ~9.6 GB of models, with room to
 spare), 16 GB+ RAM recommended. No graphics card needed.
 
 ## macOS / Linux

@@ -61,13 +61,29 @@ llm:
     local:
       provider: openai_compatible
       base_url: http://localhost:11434/v1   # Ollama default; LM Studio uses :1234
-      model_name: qwen2.5:7b                # the on-device PLANNER. On-machine bake-off 2026-06-15
-                                            # (16-thread CPU / 780M iGPU): qwen2.5:7b planned 4/4 vs
-                                            # gemma4:e4b 1/4 and llama3.1:8b 0/4; the native
-                                            # schema-constrained plan path keeps output parseable.
-                                            # ~6 GB RAM; the advisor downshifts smaller boxes.
-                                            # qwen3:8b rejected (too slow/empty on CPU). Override
-                                            # in local.yaml per machine.
+      model_name: qwen3.5:9b                # the on-device PLANNER, flipped 2026-07-15 per the
+                                            # published-record research verdict -- NOT the v1.5-6
+                                            # bake-off's own winner (Mellum2). The bake-off's grader
+                                            # was later proven feature-blind (Mellum2 b02: 8 holes
+                                            # where 4 were asked, 60mm legs declared inside a 40mm
+                                            # bbox, still scored "completed"); a fidelity re-grade
+                                            # tied Mellum2 to the incumbent, and JetBrains' own
+                                            # technical report corroborated the miss (BS-Bench
+                                            # false-premise detection 14-24 vs Qwen3.5's 56-70, with
+                                            # the authors' own admission their SFT/RL signal "leans
+                                            # toward compliance" -- the wrong trait for a planner
+                                            # that must reject contradictory dimensions). Deep
+                                            # research across the published record then ranked
+                                            # Qwen3.5-9B first for this task profile: IFEval 83.9,
+                                            # BFCL v3 70.5, StructEval (peer-reviewed) 90.96 vs the
+                                            # incumbent's 84.40. Full history:
+                                            # docs/benchmarks/stage-v156-model-bakeoff.md.
+                                            # ~6.6 GB disk / ~7-8 GB RAM working set (measured on
+                                            # this box) -- SMALLER than Mellum2's ~8.1 GB / ~9-10 GB;
+                                            # the advisor floor was lowered to match (see
+                                            # model_advisor.py). Prior default qwen2.5:7b stays
+                                            # selectable via `local_qwen2_5` below. Override in
+                                            # local.yaml per machine.
       api_key_env: null
       temperature: 0.2
       max_tokens: 8192
@@ -78,16 +94,88 @@ llm:
                                             # on this stack (reports "no image provided"), while
                                             # qwen2.5vl:3b reads dimensioned sketches 3/3 — see
                                             # docs/benchmarks/stage-9-vision-onramps.md. The image
-                                            # never leaves the machine either way.
+                                            # never leaves the machine either way. (Unaffected by
+                                            # the v1.5-6 chat-model flip -- vision wasn't in scope.)
+
+    local_qwen2_5:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1   # same Ollama; the prior (pre-v1.5-6) default
+      model_name: qwen2.5:7b                # the default 2026-06-15 - 2026-07-15: on-machine
+                                            # bake-off (16-thread CPU / 780M iGPU) planned 4/4 vs
+                                            # gemma4:e4b 1/4 and llama3.1:8b 0/4. Superseded as the
+                                            # DEFAULT by qwen3.5:9b (`local`, above) per the
+                                            # 2026-07-15 research verdict -- kept selectable
+                                            # (`--backend local_qwen2_5`) as a smaller-footprint
+                                            # alternative (~4.7 GB / ~6 GB RAM vs qwen3.5:9b's
+                                            # ~6.6 GB / ~7-8 GB RAM).
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false
 
     local_qwen:
       provider: openai_compatible
       base_url: http://localhost:11434/v1   # same Ollama; the Stage 6 bake-off challenger
       model_name: qwen2.5-coder:1.5b        # Stage 6 candidate — evaluated via the live bake-off
                                             # 2026-06-02 and REJECTED (0/10: a code model can't
-                                            # produce a design plan), so the default planner
-                                            # (qwen2.5:7b) stays in place. Retained as a selectable `--backend` to
-                                            # re-run the comparison (`kimcad bakeoff`).
+                                            # produce a design plan). Retained as a selectable
+                                            # `--backend` to re-run the comparison (`kimcad bakeoff`).
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false
+
+    # v1.5-6 bake-off candidates (2026-07-15). All Apache-2.0/MIT, pulled locally;
+    # selectable via `kimcad bakeoff --backends ...`. Slate rationale + rejected
+    # candidates (RAM/runtime/no-runtime): docs/benchmarks/stage-v156-model-bakeoff.md.
+    #
+    # VERDICT: SUPERSEDED -- the shipped default is qwen3.5:9b (`local`, above), NOT cand_mellum2.
+    # cand_mellum2 won the 10-case bake-off outright on this harness's original scoring (completed
+    # 10/10, graded 6/10, matched 10/10, sliced 10/10, mean 39.9s vs qwen2.5:7b's 9/10, 3/10, 8/10,
+    # 9/10, 61.2s) -- but an independent review then proved the grader feature-blind (Mellum2 b02:
+    # 8 holes where 4 were asked, 60mm legs declared inside a 40mm bbox, still scored "completed"),
+    # and a fidelity re-grade tied Mellum2 to the incumbent on feature-fidelity axes. JetBrains' own
+    # technical report corroborated the miss (BS-Bench false-premise detection 14-24 vs Qwen3.5's
+    # 56-70). Follow-up deep research on the published record ranked Qwen3.5-9B first for this task
+    # profile; the owner chose to switch on that record (2026-07-15). Full history:
+    # docs/benchmarks/stage-v156-model-bakeoff.md. cand_gemma26 produced empty output on this
+    # Ollama 0.32.0 runtime (0/10 -- a runtime-compat asterisk, not a quality verdict; see the
+    # report). cand_seedcoder completed 7/10 (graded 4/10, 135.1s -- 2.2x slower). cand_gemma12
+    # completed 2/10 (graded 2/10, 238.4s, mostly plan_failed). This block stays as the historical
+    # run record + a re-runnable slate (`kimcad bakeoff --backends cand_mellum2,
+    # cand_gemma26,cand_seedcoder,cand_gemma12,local_qwen2_5`); nothing here needs to change to
+    # re-run the comparison later.
+    cand_mellum2:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1
+      model_name: JetBrains/mellum2-instruct-q4_k_m   # MoE 12B/2.5B-active, Apache-2.0
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false
+
+    cand_gemma26:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1
+      model_name: gemma4:26b-a4b-it-q4_K_M            # MoE 26B/4B-active, Apache-2.0
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false
+
+    cand_seedcoder:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1
+      model_name: hf.co/unsloth/Seed-Coder-8B-Instruct-GGUF:Q4_K_M  # dense 8B, MIT
+      api_key_env: null
+      temperature: 0.2
+      max_tokens: 8192
+      supports_structured_output: false
+
+    cand_gemma12:
+      provider: openai_compatible
+      base_url: http://localhost:11434/v1
+      model_name: gemma4:12b-it-q4_K_M                # dense 12B, Apache-2.0
       api_key_env: null
       temperature: 0.2
       max_tokens: 8192
