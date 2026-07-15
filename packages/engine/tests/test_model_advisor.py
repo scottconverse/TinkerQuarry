@@ -49,26 +49,27 @@ def test_fits_gates_on_ram_for_local_and_always_true_for_cloud():
 # --- recommend(): the pure decision ----------------------------------------------
 
 def test_recommends_the_best_installed_model_that_fits():
-    # Mellum2 is the top local tier (the v1.5-6 bake-off winner). With it, qwen2.5:7b, and
-    # gemma4 all installed, the advisor picks Mellum2 on measured merit — origin no longer
-    # deprioritizes a model.
+    # qwen3.5:9b is the top local tier (the research verdict, 2026-07-15 -- supersedes the
+    # v1.5-6 bake-off's own pick, Mellum2, after an independent review found that bake-off's
+    # grader feature-blind). With it, qwen2.5:7b, and gemma4 all installed, the advisor picks
+    # qwen3.5:9b on measured merit — origin no longer deprioritizes a model.
     rec = recommend(
         _hw(ram_gb=32),
-        _installed("JetBrains/mellum2-instruct-q4_k_m", "qwen2.5:7b", "gemma4:e4b"),
+        _installed("qwen3.5:9b", "qwen2.5:7b", "gemma4:e4b"),
     )
-    assert rec.primary.name == "JetBrains/mellum2-instruct-q4_k_m"
+    assert rec.primary.name == "qwen3.5:9b"
     assert rec.installed is True
-    assert rec.upgrade is None  # Mellum2 is the top local tier; nothing higher to pull
+    assert rec.upgrade is None  # qwen3.5:9b is the top local tier; nothing higher to pull
 
 
 def test_recommends_installed_model_and_names_an_upgrade_the_box_could_run():
-    # Box fits Mellum2 (today's top tier), but only the lower-tier gemma4:e4b is installed ->
-    # use gemma now, name Mellum2 as the upgrade to pull (not qwen2.5:7b -- a lower tier than
-    # Mellum2 even though it would also fit this box).
+    # Box fits qwen3.5:9b (today's top tier), but only the lower-tier gemma4:e4b is installed ->
+    # use gemma now, name qwen3.5:9b as the upgrade to pull (not qwen2.5:7b -- a lower tier than
+    # qwen3.5:9b even though it would also fit this box).
     rec = recommend(_hw(ram_gb=32), _installed("gemma4:e4b"))
     assert rec.primary.name == "gemma4:e4b"
     assert rec.installed is True
-    assert rec.upgrade is not None and rec.upgrade.name == "JetBrains/mellum2-instruct-q4_k_m"
+    assert rec.upgrade is not None and rec.upgrade.name == "qwen3.5:9b"
     assert rec.upgrade.tier > rec.primary.tier
 
 
@@ -76,16 +77,16 @@ def test_recommends_a_pull_when_nothing_installed_fits():
     rec = recommend(_hw(ram_gb=32), installed=[])
     assert rec.installed is False
     assert rec.primary is not None and rec.primary.location == "local"
-    assert rec.primary.name == "JetBrains/mellum2-instruct-q4_k_m"  # today's top local tier
+    assert rec.primary.name == "qwen3.5:9b"  # today's top local tier
     assert "pull" in rec.reason.lower()
 
 
-def test_downshifts_below_mellum2s_ram_floor_to_the_prior_default():
-    # Mellum2's ~9-10 GB RAM working set earns it a 12 GB floor (vs qwen2.5:7b's 8 GB). A 10 GB
-    # box can't fit Mellum2 even if it's installed -- the advisor must downshift to qwen2.5:7b
+def test_downshifts_below_qwen35_9bs_ram_floor_to_the_prior_default():
+    # qwen3.5:9b's ~7-8 GB RAM working set earns it a 10 GB floor (vs qwen2.5:7b's 8 GB). A 9 GB
+    # box can't fit qwen3.5:9b even if it's installed -- the advisor must downshift to qwen2.5:7b
     # rather than recommend a model that won't reliably load.
     rec = recommend(
-        _hw(ram_gb=10), _installed("JetBrains/mellum2-instruct-q4_k_m", "qwen2.5:7b")
+        _hw(ram_gb=9), _installed("qwen3.5:9b", "qwen2.5:7b")
     )
     assert rec.primary.name == "qwen2.5:7b"
     assert rec.installed is True
@@ -120,24 +121,14 @@ def test_no_non_china_alternative_when_primary_is_already_non_china():
     assert rec.non_china_alternative is None
 
 
-def test_non_china_escape_prefers_the_best_fitting_non_china_model():
-    # qwen2.5:7b (Alibaba) is the China-origin primary on a big box; Mellum2 (JetBrains,
-    # non-China) is now the best-fitting non-China option -- it outranks gemma4:e4b (tier 5),
-    # not just because it's newer but because it actually measured better and this box can run
-    # it. Flagged not-installed here.
+def test_non_china_escape_names_gemma_when_primary_is_a_china_model():
+    # qwen2.5:7b is the (China-origin) primary; the informational non-China option is the
+    # highest-tier non-China local that fits — gemma4:e4b (tier 5) over llama3.1:8b (tier 4).
+    # qwen3.5:9b (also Alibaba/China-origin, like qwen2.5:7b) never enters this pool, so this is
+    # unchanged from before the v1.5-6 bake-off's brief detour through the non-China JetBrains
+    # Mellum2 pick (now superseded — see the model-catalog comment). Flagged not-installed here.
     rec = recommend(_hw(ram_gb=32), _installed("qwen2.5:7b"))
     assert rec.primary.non_china is False
-    assert rec.non_china_alternative is not None
-    assert rec.non_china_alternative.name == "JetBrains/mellum2-instruct-q4_k_m"
-    assert rec.non_china_installed is False
-
-
-def test_non_china_escape_downshifts_to_gemma_below_mellum2s_ram_floor():
-    # A 10 GB box is too small for Mellum2 (12 GB floor) but fits qwen2.5:7b and gemma4:e4b
-    # (8 GB each): the non-China escape must downshift to gemma4:e4b rather than name a model
-    # that wouldn't actually fit this machine.
-    rec = recommend(_hw(ram_gb=10), _installed("qwen2.5:7b"))
-    assert rec.primary.name == "qwen2.5:7b"
     assert rec.non_china_alternative is not None
     assert rec.non_china_alternative.name == "gemma4:e4b"
     assert rec.non_china_installed is False
@@ -178,9 +169,11 @@ def test_installed_match(installed_name, spec_name, expected):
     ("gemma4:e4b", {"gemma4:e4b"}, True),
     # A quant/variant suffix appended with '-'.
     ("gemma4:e4b", {"gemma4:e4b-it-q4_K_M"}, True),
-    # A TAGLESS default (v1.5-6's Mellum2) comes back from Ollama with its own implicit tag --
-    # this is the exact bug this helper was added to fix (webapp/model_pull previously only
-    # checked the '-' suffix, so a tagless model_name always read as "not present").
+    # A TAGLESS model_name (e.g. Mellum2's Ollama tag, pulled for the v1.5-6 bake-off) comes
+    # back from Ollama with its own implicit tag -- this is the exact bug this helper was added
+    # to fix (webapp/model_pull previously only checked the '-' suffix, so a tagless model_name
+    # always read as "not present"). Model-agnostic: this holds regardless of which model is
+    # the current default.
     ("JetBrains/mellum2-instruct-q4_k_m", {"JetBrains/mellum2-instruct-q4_k_m:latest"}, True),
     ("JetBrains/mellum2-instruct-q4_k_m", {"JetBrains/mellum2-instruct-q4_k_m"}, True),  # exact
     # A quantized variant still matches even for an already-tagged model_name (Ollama's '-'
@@ -265,7 +258,7 @@ def test_probe_installed_models_tolerates_a_malformed_body(monkeypatch, body):
     ("gemma4:e4b-it-q4_K_M", "Gemma E4B"),                       # quant/variant suffix
     ("qwen2.5:7b", "Qwen2.5 7B"),
     ("qwen2.5:3b", "Qwen2.5 3B"),
-    ("JetBrains/mellum2-instruct-q4_k_m", "Mellum2"),            # the v1.5-6 default
+    ("qwen3.5:9b", "Qwen3.5 9B"),                                 # the current default
     ("novaforgeai/deepseek-coder:6.7b-optimized", None),         # not a catalog family
     ("totally-unknown:1b", None),
 ])

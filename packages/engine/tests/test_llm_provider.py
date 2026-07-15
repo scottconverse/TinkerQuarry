@@ -290,7 +290,7 @@ def test_local_ollama_backend_uses_native_schema_constrained_format(monkeypatch)
         key="local",
         provider="ollama",
         base_url="http://localhost:11434/v1",
-        model_name="JetBrains/mellum2-instruct-q4_k_m",
+        model_name="qwen3.5:9b",
         api_key_env=None,
         temperature=0.2,
         max_tokens=4096,
@@ -313,7 +313,7 @@ def test_local_ollama_backend_uses_native_schema_constrained_format(monkeypatch)
 
     assert client.calls == []  # the OpenAI client was NOT used for a local plan
     assert "properties" in cap["body"]["format"]  # native schema-constrained `format`
-    assert cap["body"]["model"] == "JetBrains/mellum2-instruct-q4_k_m"
+    assert cap["body"]["model"] == "qwen3.5:9b"
 
 
 def test_describe_image_targets_the_dedicated_vision_model(monkeypatch):
@@ -447,7 +447,7 @@ def test_native_plan_path_fails_fast_on_wedged_but_listening_server(monkeypatch)
 
     backend = LLMBackend(
         key="local", provider="ollama", base_url="http://localhost:11434/v1",
-        model_name="JetBrains/mellum2-instruct-q4_k_m", api_key_env=None, temperature=0.2,
+        model_name="qwen3.5:9b", api_key_env=None, temperature=0.2,
         max_tokens=100, supports_structured_output=False,
         timeout_s=1200.0,  # the long generation budget we must NOT block on
     )

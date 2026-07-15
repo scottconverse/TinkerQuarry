@@ -93,13 +93,18 @@ class Material:
 
 # ENG-1009 (stage-10 gate): THE fallback model names, defined once — the webapp's
 # model-status/model-pull handlers and the backend default below all read these.
-# PLANNER = Mellum2 (v1.5-6 bake-off, 2026-07-15, same box): 10/10 completed, 6/10 graded, 39.9s
-# mean vs the prior default qwen2.5:7b's 9/10 completed, 3/10 graded, 61.2s mean — every axis, not
-# cherry-picked. Full report: docs/benchmarks/stage-v156-model-bakeoff.md. qwen2.5:7b (the prior
-# default; 2026-06-15 bake-off: 4/4 vs gemma4:e4b 1/4, llama3.1:8b 0/4) stays selectable via the
-# `local_qwen2_5` backend; the grammar-constrained plan path (llm_provider._complete_plan) keeps
-# small-model output parseable regardless of which is active.
-DEFAULT_CHAT_MODEL = "JetBrains/mellum2-instruct-q4_k_m"
+# PLANNER = Qwen3.5-9B, flipped 2026-07-15 per the published-record research verdict — NOT the
+# v1.5-6 bake-off's own winner, Mellum2. The bake-off's grader was later proven feature-blind (an
+# independent review found Mellum2 scoring "completed" on plans with missing features and
+# out-of-bbox dimensions); a fidelity re-grade tied Mellum2 to the incumbent, and JetBrains' own
+# technical report corroborated the miss (BS-Bench false-premise detection 14-24 vs Qwen3.5's
+# 56-70). Deep research across the published record then ranked Qwen3.5-9B first for this task
+# profile (IFEval 83.9, BFCL v3 70.5, StructEval 90.96 vs the incumbent's 84.40). Full history:
+# docs/benchmarks/stage-v156-model-bakeoff.md. qwen2.5:7b (the prior default; 2026-06-15 bake-off:
+# 4/4 vs gemma4:e4b 1/4, llama3.1:8b 0/4) stays selectable via the `local_qwen2_5` backend; the
+# grammar-constrained plan path (llm_provider._complete_plan) keeps small-model output parseable
+# regardless of which is active.
+DEFAULT_CHAT_MODEL = "qwen3.5:9b"
 DEFAULT_VISION_MODEL = "qwen2.5vl:7b"
 
 

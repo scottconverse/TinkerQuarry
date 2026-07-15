@@ -19,16 +19,18 @@ available strictly as an **opt-in** for hard prompts (see Q9).
 
 ### 3. Which AI model does KimCad use?
 
-Two local models via [Ollama](https://ollama.com): a chat model (Mellum2,
-`JetBrains/mellum2-instruct-q4_k_m`) that turns your words into a structured design plan, and
-a small vision model that reads photos and sketches. The chat model won a measured bake-off
-against alternatives — KimCad ships the benchmark harness (`kimcad bench`, `kimcad bakeoff`)
-so that decision stays re-checkable rather than folklore.
+Two local models via [Ollama](https://ollama.com): a chat model (Qwen3.5-9B, `qwen3.5:9b`)
+that turns your words into a structured design plan, and a small vision model that reads
+photos and sketches. The chat model was chosen on the published research record after an
+independent review found the prior bake-off's own grader feature-blind — KimCad ships the
+benchmark harness (`kimcad bench`, `kimcad bakeoff`) so that decision stays re-checkable
+rather than folklore; the full history is in
+[stage-v156-model-bakeoff.md](benchmarks/stage-v156-model-bakeoff.md).
 
 ### 4. The first setup is downloading something huge. What and why?
 
-The two local models total roughly **11.1 GB** as a one-time download — the chat/planner model
-(~8.1 GB) plus the vision model (~3 GB) — the price of a capable AI that runs entirely on your
+The two local models total roughly **9.6 GB** as a one-time download — the chat/planner model
+(~6.6 GB) plus the vision model (~3 GB) — the price of a capable AI that runs entirely on your
 machine. KimCad also sets up its own AI **engine** on first run: if Ollama is already installed
 it just uses it, otherwise it downloads Ollama's official **portable** build (~**1.4 GB**, a
 separate one-time download — no install, no admin) into its own data folder. The **Set up

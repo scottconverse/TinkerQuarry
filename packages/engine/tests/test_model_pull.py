@@ -140,10 +140,12 @@ def test_setup_server_already_up_pulls_missing_only():
 
 
 def test_setup_recognizes_a_tagless_default_under_ollamas_implicit_latest_tag():
-    """ENG-1015 regression: a tagless chat model (v1.5-6's JetBrains/mellum2-instruct-q4_k_m)
-    comes back from a real `ollama pull` decorated with Ollama's own implicit ':latest' tag, not
-    a '-<variant>' suffix. The missing-model check must still recognize it as already installed
-    -- previously it re-queued a genuinely-present tagless model for every setup run."""
+    """ENG-1015 regression: a tagless chat model name (e.g. Mellum2's Ollama tag,
+    JetBrains/mellum2-instruct-q4_k_m, pulled for the v1.5-6 bake-off) comes back from a real
+    `ollama pull` decorated with Ollama's own implicit ':latest' tag, not a '-<variant>' suffix.
+    The missing-model check must still recognize it as already installed -- previously it
+    re-queued a genuinely-present tagless model for every setup run. Model-agnostic: this holds
+    for ANY tagless model_name, regardless of which model is the current default."""
     from kimcad.model_advisor import InstalledModel
 
     def _no_resolve():
@@ -262,7 +264,7 @@ def test_a_disk_full_error_maps_to_the_friendly_fix():
     job.start("http://127.0.0.1:11434", [("gemma4:e4b", "chat")], probe_dir=Path.cwd(), opener=opener)
     snap = _wait_done(job)
     assert "disk filled up" in snap["models"]["gemma4:e4b"]["error"]
-    assert "11.1 GB" in snap["models"]["gemma4:e4b"]["error"]
+    assert "9.6 GB" in snap["models"]["gemma4:e4b"]["error"]
 
 
 def test_the_disk_precheck_fails_friendly_before_any_download(monkeypatch):
@@ -340,11 +342,12 @@ def test_setup_is_idempotent_while_running(tmp_path):
 
 def test_doc_and_code_disk_estimates_fit_the_documented_headroom():
     """ENG-GG-002 / DOC-101: the rough model+engine estimates must fit under the documented
-    15 GB free-disk headroom (bumped from 12 GB for the v1.5-6 default flip -- Mellum2's larger
-    "chat" estimate pushed the total up). Pin it so the contradiction (chat+vision+engine > the
+    14 GB free-disk headroom (12 GB pre-v1.5-6; bumped to 15 GB for the Mellum2 flip's larger
+    "chat" estimate; now 14 GB for qwen3.5:9b, which is smaller than Mellum2 but still bigger
+    than the qwen2.5:7b baseline). Pin it so the contradiction (chat+vision+engine > the
     headroom) can never silently return — if someone bumps a size, this test forces a doc
     reconciliation."""
-    documented_free_gb = 15.0
+    documented_free_gb = 14.0
     assert sum(_EST_GB.values()) + _ENGINE_EST_GB <= documented_free_gb
 
 

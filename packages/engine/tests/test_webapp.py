@@ -3521,23 +3521,26 @@ def test_model_status_local_running_with_model(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         ma, "probe_ollama",
-        lambda base_url, timeout=3.0: (True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m")]),
+        lambda base_url, timeout=3.0: (True, [InstalledModel(name="qwen3.5:9b")]),
     )
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     with _serve(pipe, tmp_path) as (host, port):
         st, s = _jreq(host, port, "GET", "/api/model-status")
         assert st == 200
         assert s["backend"] == "local"
-        assert s["model"] == "JetBrains/mellum2-instruct-q4_k_m"
+        assert s["model"] == "qwen3.5:9b"
         assert s["running"] is True and s["model_present"] is True
 
 
 def test_model_status_tagless_default_matches_ollamas_implicit_latest_tag(tmp_path, monkeypatch):
-    """ENG-1015 regression: the v1.5-6 default (JetBrains/mellum2-instruct-q4_k_m) carries no
-    explicit ':tag', so a real `ollama pull` of it reports back as
-    '...q4_k_m:latest' -- Ollama's own implicit tag, not a dash-suffixed variant. The status
-    check previously only recognized the '-<variant>' shape and reported a genuinely-installed
-    tagless default as NOT present."""
+    """ENG-1015 regression: a TAGLESS chat model_name (e.g. Mellum2's Ollama tag,
+    JetBrains/mellum2-instruct-q4_k_m -- pulled for the v1.5-6 bake-off) carries no explicit
+    ':tag', so a real `ollama pull` of it reports back as '...q4_k_m:latest' -- Ollama's own
+    implicit tag, not a dash-suffixed variant. The status check previously only recognized the
+    '-<variant>' shape and reported a genuinely-installed tagless model as NOT present.
+    Model-agnostic: the CURRENT default (qwen3.5:9b) carries an explicit tag, so this scenario
+    is exercised here via an explicit tagless backend config rather than Config.load()'s real
+    default."""
     from kimcad import model_advisor as ma
     from kimcad.model_advisor import InstalledModel
 
@@ -3547,10 +3550,19 @@ def test_model_status_tagless_default_matches_ollamas_implicit_latest_tag(tmp_pa
             True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m:latest")]
         ),
     )
+    cfg = Config({"llm": {"active": "local", "backends": {"local": {
+        "provider": "ollama", "base_url": "http://127.0.0.1:11434/v1",
+        "model_name": "JetBrains/mellum2-instruct-q4_k_m",
+    }}}})
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
-    with _serve(pipe, tmp_path) as (host, port):
-        st, s = _jreq(host, port, "GET", "/api/model-status")
-        assert st == 200 and s["model_present"] is True
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(pipe, tmp_path, config=cfg))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        st, s = _jreq("127.0.0.1", httpd.server_address[1], "GET", "/api/model-status")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+    assert st == 200 and s["model_present"] is True
 
 
 def test_model_status_matches_quantized_variant(tmp_path, monkeypatch):
@@ -3563,7 +3575,7 @@ def test_model_status_matches_quantized_variant(tmp_path, monkeypatch):
     monkeypatch.setattr(
         ma, "probe_ollama",
         lambda base_url, timeout=3.0: (
-            True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m-v2")]
+            True, [InstalledModel(name="qwen3.5:9b-q4_K_M")]
         ),
     )
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))

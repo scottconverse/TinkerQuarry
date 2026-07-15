@@ -2097,9 +2097,10 @@ def make_handler(
                 running, installed = probe_ollama(base_url)
                 names = {m.name for m in installed}
                 # gemma4:e4b may be pulled as the bare tag or a quantized variant
-                # (gemma4:e4b-it-q4_K_M); a TAGLESS model_name (e.g. v1.5-6's
-                # JetBrains/mellum2-instruct-q4_k_m) comes back from Ollama with its own implicit
-                # `:latest` tag instead. is_model_present covers both shapes (ENG-1015).
+                # (gemma4:e4b-it-q4_K_M); a TAGLESS model_name (e.g. Mellum2's Ollama tag,
+                # JetBrains/mellum2-instruct-q4_k_m, pulled for the v1.5-6 bake-off) comes back
+                # from Ollama with its own implicit `:latest` tag instead. is_model_present
+                # covers both shapes (ENG-1015).
                 present = is_model_present(model_name, names)
                 payload["running"] = running
                 payload["model_present"] = present

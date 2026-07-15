@@ -35,10 +35,10 @@ whichever model is missing with a progress bar. (If you're running your own Olla
 pull it by hand instead:)
 
 ```
-ollama pull JetBrains/mellum2-instruct-q4_k_m
+ollama pull qwen3.5:9b
 ```
 
-Then try again. `kimcad models` should show `JetBrains/mellum2-instruct-q4_k_m`.
+Then try again. `kimcad models` should show `qwen3.5:9b`.
 
 ## "KimCad's vision model isn't pulled yet"
 
@@ -104,9 +104,9 @@ The setup wizard's **Set up KimCad's AI** provisions the engine (reusing a syste
 downloading the portable build) and then fetches KimCad's models, so a failure there is
 almost always one of these:
 
-- **"Not enough disk space"** — the two models download to about **11.1 GB** together (chat
-  ~8.1 GB + vision ~3 GB), and the portable engine adds a one-time ~1.4 GB on first run. Keep
-  about **15 GB** free as headroom (KimCad checks before downloading). Free up space, then
+- **"Not enough disk space"** — the two models download to about **9.6 GB** together (chat
+  ~6.6 GB + vision ~3 GB), and the portable engine adds a one-time ~1.4 GB on first run. Keep
+  about **14 GB** free as headroom (KimCad checks before downloading). Free up space, then
   press **try again**.
 - **The AI engine couldn't be set up** — usually because you're offline so the portable
   build can't download. Reconnect and press **Set up KimCad's AI** again; or install Ollama
@@ -115,7 +115,7 @@ almost always one of these:
   partial download, so pressing **try again** continues rather than starting over.
 
 The wizard downloads only KimCad's own two models; you never need to pick one. If you're
-running your own Ollama you can also pull manually: `ollama pull JetBrains/mellum2-instruct-q4_k_m`
+running your own Ollama you can also pull manually: `ollama pull qwen3.5:9b`
 and `ollama pull qwen2.5vl:3b`.
 
 ## A Bambu printer connection needs the optional bambulabs-api package

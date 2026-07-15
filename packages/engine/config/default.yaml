@@ -61,17 +61,29 @@ llm:
     local:
       provider: openai_compatible
       base_url: http://localhost:11434/v1   # Ollama default; LM Studio uses :1234
-      model_name: JetBrains/mellum2-instruct-q4_k_m   # the on-device PLANNER, flipped 2026-07-15
-                                            # (v1.5-6 bake-off, same box as the June run): Mellum2
-                                            # 10/10 completed, 6/10 graded, 39.9s mean vs the prior
-                                            # default qwen2.5:7b's 9/10 completed, 3/10 graded,
-                                            # 61.2s mean -- winner on every measured axis. Full
-                                            # report: docs/benchmarks/stage-v156-model-bakeoff.md.
-                                            # MoE 12B/2.5B-active, Apache-2.0, ~8.1 GB disk /
-                                            # ~9-10 GB RAM working set; the advisor downshifts
-                                            # smaller boxes (see model_advisor.py). Prior default
-                                            # qwen2.5:7b stays selectable via `local_qwen2_5` below.
-                                            # Override in local.yaml per machine.
+      model_name: qwen3.5:9b                # the on-device PLANNER, flipped 2026-07-15 per the
+                                            # published-record research verdict -- NOT the v1.5-6
+                                            # bake-off's own winner (Mellum2). The bake-off's grader
+                                            # was later proven feature-blind (Mellum2 b02: 8 holes
+                                            # where 4 were asked, 60mm legs declared inside a 40mm
+                                            # bbox, still scored "completed"); a fidelity re-grade
+                                            # tied Mellum2 to the incumbent, and JetBrains' own
+                                            # technical report corroborated the miss (BS-Bench
+                                            # false-premise detection 14-24 vs Qwen3.5's 56-70, with
+                                            # the authors' own admission their SFT/RL signal "leans
+                                            # toward compliance" -- the wrong trait for a planner
+                                            # that must reject contradictory dimensions). Deep
+                                            # research across the published record then ranked
+                                            # Qwen3.5-9B first for this task profile: IFEval 83.9,
+                                            # BFCL v3 70.5, StructEval (peer-reviewed) 90.96 vs the
+                                            # incumbent's 84.40. Full history:
+                                            # docs/benchmarks/stage-v156-model-bakeoff.md.
+                                            # ~6.6 GB disk / ~7-8 GB RAM working set (measured on
+                                            # this box) -- SMALLER than Mellum2's ~8.1 GB / ~9-10 GB;
+                                            # the advisor floor was lowered to match (see
+                                            # model_advisor.py). Prior default qwen2.5:7b stays
+                                            # selectable via `local_qwen2_5` below. Override in
+                                            # local.yaml per machine.
       api_key_env: null
       temperature: 0.2
       max_tokens: 8192
@@ -91,10 +103,11 @@ llm:
       model_name: qwen2.5:7b                # the default 2026-06-15 - 2026-07-15: on-machine
                                             # bake-off (16-thread CPU / 780M iGPU) planned 4/4 vs
                                             # gemma4:e4b 1/4 and llama3.1:8b 0/4. Superseded as the
-                                            # DEFAULT by Mellum2 (`local`, above) per the v1.5-6
-                                            # bake-off -- kept selectable (`--backend local_qwen2_5`)
-                                            # as a smaller-footprint alternative (~4.7 GB / ~6 GB
-                                            # RAM vs Mellum2's ~8.1 GB / ~9-10 GB RAM).
+                                            # DEFAULT by qwen3.5:9b (`local`, above) per the
+                                            # 2026-07-15 research verdict -- kept selectable
+                                            # (`--backend local_qwen2_5`) as a smaller-footprint
+                                            # alternative (~4.7 GB / ~6 GB RAM vs qwen3.5:9b's
+                                            # ~6.6 GB / ~7-8 GB RAM).
       api_key_env: null
       temperature: 0.2
       max_tokens: 8192
@@ -116,14 +129,20 @@ llm:
     # selectable via `kimcad bakeoff --backends ...`. Slate rationale + rejected
     # candidates (RAM/runtime/no-runtime): docs/benchmarks/stage-v156-model-bakeoff.md.
     #
-    # VERDICT (2026-07-15, full report at the path above): cand_mellum2 won outright and is
-    # now the shipped default (`local`, above) -- completed 10/10, graded 6/10, matched 10/10,
-    # sliced 10/10, mean 39.9s; every axis beat the prior default qwen2.5:7b (9/10, 3/10, 8/10,
-    # 9/10, 61.2s). cand_gemma26 produced empty output on this Ollama 0.32.0 runtime (0/10 --
-    # a runtime-compat asterisk, not a quality verdict; see the report). cand_seedcoder
-    # completed 7/10 (graded 4/10, 135.1s -- 2.2x slower). cand_gemma12 completed 2/10
-    # (graded 2/10, 238.4s, mostly plan_failed). This block stays as the historical run record
-    # + a re-runnable slate for the next bake-off (`kimcad bakeoff --backends cand_mellum2,
+    # VERDICT: SUPERSEDED -- the shipped default is qwen3.5:9b (`local`, above), NOT cand_mellum2.
+    # cand_mellum2 won the 10-case bake-off outright on this harness's original scoring (completed
+    # 10/10, graded 6/10, matched 10/10, sliced 10/10, mean 39.9s vs qwen2.5:7b's 9/10, 3/10, 8/10,
+    # 9/10, 61.2s) -- but an independent review then proved the grader feature-blind (Mellum2 b02:
+    # 8 holes where 4 were asked, 60mm legs declared inside a 40mm bbox, still scored "completed"),
+    # and a fidelity re-grade tied Mellum2 to the incumbent on feature-fidelity axes. JetBrains' own
+    # technical report corroborated the miss (BS-Bench false-premise detection 14-24 vs Qwen3.5's
+    # 56-70). Follow-up deep research on the published record ranked Qwen3.5-9B first for this task
+    # profile; the owner chose to switch on that record (2026-07-15). Full history:
+    # docs/benchmarks/stage-v156-model-bakeoff.md. cand_gemma26 produced empty output on this
+    # Ollama 0.32.0 runtime (0/10 -- a runtime-compat asterisk, not a quality verdict; see the
+    # report). cand_seedcoder completed 7/10 (graded 4/10, 135.1s -- 2.2x slower). cand_gemma12
+    # completed 2/10 (graded 2/10, 238.4s, mostly plan_failed). This block stays as the historical
+    # run record + a re-runnable slate (`kimcad bakeoff --backends cand_mellum2,
     # cand_gemma26,cand_seedcoder,cand_gemma12,local_qwen2_5`); nothing here needs to change to
     # re-run the comparison later.
     cand_mellum2:

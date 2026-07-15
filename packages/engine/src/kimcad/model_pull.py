@@ -29,11 +29,12 @@ from urllib.parse import urlsplit, urlunsplit
 
 # Rough on-disk sizes for the disk pre-check (GB) — deliberately a little generous; the
 # real total comes from Ollama's stream once the pull starts. Kept reconciled with the
-# documented 16 GB free-disk headroom (DOC-101): chat + vision + engine must fit under it —
-# pinned by a doc-vs-code test so the contradiction can't silently return. "chat" was bumped
-# 6.0 -> 9.5 GB for the v1.5-6 default flip (Mellum2 is ~8.1 GB on disk vs qwen2.5:7b's
-# ~4.7 GB) — see docs/benchmarks/stage-v156-model-bakeoff.md.
-_EST_GB = {"chat": 9.5, "vision": 4.0}
+# documented 14 GB free-disk headroom (DOC-101): chat + vision + engine must fit under it —
+# pinned by a doc-vs-code test so the contradiction can't silently return. "chat" tracks
+# qwen3.5:9b (flipped 2026-07-15 per the research verdict; ~6.6 GB measured on disk, smaller
+# than the v1.5-6 bake-off's own pick, Mellum2, at ~8.1 GB) — see
+# docs/benchmarks/stage-v156-model-bakeoff.md.
+_EST_GB = {"chat": 8.0, "vision": 4.0}
 # The portable Ollama runtime's rough on-disk footprint (GB), added to the pre-check only when
 # a fetch is actually needed (no system/managed exe yet).
 _ENGINE_EST_GB = 1.5
@@ -89,7 +90,7 @@ def _friendly_error(raw: str) -> str:
     if "no space" in low or "not enough" in low or "disk full" in low:
         return (
             "Your disk filled up during the download. Free some space "
-            "(the models are about 11.1 GB, plus room to unpack), then try again."
+            "(the models are about 9.6 GB, plus room to unpack), then try again."
         )
     if "file does not exist" in low or "not found" in low or "pull model manifest" in low:
         return "The model wasn't found on Ollama's registry — check your internet connection and try again."

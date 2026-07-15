@@ -103,12 +103,19 @@ class ModelSpec:
 # ``non_china`` flag is retained as INFORMATIONAL only (some deployers still like to see a
 # non-China option surfaced); it no longer deprioritizes a model.
 #
-# v1.5-6 bake-off (2026-07-15, same box): Mellum2 is now THE planner — completed 10/10, graded
-# 6/10, 39.9s mean, beating the prior default qwen2.5:7b on every axis (9/10 completed, 3/10
-# graded, 61.2s mean). Mellum2's RAM floor is a real step up (~9-10 GB working set vs qwen2.5:7b's
-# ~6 GB), so its min_ram_gb floor is set higher — a box that can't fit it still downshifts to
-# qwen2.5:7b, then qwen2.5:3b, same as before. Full report:
-# docs/benchmarks/stage-v156-model-bakeoff.md.
+# qwen3.5:9b is THE planner, flipped 2026-07-15 -- NOT the v1.5-6 bake-off's own winner, Mellum2.
+# The bake-off (same box) measured Mellum2 completing 10/10, graded 6/10, 39.9s mean, beating the
+# prior default qwen2.5:7b on every harness axis (9/10 completed, 3/10 graded, 61.2s mean). An
+# independent review then proved the grader feature-blind (Mellum2 b02: 8 holes where 4 were
+# asked, 60mm legs declared inside a 40mm bbox, still scored "completed"); a fidelity re-grade tied
+# Mellum2 to the incumbent, and JetBrains' own technical report corroborated the miss (BS-Bench
+# false-premise detection 14-24 vs Qwen3.5's 56-70 -- the authors' own admission their SFT/RL
+# signal "leans toward compliance," the wrong trait for a planner that must reject contradictory
+# dimensions). Deep research across the published record then ranked Qwen3.5-9B first for this
+# task profile (IFEval 83.9, BFCL v3 70.5, StructEval 90.96 vs the incumbent's 84.40); the owner
+# chose to switch on that record. Full history: docs/benchmarks/stage-v156-model-bakeoff.md.
+# qwen3.5:9b's RAM floor (~7-8 GB working set) is SMALLER than Mellum2's (~9-10 GB) — a box that
+# can't fit it still downshifts to qwen2.5:7b, then qwen2.5:3b, same as before.
 #
 # Prior (2026-06-15) bake-off, kept for context: qwen2.5:7b planned the prompt set 4/4 (then THE
 # planner); gemma4:e4b 1/4 (but hosts the working vision model and is the non-China small-box
@@ -118,16 +125,18 @@ class ModelSpec:
 # qwen2.5-CODER (a code model) — never the general instruct model that won that round. RAM floors
 # are conservative q4 heuristics.
 MODEL_CATALOG: tuple[ModelSpec, ...] = (
-    ModelSpec("JetBrains/mellum2-instruct-q4_k_m", "Mellum2", 12.0, min_ram_gb=12, tier=9,
-              origin="JetBrains", non_china=True,
-              notes="THE planner (v1.5-6 bake-off, 2026-07-15): 10/10 completed, 6/10 graded, "
-                    "39.9s mean — beat qwen2.5:7b on every measured axis. MoE 12B total / 2.5B "
-                    "active, Apache-2.0. ~8.1 GB disk, ~9-10 GB RAM working set (the floor here "
-                    "carries headroom over that, same margin style as the rest of the catalog)."),
+    ModelSpec("qwen3.5:9b", "Qwen3.5 9B", 9.0, min_ram_gb=10, tier=9,
+              origin="Alibaba", non_china=False,
+              notes="THE planner (research verdict, 2026-07-15 -- supersedes the v1.5-6 bake-off's "
+                    "own pick, Mellum2, after an independent review found that bake-off's grader "
+                    "feature-blind). Best sub-10B on the published record: IFEval 83.9, BFCL v3 "
+                    "70.5, StructEval 90.96 vs qwen2.5:7b's 84.40. ~6.6 GB disk, ~7-8 GB RAM "
+                    "working set (the floor here carries headroom over that, same margin style as "
+                    "the rest of the catalog)."),
     ModelSpec("qwen2.5:7b", "Qwen2.5 7B", 7.0, min_ram_gb=8, tier=8,
               origin="Alibaba", non_china=False,
               notes="The prior default (2026-06-15 - 2026-07-15): 4/4 on that round's bake-off — "
-                    "still the strongest on-device planner for a box too small for Mellum2. "
+                    "still the strongest on-device planner for a box too small for qwen3.5:9b. "
                     "General INSTRUCT model (not the qwen2.5-coder variant the old Stage-6 "
                     "bake-off wrongly rejected)."),
     ModelSpec("qwen2.5:3b", "Qwen2.5 3B", 3.0, min_ram_gb=5, tier=6,

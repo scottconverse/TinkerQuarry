@@ -14,7 +14,7 @@ produce a print file yet.
 ## The AI model
 
 A health readout, not a menu: KimCad runs two tested local models, both via Ollama —
-Mellum2 (`JetBrains/mellum2-instruct-q4_k_m`), which designs your parts, and a small
+Qwen3.5-9B (`qwen3.5:9b`), which designs your parts, and a small
 dedicated vision model
 (`qwen2.5vl:3b`) that reads photos and sketches. Settings shows whether Ollama is running
 and the design model is pulled, with a re-check button — the same status the start page
