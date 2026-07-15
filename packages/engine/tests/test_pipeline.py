@@ -197,9 +197,11 @@ class _FlakyPlanProvider(FakeProvider):
 def test_one_unparseable_plan_sample_is_retried_and_completes(tmp_path):
     # PLAN-003: a SINGLE unparseable model response must not be a terminal, user-facing
     # failure on the default path — the pipeline draws one fresh sample before giving up.
+    # (No confirm_print: this proves the retry, not the slicer — and must run on CI,
+    # where no OrcaSlicer binary exists.)
     provider = _FlakyPlanProvider(_plan((20, 20, 20)), failures=1)
     renderer, _ = _box_renderer((20, 20, 20))
-    result = _pipeline(provider, renderer).run("a box", tmp_path, confirm_print=True)
+    result = _pipeline(provider, renderer).run("a box", tmp_path)
 
     assert result.status is PipelineStatus.completed
     assert provider.design_calls == 2  # first sample failed to parse, retry succeeded
@@ -216,6 +218,18 @@ def test_plan_retry_is_bounded_to_one(tmp_path):
     assert provider.design_calls == 2  # one retry, then fail closed
     assert state["n"] == 0  # never rendered
     assert "JSONDecodeError" in (result.error or "")
+
+
+def test_plan_retries_zero_is_single_shot(tmp_path):
+    # PLAN-003: the measurement harnesses (bench/bakeoff) pin plan_retries=0 — one bad
+    # sample must fail immediately with exactly ONE provider call, so a model's raw
+    # single-sample reliability stays visible to the comparison.
+    provider = _FlakyPlanProvider(_plan((20, 20, 20)), failures=1)
+    renderer, _ = _box_renderer((20, 20, 20))
+    result = _pipeline(provider, renderer, plan_retries=0).run("a box", tmp_path)
+
+    assert result.status is PipelineStatus.plan_failed
+    assert provider.design_calls == 1  # no retry drawn
 
 
 def test_connection_error_is_not_swallowed_as_plan_failed(tmp_path):

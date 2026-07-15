@@ -386,6 +386,7 @@ class Pipeline:
         slicer: Slicer | None = None,
         registry: TemplateRegistry | None = None,
         max_render_retries: int = 2,
+        plan_retries: int = 1,
         history: HistoryStore | None = None,
     ):
         self.config = config
@@ -403,6 +404,10 @@ class Pipeline:
         # template-covered object types deterministic and instantly re-renderable.
         self.registry = registry if registry is not None else default_registry()
         self.max_render_retries = max_render_retries
+        # PLAN-003: extra design-plan samples drawn after an unparseable one before failing
+        # closed. Default 1 on the user path; the measurement harnesses (`kimcad bench`,
+        # `kimcad bakeoff`) pin 0 so they keep seeing a model's RAW single-sample reliability.
+        self.plan_retries = max(0, plan_retries)
 
     def _default_renderer(self, scad: str, out_dir: Path, basename: str) -> RenderResult:
         return render_scad(
@@ -458,21 +463,26 @@ class Pipeline:
         emit = progress or (lambda _phase: None)
         emit("planning")
         # PLAN-003: local model output is sampled, so one unparseable response is an expected
-        # rare event, not a verdict on the request — draw ONE fresh sample before failing
+        # rare event, not a verdict on the request — draw a fresh sample before failing
         # (squares the per-call failure rate on the default user path; the v1.5 release gate
-        # caught qwen3.5:9b flaking exactly once in the live lane). Bounded to a single retry;
-        # measurement harnesses (bakeoff) call the provider directly and stay single-shot.
+        # caught qwen3.5:9b flaking exactly once in the live lane). Bounded by plan_retries.
+        # The measurement harnesses (`kimcad bench` via cli._cmd_bench, `kimcad bakeoff` via
+        # cli._pipeline_for_backend) drive this same Pipeline.run, so they pin plan_retries=0:
+        # a retry there would square away exactly the single-sample reliability differences
+        # those comparisons exist to detect, and would break comparability with every
+        # previously recorded bench/bake-off number.
         plan = None
-        for attempt in (1, 2):
+        attempts = 1 + self.plan_retries
+        for attempt in range(1, attempts + 1):
             try:
                 plan = self.provider.generate_design_plan(
                     prompt, self.printer, self.material, history=history
                 )
                 break
             except PlanParseError as e:
-                if attempt == 1:
+                if attempt < attempts:
                     continue
-                # Both samples unparseable. Fail closed with a clean, user-facing message
+                # Every sample unparseable. Fail closed with a clean, user-facing message
                 # instead of leaking a raw pydantic/JSON traceback. The detail is the
                 # underlying parse exception TYPE (enough to categorize the failure); the
                 # full multi-line pydantic dump would be noise even on the CLI. Only

@@ -561,6 +561,43 @@ def test_bakeoff_does_not_mutate_config(monkeypatch, tmp_path):
     assert cfg.raw == before  # the bake-off only reads + recommends; it never writes config
 
 
+def test_bench_pipeline_is_single_shot_on_plan(monkeypatch, tmp_path):
+    # PLAN-003: `kimcad bench` measures a model's RAW single-sample plan reliability, so
+    # _cmd_bench must pin plan_retries=0 — the user path's one-retry would square away the
+    # failure rate the benchmark exists to report (and break cross-run comparability).
+    from types import SimpleNamespace
+
+    import kimcad.benchmark as bench_mod
+    from kimcad.config import Config
+
+    captured = {}
+
+    def _fake_build(config, args, *, plan_retries=1):
+        captured["plan_retries"] = plan_retries
+        return object()
+
+    monkeypatch.setattr(cli, "_build_pipeline", _fake_build)
+    monkeypatch.setattr(bench_mod, "load_cases", lambda p: [])
+    monkeypatch.setattr(
+        bench_mod, "make_case_runner",
+        lambda pipeline, out_dir, slice_for_grade: (lambda case: None),
+    )
+    summary = SimpleNamespace(
+        to_text=lambda min_success_rate: "bench ok", meets=lambda rate: True
+    )
+    monkeypatch.setattr(bench_mod, "run_benchmark", lambda cases, runner: summary)
+
+    class _Args:
+        prompts = str(_write_prompts(tmp_path))
+        out = str(tmp_path / "out")
+        slice = False
+        min_success_rate = None
+        printer = material = backend = None
+
+    assert cli._cmd_bench(Config({}), _Args()) == 0
+    assert captured["plan_retries"] == 0
+
+
 def test_models_reports_the_vision_model_state(monkeypatch, capsys):
     """TEST-005 (stage-9 gate): the vision line is asserted, not just executed — both the
     installed and not-installed wordings."""
