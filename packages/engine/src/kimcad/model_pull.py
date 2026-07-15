@@ -29,9 +29,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 # Rough on-disk sizes for the disk pre-check (GB) — deliberately a little generous; the
 # real total comes from Ollama's stream once the pull starts. Kept reconciled with the
-# documented 12 GB free-disk headroom (DOC-101): chat + vision + engine must fit under it —
-# pinned by a doc-vs-code test so the contradiction can't silently return.
-_EST_GB = {"chat": 6.0, "vision": 4.0}
+# documented 16 GB free-disk headroom (DOC-101): chat + vision + engine must fit under it —
+# pinned by a doc-vs-code test so the contradiction can't silently return. "chat" was bumped
+# 6.0 -> 9.5 GB for the v1.5-6 default flip (Mellum2 is ~8.1 GB on disk vs qwen2.5:7b's
+# ~4.7 GB) — see docs/benchmarks/stage-v156-model-bakeoff.md.
+_EST_GB = {"chat": 9.5, "vision": 4.0}
 # The portable Ollama runtime's rough on-disk footprint (GB), added to the pre-check only when
 # a fetch is actually needed (no system/managed exe yet).
 _ENGINE_EST_GB = 1.5
@@ -87,7 +89,7 @@ def _friendly_error(raw: str) -> str:
     if "no space" in low or "not enough" in low or "disk full" in low:
         return (
             "Your disk filled up during the download. Free some space "
-            "(the models are about 7.7 GB, plus room to unpack), then try again."
+            "(the models are about 11.1 GB, plus room to unpack), then try again."
         )
     if "file does not exist" in low or "not found" in low or "pull model manifest" in low:
         return "The model wasn't found on Ollama's registry — check your internet connection and try again."
@@ -225,6 +227,8 @@ class ModelPullJob:
         resolve: Any, fetch: Any, serve: Any, probe: Any, managed_dir: Path, sleep: Any,
         wait_s: float, poll_s: float,
     ) -> None:
+        from kimcad.model_advisor import is_model_present
+
         # ENG-GG-002: the disk pre-check, hoisted into the cold one-click path so the common
         # failure (a small SSD) fails friendly BEFORE a single byte of runtime or model is
         # fetched/pulled. Estimate need = the portable engine (only if a fetch will be needed,
@@ -241,7 +245,7 @@ class ModelPullJob:
             names = {getattr(m, "name", "") for m in installed}
             missing_kinds = [
                 kind for tag, kind in ((chat_model, "chat"), (vision_model, "vision"))
-                if not any(n == tag or n.startswith(tag + "-") for n in names)
+                if not is_model_present(tag, names)
             ]
         else:
             # Server down -> can't probe; assume both models are missing (the cold case pulls
@@ -310,11 +314,10 @@ class ModelPullJob:
         except Exception:  # noqa: BLE001
             installed = []
         names = {getattr(m, "name", "") for m in installed}
-
-        def _present(tag: str) -> bool:
-            return any(n == tag or n.startswith(tag + "-") for n in names)
-
-        missing = [t for t in ((chat_model, "chat"), (vision_model, "vision")) if not _present(t[0])]
+        missing = [
+            t for t in ((chat_model, "chat"), (vision_model, "vision"))
+            if not is_model_present(t[0], names)
+        ]
         with self.lock:
             for name, _kind in missing:
                 self._models[name] = {"status": "queued", "completed": 0, "total": 0, "error": ""}

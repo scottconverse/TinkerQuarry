@@ -139,6 +139,32 @@ def test_setup_server_already_up_pulls_missing_only():
     assert "qwen2.5:7b" not in snap["models"]  # chat already present -> not re-pulled
 
 
+def test_setup_recognizes_a_tagless_default_under_ollamas_implicit_latest_tag():
+    """ENG-1015 regression: a tagless chat model (v1.5-6's JetBrains/mellum2-instruct-q4_k_m)
+    comes back from a real `ollama pull` decorated with Ollama's own implicit ':latest' tag, not
+    a '-<variant>' suffix. The missing-model check must still recognize it as already installed
+    -- previously it re-queued a genuinely-present tagless model for every setup run."""
+    from kimcad.model_advisor import InstalledModel
+
+    def _no_resolve():
+        raise AssertionError("must not resolve/fetch a runtime when the server is already up")
+
+    job = ModelPullJob()
+    job.start_setup(
+        "http://127.0.0.1:11434", "JetBrains/mellum2-instruct-q4_k_m", "qwen2.5vl:3b",
+        opener=_ok_opener, is_up=lambda _u: True, resolve=_no_resolve,
+        probe=lambda _u, timeout=3.0: (
+            True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m:latest")]
+        ),
+        sleep=lambda _s: None,
+    )
+    snap = _wait_done(job)
+    assert snap["models"][_ENGINE_ROW]["status"] == "done"
+    assert snap["models"]["qwen2.5vl:3b"]["status"] == "done"  # missing vision model pulled
+    # chat already present under Ollama's implicit ':latest' tag -> not re-pulled
+    assert "JetBrains/mellum2-instruct-q4_k_m" not in snap["models"]
+
+
 def test_setup_cold_fetches_runtime_then_pulls(tmp_path):
     """No system Ollama -> fetch the portable runtime (its bytes drive the engine row), start it,
     then pull both models. The whole cold path in one flow."""
@@ -236,7 +262,7 @@ def test_a_disk_full_error_maps_to_the_friendly_fix():
     job.start("http://127.0.0.1:11434", [("gemma4:e4b", "chat")], probe_dir=Path.cwd(), opener=opener)
     snap = _wait_done(job)
     assert "disk filled up" in snap["models"]["gemma4:e4b"]["error"]
-    assert "7.7 GB" in snap["models"]["gemma4:e4b"]["error"]
+    assert "11.1 GB" in snap["models"]["gemma4:e4b"]["error"]
 
 
 def test_the_disk_precheck_fails_friendly_before_any_download(monkeypatch):
@@ -314,9 +340,11 @@ def test_setup_is_idempotent_while_running(tmp_path):
 
 def test_doc_and_code_disk_estimates_fit_the_documented_headroom():
     """ENG-GG-002 / DOC-101: the rough model+engine estimates must fit under the documented
-    12 GB free-disk headroom. Pin it so the contradiction (chat+vision+engine > the headroom)
-    can never silently return — if someone bumps a size, this test forces a doc reconciliation."""
-    documented_free_gb = 12.0
+    15 GB free-disk headroom (bumped from 12 GB for the v1.5-6 default flip -- Mellum2's larger
+    "chat" estimate pushed the total up). Pin it so the contradiction (chat+vision+engine > the
+    headroom) can never silently return — if someone bumps a size, this test forces a doc
+    reconciliation."""
+    documented_free_gb = 15.0
     assert sum(_EST_GB.values()) + _ENGINE_EST_GB <= documented_free_gb
 
 

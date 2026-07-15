@@ -5,6 +5,16 @@ All notable user-facing changes to TinkerQuarry are documented here.
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses separate version numbers for the product, engine, share web app, and shared helper package.
 
+## [Unreleased]
+
+### Changed
+
+- Default local chat/planner model: `qwen2.5:7b` -> Mellum2 (`JetBrains/mellum2-instruct-q4_k_m`),
+  per the v1.5-6 bake-off (10/10 completed vs 9/10, graded 6/10 vs 3/10, 39.9s vs 61.2s mean —
+  won on every measured axis). `qwen2.5:7b` remains selectable (`local_qwen2_5`) as the fallback
+  for boxes too small for Mellum2's larger RAM footprint. Full report:
+  `packages/engine/docs/benchmarks/stage-v156-model-bakeoff.md`.
+
 ## [1.4.0] - 2026-07-09
 
 Product v1.4.0 ships with KimCad engine 0.9.4. This is the first release whose binaries contain no

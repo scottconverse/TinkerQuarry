@@ -3519,23 +3519,53 @@ def test_model_status_local_running_with_model(tmp_path, monkeypatch):
     from kimcad import model_advisor as ma
     from kimcad.model_advisor import InstalledModel
 
-    monkeypatch.setattr(ma, "probe_ollama", lambda base_url, timeout=3.0: (True, [InstalledModel(name="qwen2.5:7b")]))
+    monkeypatch.setattr(
+        ma, "probe_ollama",
+        lambda base_url, timeout=3.0: (True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m")]),
+    )
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     with _serve(pipe, tmp_path) as (host, port):
         st, s = _jreq(host, port, "GET", "/api/model-status")
         assert st == 200
         assert s["backend"] == "local"
-        assert s["model"] == "qwen2.5:7b"
+        assert s["model"] == "JetBrains/mellum2-instruct-q4_k_m"
         assert s["running"] is True and s["model_present"] is True
 
 
-def test_model_status_matches_quantized_variant(tmp_path, monkeypatch):
-    """A quantized install (qwen2.5:7b-instruct-q4_K_M) still counts as the model being present."""
+def test_model_status_tagless_default_matches_ollamas_implicit_latest_tag(tmp_path, monkeypatch):
+    """ENG-1015 regression: the v1.5-6 default (JetBrains/mellum2-instruct-q4_k_m) carries no
+    explicit ':tag', so a real `ollama pull` of it reports back as
+    '...q4_k_m:latest' -- Ollama's own implicit tag, not a dash-suffixed variant. The status
+    check previously only recognized the '-<variant>' shape and reported a genuinely-installed
+    tagless default as NOT present."""
     from kimcad import model_advisor as ma
     from kimcad.model_advisor import InstalledModel
 
-    monkeypatch.setattr(ma, "probe_ollama",
-                        lambda base_url, timeout=3.0: (True, [InstalledModel(name="qwen2.5:7b-instruct-q4_K_M")]))
+    monkeypatch.setattr(
+        ma, "probe_ollama",
+        lambda base_url, timeout=3.0: (
+            True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m:latest")]
+        ),
+    )
+    pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
+    with _serve(pipe, tmp_path) as (host, port):
+        st, s = _jreq(host, port, "GET", "/api/model-status")
+        assert st == 200 and s["model_present"] is True
+
+
+def test_model_status_matches_quantized_variant(tmp_path, monkeypatch):
+    """A tag that extends the configured model name with a '-<variant>' suffix still counts as
+    the model being present (the same prefix-match rule that covers a quantized qwen2.5:7b
+    install like qwen2.5:7b-instruct-q4_K_M)."""
+    from kimcad import model_advisor as ma
+    from kimcad.model_advisor import InstalledModel
+
+    monkeypatch.setattr(
+        ma, "probe_ollama",
+        lambda base_url, timeout=3.0: (
+            True, [InstalledModel(name="JetBrains/mellum2-instruct-q4_k_m-v2")]
+        ),
+    )
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     with _serve(pipe, tmp_path) as (host, port):
         st, s = _jreq(host, port, "GET", "/api/model-status")

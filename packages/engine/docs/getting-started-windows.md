@@ -19,8 +19,8 @@ fixes for every common snag.
 
 ## What you'll need
 
-- A Windows 10/11 PC with about **12 GB free disk space** as headroom (the AI engine
-  ~1.4 GB plus the ~7.7 GB of models) and ideally 16 GB+ of RAM.
+- A Windows 10/11 PC with about **15 GB free disk space** as headroom (the AI engine
+  ~1.4 GB plus the ~11.1 GB of models) and ideally 16 GB+ of RAM.
 - An internet connection for the downloads. (After setup, KimCad runs fully offline.)
 
 ## Step 1 — Install Python 3.13
@@ -47,19 +47,20 @@ KimCad is running (Step 4), its setup wizard's **Set up KimCad's AI** button doe
 flow: if you already have Ollama it uses it automatically, otherwise it downloads Ollama's
 official **portable** build (~1.4 GB, a one-time engine download — no separate install, no
 system tray, no admin) into KimCad's own data folder, then fetches the two AI models — the
-designer (`qwen2.5:7b`, ~4.7 GB) and the small vision model that reads photos and sketches
-(`qwen2.5vl:3b`, ~3 GB), ~**7.7 GB** total — with a progress bar.
+designer (Mellum2, `JetBrains/mellum2-instruct-q4_k_m`, ~8.1 GB) and the small vision model
+that reads photos and sketches (`qwen2.5vl:3b`, ~3 GB), ~**11.1 GB** total — with a progress
+bar.
 
 > **Already have Ollama, or prefer to do it by hand?** Install Ollama from
 > <https://ollama.com/download> if you don't have it, then pull the two models yourself:
 >
 > ```
-> ollama pull qwen2.5:7b
+> ollama pull JetBrains/mellum2-instruct-q4_k_m
 > ollama pull qwen2.5vl:3b
 > ```
 >
 > Either way KimCad uses whatever's there. `ollama list` (or `kimcad models` once installed)
-> shows both `qwen2.5:7b` and `qwen2.5vl:3b` once they're present.
+> shows both `JetBrains/mellum2-instruct-q4_k_m` and `qwen2.5vl:3b` once they're present.
 
 ## Step 3 — Get TinkerQuarry
 
