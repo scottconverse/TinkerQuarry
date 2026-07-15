@@ -458,6 +458,35 @@ def test_pipeline_for_backend_is_bare_even_with_alt_configured():
     assert not isinstance(captured[0], FallbackProvider)  # the alt is deliberately ignored
 
 
+def test_pipeline_for_backend_is_single_shot_on_plan():
+    # PLAN-003: same isolation principle as the bare-provider rule above, applied to the
+    # plan step — the user path retries an unparseable plan once (plan_retries=1 default),
+    # but the bake-off measures raw single-sample reliability, so _pipeline_for_backend
+    # must pin plan_retries=0 or the retry squares away the very differences it compares.
+    from kimcad.config import Config
+    import kimcad.cli as cli_mod
+
+    backends = {
+        "local": {"provider": "x", "base_url": "http://localhost", "model_name": "m",
+                  "api_key_env": None, "temperature": 0.2, "max_tokens": 512,
+                  "supports_structured_output": False},
+    }
+    cfg = Config({"llm": {"active": "local", "backends": backends}})
+
+    captured_kwargs = []
+
+    class _FakePipeline:
+        def __init__(self, config, printer, material, provider, **kwargs):
+            captured_kwargs.append(kwargs)
+
+    with patch("kimcad.pipeline.Pipeline", _FakePipeline), \
+         patch("kimcad.llm_provider.LLMProvider._build_client", return_value=MagicMock()):
+        cli_mod._pipeline_for_backend(cfg, "local", MagicMock(), MagicMock())
+
+    assert len(captured_kwargs) == 1
+    assert captured_kwargs[0].get("plan_retries") == 0
+
+
 def test_fallback_switch_message_never_leaks_the_api_key(capsys):
     # TEST-101: the model layer is the secret-holding path. When the primary fails and the chain
     # switches to the cloud alt, it logs to stderr — that line must name the backend by its config

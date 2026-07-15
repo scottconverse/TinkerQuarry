@@ -200,7 +200,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
     return ["design", *argv]
 
 
-def _build_pipeline(config: Config, args: argparse.Namespace):
+def _build_pipeline(config: Config, args: argparse.Namespace, *, plan_retries: int = 1):
     from kimcad.history import HistoryStore
     from kimcad.llm_provider import FallbackProvider, LLMProvider
     from kimcad.pipeline import Pipeline
@@ -213,19 +213,24 @@ def _build_pipeline(config: Config, args: argparse.Namespace):
     provider = FallbackProvider(primary, alt) if alt is not None else primary
     # A real design is remembered for the Smart Mesh learning comparison (local-first, best-effort).
     return Pipeline(
-        config, printer, material, provider, history=HistoryStore(config.history_path())
+        config, printer, material, provider,
+        plan_retries=plan_retries,
+        history=HistoryStore(config.history_path()),
     )
 
 
 def _pipeline_for_backend(config: Config, backend_key: str, printer: Any, material: Any):
     """Build a pipeline pinned to one backend, with NO fallback chain — the bake-off
     measures each model in isolation, so a silent fallback would contaminate the
-    comparison by swapping in the other model mid-run."""
+    comparison by swapping in the other model mid-run. plan_retries=0 for the same
+    reason (PLAN-003): the user path retries an unparseable plan once, but a retry here
+    would square away the single-sample reliability differences the head-to-head exists
+    to measure."""
     from kimcad.llm_provider import LLMProvider
     from kimcad.pipeline import Pipeline
 
     provider = LLMProvider(config.llm_backend(backend_key))
-    return Pipeline(config, printer, material, provider)
+    return Pipeline(config, printer, material, provider, plan_retries=0)
 
 
 def _slice_intent(config: Config, printer: Any, material: Any) -> str:
@@ -407,7 +412,9 @@ def _cmd_bench(config: Config, args: argparse.Namespace) -> int:
         )
         return 2
 
-    pipeline = _build_pipeline(config, args)
+    # PLAN-003: bench measures RAW single-sample plan reliability (and its numbers must stay
+    # comparable across runs), so the user path's one-retry is pinned off here.
+    pipeline = _build_pipeline(config, args, plan_retries=0)
     cases = load_cases(prompts_path)
     out_dir = _resolve_out(args.out)
     summary = run_benchmark(
