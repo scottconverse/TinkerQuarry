@@ -122,6 +122,12 @@ def test_generate_design_plan_parses_json_through_fences(monkeypatch):
     assert body["messages"][0]["role"] == "system"
     assert "Bambu Lab P2S" in body["messages"][0]["content"]
     assert body["messages"][-1] == {"role": "user", "content": "an L bracket"}
+    # PLAN-004: thinking is explicitly OFF for the plan call. A thinking-by-default model
+    # (qwen3.5) shares ONE num_predict budget between thinking and content; at our low
+    # temperature an occasional thinking repetition-loop exhausted the whole budget and
+    # truncated the schema-constrained JSON mid-string (two live release-gate failures).
+    # Ollama accepts think=false for non-thinking models too (probed on qwen2.5:7b).
+    assert body["think"] is False
 
 
 def test_generate_design_plan_raises_plan_parse_error_on_schema_echo(monkeypatch):

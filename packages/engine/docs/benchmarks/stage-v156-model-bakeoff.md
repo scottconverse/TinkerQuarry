@@ -350,3 +350,21 @@ recommended in Part 4 — can be re-run without editing config first. See also
 [MODEL-GUIDE.md](../MODEL-GUIDE.md) for the current, plain-English summary of which model runs
 today and why, and [stage-6-model-bakeoff.md](stage-6-model-bakeoff.md) for the June round this
 one supersedes.
+
+
+## Part 5 addendum (2026-07-15, post-flip): thinking disabled on the plan call (PLAN-004)
+
+After the flip shipped, the release gate failed twice on live plan calls (two different
+prompts, two different runs): qwen3.5:9b occasionally returned truncated-mid-string or empty
+JSON *despite* the grammar-constrained `format` field. Root cause, proven by direct /api/chat
+metadata capture: qwen3.5 thinks by default, thinking and content share one `num_predict`
+budget, and at the plan call's low temperature an occasional thinking repetition-loop consumed
+the whole budget before (or during) content emission. Fix: the native plan call now sends
+`think: false` (llm_provider._complete_native_schema) - probed 4/4 clean on qwen3.5:9b and
+harmless on non-thinking qwen2.5:7b, and plan latency roughly halved (60-104 s vs 150-226 s).
+
+**Measurement caveat this creates:** every number in Parts 1-2 was measured with thinking ON
+(the then-production configuration). The shipped plan path now runs thinking OFF, so a future
+bake-off re-run measures a slightly different configuration than these tables. The bench and
+bake-off harnesses themselves stay raw single-shot on the plan step (plan_retries=0; the user
+path retries an unparseable plan once - PLAN-003, PR #26).

@@ -373,6 +373,15 @@ class LLMProvider:
             "messages": messages,
             "stream": False,
             "format": schema,
+            # PLAN-004: thinking OFF for the plan call. A thinking-by-default model (qwen3.5)
+            # spends ONE shared num_predict budget on thinking + content; at our low, JSON-apt
+            # temperature an occasional thinking repetition-loop ate the whole budget and the
+            # grammar-constrained content came out truncated mid-string (or empty) — two live
+            # release-gate failures. Emitting short schema-constrained JSON needs no thinking
+            # phase, and killing it also halves plan latency (probed: 60-104 s vs 150-226 s).
+            # Ollama accepts think=false for non-thinking models too (probed on qwen2.5:7b),
+            # so this is safe for every local backend, not just the default.
+            "think": False,
             "options": {
                 "temperature": self.backend.temperature,
                 "num_predict": self.backend.max_tokens,
