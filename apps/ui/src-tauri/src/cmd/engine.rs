@@ -125,14 +125,36 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
         api_base_url,
         session_token,
     };
-    if !health_ready(&info.api_base_url, Duration::from_secs(30)) {
-        let mut child = child;
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(format!(
-            "KimCad engine started but did not become healthy within 30 seconds. Engine log: {}",
-            log_path.display()
-        ));
+    // ENG-START (release-gate #4): the health budget is generous BUT a dead engine fails
+    // fast. A cold first start — freshly written site-packages (post-install or post-build
+    // staging), antivirus scanning every file as python imports it, a loaded or slow disk —
+    // legitimately exceeds the old hard 30 s kill (the release gate's runtime smoke hit
+    // exactly that right after the NSIS build; a user's first post-install launch is the
+    // same case). Waiting the full budget on a process that already DIED is the opposite
+    // error, so each poll first checks whether the child has exited and fails immediately
+    // with the log tail when it has.
+    let mut child = child;
+    let start_deadline = Instant::now() + Duration::from_secs(120);
+    loop {
+        if health_ready(&info.api_base_url, Duration::from_millis(500)) {
+            break;
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(format!(
+                "KimCad engine exited during startup ({status}). Engine log: {} — tail:\n{}",
+                log_path.display(),
+                log_tail(&log_path, 2048)
+            ));
+        }
+        if Instant::now() >= start_deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!(
+                "KimCad engine started but did not become healthy within 120 seconds. Engine log: {}",
+                log_path.display()
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(250));
     }
 
     *guard = Some(EngineRuntime {
@@ -188,6 +210,16 @@ fn health_ready(api_base_url: &str, timeout: Duration) -> bool {
         }
         std::thread::sleep(Duration::from_millis(150));
     }
+}
+
+/// Last `max_bytes` of the engine log, for a startup-death error message — the log is the
+/// only place the crashed python's traceback lives (stdout+stderr both redirect there).
+fn log_tail(path: &Path, max_bytes: usize) -> String {
+    let Ok(bytes) = std::fs::read(path) else {
+        return String::from("<unreadable>");
+    };
+    let start = bytes.len().saturating_sub(max_bytes);
+    String::from_utf8_lossy(&bytes[start..]).into_owned()
 }
 
 fn resolve_engine_launch(app: &AppHandle) -> Result<EngineLaunch, String> {

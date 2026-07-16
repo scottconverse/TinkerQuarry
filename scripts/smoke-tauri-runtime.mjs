@@ -186,6 +186,12 @@ async function main() {
       isolatedProfile: isolatedProfile || null,
     };
 
+    // Print the observed state BEFORE any assertion throws — when a check fails, the
+    // engine/title/surface detail in here is the diagnosis, and burying it behind the
+    // first throw hid the real ensure_engine error (release-gate #4 postmortem).
+    const resultText = JSON.stringify(result, null, 2);
+    console.log(resultText);
+
     if (workflow) {
       await runNativeWorkflow(page, consoleErrors);
     }
@@ -201,9 +207,6 @@ async function main() {
         `Isolated native profile did not receive engine/app state under ${isolatedProfile}`,
       );
     }
-
-    const resultText = JSON.stringify(result, null, 2);
-    console.log(resultText);
     if (!title.includes("TinkerQuarry")) {
       throw new Error(`Unexpected Tauri title: ${title}`);
     }
