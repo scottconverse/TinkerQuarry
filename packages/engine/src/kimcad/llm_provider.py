@@ -261,6 +261,13 @@ class LLMProvider:
         return HttpChatClient(backend.base_url, key, timeout_s=backend.timeout_s)
 
     def _complete(self, messages: list[dict[str, str]], *, json_mode: bool) -> str:
+        # PLAN-004 round 2: EVERY local chat call rides the native /api/chat with think:false,
+        # not just the plan call. The release gate reproduced the same thinking-budget
+        # exhaustion in CODEGEN (generate_openscad): three live attempts each spent their
+        # budget thinking and returned comment-only/empty OpenSCAD, because this /v1
+        # OpenAI-compatible path offers no way to disable thinking. Cloud backends keep /v1.
+        if _is_ollama_backend(self.backend):
+            return self._complete_native(messages)
         kwargs: dict[str, Any] = {
             "model": self.backend.model_name,
             "messages": messages,
@@ -327,7 +334,7 @@ class LLMProvider:
         correct-but-wrapped plans that ``json.loads`` rejected; the schema constraint fixes that).
         Cloud / non-Ollama backends keep the standard OpenAI-compatible json-mode call."""
         if _is_ollama_backend(self.backend):
-            return self._complete_native_schema(messages, design_plan_schema())
+            return self._complete_native(messages, design_plan_schema())
         return self._complete(messages, json_mode=True)
 
     # ENG-007 (audit-team-b4): connect/first-byte budget for the native plan path, mirroring the
@@ -356,10 +363,12 @@ class LLMProvider:
         except (urllib.error.URLError, OSError, TimeoutError):
             return False
 
-    def _complete_native_schema(self, messages: list[dict[str, str]], schema: dict) -> str:
-        """Ollama-native ``/api/chat`` with grammar-constrained ``format`` (a JSON schema). Reuses
-        the same connect-retry / fail-fast policy as :meth:`_complete` (a never-up local server
-        fails fast; a mid-run drop keeps the retry budget).
+    def _complete_native(self, messages: list[dict[str, str]], schema: dict | None = None) -> str:
+        """Ollama-native ``/api/chat`` — the transport for EVERY local chat call (PLAN-004 r2),
+        with grammar-constrained ``format`` when ``schema`` is given (the design plan) and plain
+        generation otherwise (codegen). Reuses the same connect-retry / fail-fast policy as
+        :meth:`_complete` (a never-up local server fails fast; a mid-run drop keeps the retry
+        budget).
 
         ENG-007 (audit-team-b4): the OpenAI path gets ``httpx.Timeout(timeout_s, connect=5.0)``;
         urllib offers only a single socket timeout, so this path fail-fast probes the server BEFORE
@@ -368,16 +377,28 @@ class LLMProvider:
         (:meth:`_native_responsive`) instead of hanging for the full ``timeout_s``. Only once the
         server proves responsive do we commit to the long-budget generation call."""
         chat_url = _native_chat_url(self.backend.base_url)
-        body = json.dumps({
+        payload: dict[str, Any] = {
             "model": self.backend.model_name,
             "messages": messages,
             "stream": False,
-            "format": schema,
+            # PLAN-004: thinking OFF for every local call. A thinking-by-default model
+            # (qwen3.5) spends ONE shared num_predict budget on thinking + content; at our
+            # low temperatures an occasional thinking repetition-loop ate the whole budget,
+            # truncating the plan's grammar-constrained JSON mid-string (two live release-gate
+            # failures) and leaving codegen's OpenSCAD comment-only/empty (a third, caught by
+            # PR #27's merge gate live). No TinkerQuarry local call benefits from a thinking
+            # phase, and disabling it roughly halves latency (probed: 60-104 s vs 150-226 s
+            # per plan). Ollama accepts think=false for non-thinking models too (probed on
+            # qwen2.5:7b), so this is safe for every local backend, not just the default.
+            "think": False,
             "options": {
                 "temperature": self.backend.temperature,
                 "num_predict": self.backend.max_tokens,
             },
-        }).encode()
+        }
+        if schema is not None:
+            payload["format"] = schema  # token-level JSON-schema constraint (the plan call)
+        body = json.dumps(payload).encode()
         # Fail fast BEFORE the long-budget call: a cheap short-budget GET catches both a never-up
         # server (TCP refused -> URLError) and a wedged-but-listening one (TCP accepts, HTTP silent
         # -> times out within the short budget). Only a responsive server reaches the long call.
@@ -504,6 +525,10 @@ class LLMProvider:
                 },
             ],
             "stream": False,
+            # PLAN-004 r2: the docstring above always promised think:false, but the body never
+            # carried it — harmless with the non-thinking qwen2.5vl, a latent budget-exhaustion
+            # trap for any thinking-capable vision model. Now the body matches the docstring.
+            "think": False,
             "options": {"temperature": 0, "num_predict": 400},
         }).encode()
         req = urllib.request.Request(
@@ -605,7 +630,20 @@ class FallbackProvider:
 
         try:
             return getattr(self.primary, method_name)(*args, **kwargs)
-        except (APIConnectionError, APITimeoutError, NotFoundError) as exc:
+        except (
+            APIConnectionError,
+            APITimeoutError,
+            NotFoundError,
+            # PLAN-004 r2: LOCAL backends ride the native /api/chat transport (urllib), whose
+            # failures arrive as URLError (HTTPError — incl. a 404 for a missing model — is a
+            # subclass), TimeoutError, or a raw socket ConnectionError, never the chat-client
+            # types above. Without these, a configured alt never kicks in for a down local
+            # Ollama — the exact failure this chain exists for. Deliberately NOT all OSError:
+            # a FileNotFoundError-class code bug must propagate, not silently switch models.
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+        ) as exc:
             if self.alt is None:
                 raise
             self._local.on_alt = True

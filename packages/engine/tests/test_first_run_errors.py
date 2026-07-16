@@ -86,11 +86,19 @@ def _backend(base_url: str = "http://localhost:0/v1"):
 
 
 def test_never_up_server_fails_fast_no_retry_loop(monkeypatch):
-    """First-attempt connection error + nothing listening => raise NOW (no 6x30s tax)."""
+    """First-attempt connection error + nothing listening => raise NOW (no 6x30s tax).
+
+    PLAN-004 r2: a loopback backend now routes _complete through the native /api/chat, so
+    the /v1 CLIENT policy under test here applies to cloud backends (the probe is pinned,
+    keeping the loop mechanics hermetic; the native path's own fail-fast is covered in
+    test_llm_provider's wedged-server test and test_webapp's never-up mapping)."""
     from kimcad.llm_provider import LLMProvider
 
     client = _AlwaysDownClient()
-    provider = LLMProvider(_backend(), client=client, max_attempts=6, retry_wait_s=30.0)
+    provider = LLMProvider(
+        _backend("https://api.example.com/v1"), client=client,
+        max_attempts=6, retry_wait_s=30.0,
+    )
     monkeypatch.setattr(LLMProvider, "_server_reachable", lambda self, timeout_s=2.0: False)
     from kimcad.chat_client import APIConnectionError
 
@@ -121,7 +129,10 @@ def test_mid_run_drop_still_retries(monkeypatch):
             return _R()
 
     client = _DropsOnceClient()
-    provider = LLMProvider(_backend(), client=client, max_attempts=3, retry_wait_s=0)
+    # PLAN-004 r2: cloud backend — see the note on the never-up test above.
+    provider = LLMProvider(
+        _backend("https://api.example.com/v1"), client=client, max_attempts=3, retry_wait_s=0
+    )
     monkeypatch.setattr(LLMProvider, "_server_reachable", lambda self, timeout_s=2.0: True)
     assert provider._complete([{"role": "user", "content": "x"}], json_mode=False) == "ok"
     assert client.calls == 2
