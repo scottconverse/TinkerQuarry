@@ -56,7 +56,11 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `pnpm.cmd exec vite --host 127.0.0.1 --port ${uiPort}`,
+      // Release fidelity: e2e runs against BUILT assets on `vite preview`, not the dev
+      // server. The dev client's ws-reconnect forces a full page reload (the only reload
+      // path in the stack — product code has none), which reset the app to the welcome
+      // screen mid-test in a release-gate run; built assets carry no HMR client at all.
+      command: `pnpm.cmd exec vite build && pnpm.cmd exec vite preview --host 127.0.0.1 --port ${uiPort}`,
       cwd: "./apps/ui",
       env: {
         TINKERQUARRY_DEV_TOKEN: "tq-dev-token",
@@ -68,7 +72,8 @@ export default defineConfig({
       },
       url: `http://127.0.0.1:${uiPort}`,
       reuseExistingServer: false,
-      timeout: 120_000,
+      // The vite build runs inside this budget before the preview server answers.
+      timeout: 240_000,
     },
   ],
 });
