@@ -630,7 +630,20 @@ class FallbackProvider:
 
         try:
             return getattr(self.primary, method_name)(*args, **kwargs)
-        except (APIConnectionError, APITimeoutError, NotFoundError) as exc:
+        except (
+            APIConnectionError,
+            APITimeoutError,
+            NotFoundError,
+            # PLAN-004 r2: LOCAL backends ride the native /api/chat transport (urllib), whose
+            # failures arrive as URLError (HTTPError — incl. a 404 for a missing model — is a
+            # subclass), TimeoutError, or a raw socket ConnectionError, never the chat-client
+            # types above. Without these, a configured alt never kicks in for a down local
+            # Ollama — the exact failure this chain exists for. Deliberately NOT all OSError:
+            # a FileNotFoundError-class code bug must propagate, not silently switch models.
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+        ) as exc:
             if self.alt is None:
                 raise
             self._local.on_alt = True

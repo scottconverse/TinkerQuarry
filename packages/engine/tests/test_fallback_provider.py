@@ -127,6 +127,42 @@ def test_fallback_on_model_not_found():
     assert result == "plan_alt"
 
 
+def test_fallback_on_native_transport_error():
+    # PLAN-004 r2: LOCAL backends ride the native /api/chat transport (urllib), so a down
+    # local Ollama surfaces as urllib.error.URLError — the switch must catch it, or a
+    # configured alt never kicks in for exactly the failure it exists for.
+    import urllib.error
+
+    primary = _mock_provider(error=urllib.error.URLError("connection refused"))
+    alt = _mock_provider(return_val="plan_alt")
+    fp = FallbackProvider(primary, alt)
+    result = fp.generate_design_plan("p", MagicMock(), MagicMock())
+    assert result == "plan_alt"
+
+
+def test_fallback_on_native_model_not_found():
+    # Native parity with test_fallback_on_model_not_found: Ollama answers 404 for a
+    # missing model on /api/chat as an HTTPError (a URLError subclass).
+    import urllib.error
+
+    primary = _mock_provider(
+        error=urllib.error.HTTPError("http://localhost:11434/api/chat", 404, "nf", {}, None)
+    )
+    alt = _mock_provider(return_val="plan_alt")
+    fp = FallbackProvider(primary, alt)
+    result = fp.generate_design_plan("p", MagicMock(), MagicMock())
+    assert result == "plan_alt"
+
+
+def test_no_alt_native_transport_error_propagates():
+    import urllib.error
+
+    primary = _mock_provider(error=urllib.error.URLError("connection refused"))
+    fp = FallbackProvider(primary, alt=None)
+    with pytest.raises(urllib.error.URLError):
+        fp.generate_design_plan("p", MagicMock(), MagicMock())
+
+
 def test_no_alt_connection_error_propagates():
     from kimcad.chat_client import APIConnectionError
     primary = _mock_provider(error=_conn_err())
