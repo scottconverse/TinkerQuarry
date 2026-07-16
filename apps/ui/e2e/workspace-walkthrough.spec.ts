@@ -47,6 +47,10 @@ async function buildDemoDesign(page: Page) {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.clear();
+    // The __TEST_*__ seams (Editor.tsx, useOpenScad) are gated on DEV mode OR this flag.
+    // The e2e suite runs against BUILT assets (vite preview), where DEV is false — declare
+    // ourselves so the seams exist, exactly the escape hatch global.d.ts documents.
+    window.__PLAYWRIGHT__ = true;
   });
 });
 
