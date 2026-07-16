@@ -136,6 +136,11 @@ def test_every_family_declares_a_valid_tier():
         ("coat hook", "wall_hook"),
         ("cable clip", "cable_clip"),
         ("drawer divider", "drawer_divider"),
+        # TPL-005 (release-gate #5): observed default-model vocabulary — a bare "dish"
+        # (qwen3.5:9b said object_type='dish' for the trinket-dish landing chip) resolves
+        # to the generic shallow-well family instead of dead-ending at codegen.
+        ("dish", "ring_dish"),
+        ("trinket_dish", "ring_dish"),
     ],
 )
 def test_match_resolves_object_type_aliases(object_type, expected):
@@ -222,6 +227,15 @@ def test_natural_phrase_routes_to_expected_family(phrase, expected):
         ("wall mounted spool holder", "spool_holder"),
         ("small project box", "snap_box"),  # "project box" is contained; bare "box" is exact-only
         ("round trinket dish", "ring_dish"),
+        # TPL-005 (release-gate #5): the default model's own vocabulary for the landing
+        # examples, measured 4 samples/prompt on qwen3.5:9b. The enclosure-flavored lid
+        # phrasings route to the two-part enclosure family; the box-flavored ones were
+        # already owned ("box with lid" -> snap_fit_box via longest-containment beating
+        # snap_box's 2-word "project box" — locked here so a lidded request keeps building
+        # a two-part box, never the sealed watertight snap_box).
+        ("enclosure with lid", "enclosure"),
+        ("small enclosure with lid", "enclosure"),
+        ("project box with lid", "snap_fit_box"),
     ],
 )
 def test_qualified_phrase_contains_multiword_alias_routes(phrase, expected):
