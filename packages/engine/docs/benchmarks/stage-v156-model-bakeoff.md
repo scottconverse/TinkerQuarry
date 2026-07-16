@@ -359,8 +359,8 @@ prompts, two different runs): qwen3.5:9b occasionally returned truncated-mid-str
 JSON *despite* the grammar-constrained `format` field. Root cause, proven by direct /api/chat
 metadata capture: qwen3.5 thinks by default, thinking and content share one `num_predict`
 budget, and at the plan call's low temperature an occasional thinking repetition-loop consumed
-the whole budget before (or during) content emission. Fix: the native plan call now sends
-`think: false` (llm_provider._complete_native_schema) - probed 4/4 clean on qwen3.5:9b and
+the whole budget before (or during) content emission. Fix (round 2, after the PR #27 merge gate caught the SAME mechanism in codegen live): every local chat call - plan, codegen, vision - now rides the native /api/chat and sends
+`think: false` (llm_provider._complete_native) - probed 4/4 clean on qwen3.5:9b and
 harmless on non-thinking qwen2.5:7b, and plan latency roughly halved (60-104 s vs 150-226 s).
 
 **Measurement caveat this creates:** every number in Parts 1-2 was measured with thinking ON

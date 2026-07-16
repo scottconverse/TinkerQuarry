@@ -186,7 +186,10 @@ def test_generate_design_plan_does_not_wrap_a_connection_error_as_plan_parse_err
         pass  # correct: the transport error escaped un-wrapped
 
 
-def test_generate_openscad_strips_fences_and_sends_plan():
+def test_generate_openscad_strips_fences_and_sends_plan(monkeypatch):
+    # PLAN-004 r2: BACKEND is loopback, so LOCAL codegen rides the native /api/chat with
+    # thinking OFF and NO grammar constraint — the gate reproduced live that the /v1 path's
+    # undisableable thinking left codegen's OpenSCAD comment-only/empty.
     plan = DesignPlan(
         object_type="cube",
         summary="A 20mm cube.",
@@ -195,9 +198,36 @@ def test_generate_openscad_strips_fences_and_sends_plan():
         printer="bambu_p2s",
         material="pla",
     )
-    scad = "```openscad\ncube(20);\n```"
-    client = FakeChatClient(scad)
+    cap: dict = {}
+    _mock_native_chat(monkeypatch, "```openscad\ncube(20);\n```", cap)
+    client = FakeChatClient("unused")
     provider = LLMProvider(BACKEND, client=client)
+
+    out = provider.generate_openscad(plan, BAMBU, PLA)
+
+    assert out == "cube(20);"
+    assert client.calls == []  # local codegen never touches the OpenAI-compatible client
+    body = cap["body"]
+    assert body["think"] is False
+    assert "format" not in body  # codegen is free-form OpenSCAD, no JSON grammar
+    assert "library/box.scad" in body["messages"][0]["content"]
+    assert "Design plan:" in body["messages"][-1]["content"]
+
+
+def test_generate_openscad_on_a_cloud_backend_keeps_the_v1_client():
+    # Cloud backends have no native /api/chat — codegen must stay on the OpenAI-compatible
+    # client, not JSON mode.
+    cloud = _cloud_backend("https://openrouter.ai/api/v1")
+    plan = DesignPlan(
+        object_type="cube",
+        summary="A 20mm cube.",
+        dimensions={"size": 20.0},
+        bounding_box_mm=[20.0, 20.0, 20.0],
+        printer="bambu_p2s",
+        material="pla",
+    )
+    client = FakeChatClient("```openscad\ncube(20);\n```")
+    provider = LLMProvider(cloud, client=client)
 
     out = provider.generate_openscad(plan, BAMBU, PLA)
 
@@ -209,9 +239,10 @@ def test_generate_openscad_strips_fences_and_sends_plan():
     assert "Design plan:" in call["messages"][-1]["content"]
 
 
-def test_history_is_threaded_between_system_and_user():
-    client = FakeChatClient("```\ncube(1);\n```")
-    provider = LLMProvider(BACKEND, client=client)
+def test_history_is_threaded_between_system_and_user(monkeypatch):
+    cap: dict = {}
+    _mock_native_chat(monkeypatch, "```\ncube(1);\n```", cap)
+    provider = LLMProvider(BACKEND, client=FakeChatClient("unused"))
     plan = DesignPlan(
         object_type="cube",
         summary="x",
@@ -226,7 +257,7 @@ def test_history_is_threaded_between_system_and_user():
     ]
     provider.generate_openscad(plan, BAMBU, PLA, history=history)
 
-    msgs = client.calls[0]["messages"]
+    msgs = cap["body"]["messages"]
     assert msgs[0]["role"] == "system"
     assert msgs[1] == {"role": "user", "content": "earlier turn"}
     assert msgs[2] == {"role": "assistant", "content": "earlier reply"}
@@ -255,7 +286,11 @@ def test_complete_retries_then_succeeds_on_connection_error(monkeypatch):
 
     monkeypatch.setattr(LLMProvider, "_server_reachable", lambda self, timeout_s=2.0: True)
     client = FlakyClient(fail_n=2)
-    provider = LLMProvider(BACKEND, client=client, retry_wait_s=0)
+    # PLAN-004 r2: a loopback backend now routes _complete through the native /api/chat,
+    # so the /v1 client retry policy under test here only applies to CLOUD backends.
+    provider = LLMProvider(
+        _cloud_backend("https://openrouter.ai/api/v1"), client=client, retry_wait_s=0
+    )
     out = provider._complete([{"role": "user", "content": "x"}], json_mode=False)
     assert out == "ok"
     assert client.calls == 3  # failed twice, succeeded on the third
@@ -278,7 +313,11 @@ def test_complete_raises_after_exhausting_retries(monkeypatch):
     # never-up fast path is covered in test_first_run_errors.py).
     monkeypatch.setattr(LLMProvider, "_server_reachable", lambda self, timeout_s=2.0: True)
     client = DeadClient()
-    provider = LLMProvider(BACKEND, client=client, max_attempts=3, retry_wait_s=0)
+    # PLAN-004 r2: cloud backend — see the note in the retry-then-succeed test above.
+    provider = LLMProvider(
+        _cloud_backend("https://openrouter.ai/api/v1"), client=client,
+        max_attempts=3, retry_wait_s=0,
+    )
     try:
         provider._complete([{"role": "user", "content": "x"}], json_mode=False)
         raise AssertionError("expected APIConnectionError")
@@ -347,6 +386,9 @@ def test_describe_image_targets_the_dedicated_vision_model(monkeypatch):
     assert seen["body"]["model"] == BACKEND.vision_model  # NOT the chat model
     assert seen["body"]["model"] != BACKEND.model_name
     assert seen["body"]["messages"][1]["images"]  # the image is attached
+    # PLAN-004 r2: the docstring always promised think:false here; now the body carries it
+    # (a thinking-capable vision model would otherwise burn its 400-token budget thinking).
+    assert seen["body"]["think"] is False
 
 
 def test_missing_vision_model_raises_typed_with_pull_command(monkeypatch):
