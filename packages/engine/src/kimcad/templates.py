@@ -535,7 +535,14 @@ def _build_default_families() -> tuple[TemplateFamily, ...]:
     enclosure = TemplateFamily(
         name="enclosure",
         summary="A two-part enclosure sized from its internal volume; walls add on every side.",
-        object_types=("enclosure", "electronics enclosure", "project enclosure"),
+        # TPL-005 (release-gate #5): measured default-model vocabulary — qwen3.5:9b answers
+        # 'enclosure_with_lid' for the project-box landing chip 3 times out of 4, which
+        # matched nothing (single-word "enclosure" is exact-only by design). This family IS
+        # the two-part lidded enclosure, so it owns the enclosure-flavored lid phrasings.
+        # The box-flavored ones are already owned: "box with lid" -> snap_fit_box,
+        # "lidded box" -> hinged_lid_box (each normalized alias has exactly one owner).
+        object_types=("enclosure", "electronics enclosure", "project enclosure",
+                      "enclosure with lid", "lidded enclosure"),
         library_file="containers.scad",
         module="enclosure",
         params=(
@@ -952,7 +959,12 @@ def _build_default_families() -> tuple[TemplateFamily, ...]:
     ring_dish = TemplateFamily(
         name="ring_dish",
         summary="A round trinket / ring dish: a shallow well in a solid puck, with an optional center spike.",
-        object_types=("ring dish", "trinket dish", "jewelry dish", "ring holder", "trinket bowl"),
+        # TPL-005: bare "dish" resolves here — the generic shallow-well puck is the right
+        # default for an unqualified dish (observed default-model vocabulary for the
+        # trinket-dish landing chip); every OTHER dish family stays multi-word-specific
+        # ("soap dish", "incense cone dish", "bonsai dish").
+        object_types=("ring dish", "trinket dish", "jewelry dish", "ring holder", "trinket bowl",
+                      "dish"),
         library_file="dishes.scad",
         module="ring_dish",
         params=(
