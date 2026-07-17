@@ -42,7 +42,7 @@ intended behavior.
 | Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed`: installs the built setup.exe into a temp dir and drives the native build/slice/send workflow; engine health `0.9.4` |
 
 The published installer, its SHA-256 (`SHA256SUMS.txt`), and the release manifest live on the
-[v1.4.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0); the
+[v1.5.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0); the
 manifest pins the exact commit the artifacts were built from.
 
 ## Product Surfaces

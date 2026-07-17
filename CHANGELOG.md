@@ -27,8 +27,10 @@ with a digitally signed Windows installer.
   bounding box, both still scored "completed"); a fidelity re-grade tied Mellum2 to the
   incumbent, and JetBrains' own technical report corroborated the miss (BS-Bench false-premise
   detection 14–24 vs Qwen3.5's 56–70). Deep research across the published record then ranked
-  Qwen3.5-9B first for this task profile (IFEval 83.9, BFCL v3 70.5, StructEval 90.96 vs the
-  incumbent's 84.40, peer-reviewed) and the owner chose to switch on that record. `qwen2.5:7b`
+  Qwen3.5-9B first for this task profile (its own published numbers: IFEval 83.9, BFCL v3 70.5;
+  the closest structured-output proxy is peer-reviewed StructEval, where the smaller Qwen3-4B
+  already scored 90.96 vs the incumbent qwen2.5-7B's 84.40 — no direct StructEval measurement
+  of the 9B exists) and the owner chose to switch on that record. `qwen2.5:7b`
   remains selectable (`local_qwen2_5`) as the fallback for boxes too small for Qwen3.5-9B's RAM
   footprint (~7–8 GB working set — smaller than Mellum2's ~9–10 GB). Full history:
   `packages/engine/docs/benchmarks/stage-v156-model-bakeoff.md`.
@@ -65,7 +67,7 @@ with a digitally signed Windows installer.
 
 ### Internal
 
-- `apps/ui/src/App.tsx` was decomposed from roughly 4,200 lines to roughly 2,760 lines across
+- `apps/ui/src/App.tsx` was decomposed from roughly 5,070 lines to roughly 2,760 lines across
   five extraction phases, each pulling a cluster of related state and handlers into its own hook
   (global shortcuts/error reporting; file-tree and tab CRUD; persistence/save plus the
   native-menu event bridge; engine lifecycle; project-directory onboarding and open-file/folder).
