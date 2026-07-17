@@ -6,7 +6,7 @@ TinkerQuarry turns a plain-English part idea into editable CAD, checks the resul
 manufacturing constraints, slices it, and prepares the output for download or printer handoff. It is
 private by default: no account, no telemetry, no cloud model unless you explicitly configure one.
 
-[![Release](https://img.shields.io/badge/release-v1.4.0-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0)
+[![Release](https://img.shields.io/badge/release-v1.5.0-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0)
 [![Engine](https://img.shields.io/badge/engine-0.9.4-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
@@ -28,9 +28,9 @@ Typical parts:
 TinkerQuarry is not a certified engineering system. It does not replace human review, professional
 CAD for formal drawings, or safety-critical design validation.
 
-## What Is In v1.4.0
+## What Is In v1.5.0
 
-The current product line is **TinkerQuarry v1.4.0** with **KimCad engine 0.9.4**. The package
+The current product line is **TinkerQuarry v1.5.0** with **KimCad engine 0.9.4**. The package
 versions intentionally differ because the desktop product, internal engine, share web surface, and
 shared helpers are separately versioned surfaces.
 
@@ -58,16 +58,18 @@ See the full [User Manual](docs/USER-MANUAL.md), [Architecture](docs/ARCHITECTUR
 
 The supported beta platform is Windows.
 
-1. Download `TinkerQuarry_1.4.0_x64-setup.exe` from the
-   [v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
-2. Double-click the installer.
+1. Download `TinkerQuarry_1.5.0_x64-setup.exe` from the
+   [v1.5.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0).
+2. Double-click the installer. The installer is now digitally signed (verified publisher Scott
+   Converse) — SmartScreen may still warn while the certificate builds reputation, but the
+   signature itself is present and verifiable.
 3. Launch **TinkerQuarry**.
 4. Confirm printer/material settings.
 5. Build a small first part, such as `a 70 mm round coaster, 4 mm tall`.
 
 Only install from the official GitHub Release, and verify the checksum against the release's
 `SHA256SUMS.txt` when provenance matters
-(`Get-FileHash .\TinkerQuarry_1.4.0_x64-setup.exe -Algorithm SHA256`). The
+(`Get-FileHash .\TinkerQuarry_1.5.0_x64-setup.exe -Algorithm SHA256`). The
 [User Manual](docs/USER-MANUAL.md) covers verification step by step.
 
 ## First Workflow
@@ -148,8 +150,8 @@ Important native-build note: Windows NSIS packaging can fail from very deep work
 of path-length limits in bundled slicer/profile assets. The verified workaround is to build from a
 short path such as `C:\tqbuild\TinkerQuarry`.
 
-The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The public v1.4.0 release is
-[github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
+The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The public v1.5.0 release is
+[github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0).
 
 ## Architecture At A Glance
 
