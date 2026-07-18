@@ -1,6 +1,6 @@
 # TinkerQuarry Architecture
 
-**Product:** TinkerQuarry v1.4.0 Windows beta
+**Product:** TinkerQuarry v1.5.0 Windows beta
 **Engine:** KimCad 0.9.4
 **Last updated:** 2026-07-09
 

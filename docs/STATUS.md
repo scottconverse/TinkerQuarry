@@ -1,7 +1,7 @@
 # TinkerQuarry Status Matrix
 
 **As of:** 2026-07-09
-**Product release:** v1.4.0
+**Product release:** v1.5.0
 **Engine:** KimCad 0.9.4
 **Current gate:** full `pnpm test:release` (gate + native build + runtime smoke + installed-NSIS smoke) passed on the release tree
 
@@ -42,7 +42,7 @@ intended behavior.
 | Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed`: installs the built setup.exe into a temp dir and drives the native build/slice/send workflow; engine health `0.9.4` |
 
 The published installer, its SHA-256 (`SHA256SUMS.txt`), and the release manifest live on the
-[v1.4.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0); the
+[v1.5.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0); the
 manifest pins the exact commit the artifacts were built from.
 
 ## Product Surfaces
@@ -71,7 +71,8 @@ manifest pins the exact commit the artifacts were built from.
 Known limits:
 
 - Windows is the supported beta package target.
-- The beta installer is unsigned.
+- The beta installer is signed (Azure Trusted Signing) as of v1.5.0; SmartScreen may still warn
+  while the certificate builds reputation.
 - Real hardware connector certification remains field-validation work beyond the mock connector.
 - Visual inspection is advisory and does not replace deterministic geometry checks.
 - STEP reverse-to-parametric import is not implemented yet; STEP is currently an export lane.
@@ -81,11 +82,11 @@ Known limits:
 
 | Surface | Version |
 | --- | ---: |
-| Product / desktop release | v1.4.0 |
-| `package.json` | 1.4.0 |
-| `apps/ui/package.json` | 1.4.0 |
-| `apps/ui/src-tauri/tauri.conf.json` | 1.4.0 |
-| `apps/ui/src-tauri/Cargo.toml` | 1.4.0 |
+| Product / desktop release | v1.5.0 |
+| `package.json` | 1.5.0 |
+| `apps/ui/package.json` | 1.5.0 |
+| `apps/ui/src-tauri/tauri.conf.json` | 1.5.0 |
+| `apps/ui/src-tauri/Cargo.toml` | 1.5.0 |
 | KimCad engine | 0.9.4 |
 | `apps/web` | 0.6.0 |
 | `packages/shared` | 0.4.0 |

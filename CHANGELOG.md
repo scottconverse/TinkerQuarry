@@ -5,7 +5,17 @@ All notable user-facing changes to TinkerQuarry are documented here.
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses separate version numbers for the product, engine, share web app, and shared helper package.
 
-## [Unreleased]
+## [1.5.0] - 2026-07-16
+
+Product v1.5.0 ships with KimCad engine 0.9.4 (unchanged from v1.4.0). This is the first release
+with a digitally signed Windows installer.
+
+### Added
+
+- The Windows installer is now Authenticode-signed via Azure Trusted Signing. SmartScreen may
+  still show a warning while the certificate builds reputation, the same honest caveat this
+  project has always used for the beta installer — but the signature itself is present and
+  verifiable (`signtool verify /pa /v`). See `CODE_SIGNING_POLICY.md`.
 
 ### Changed
 
@@ -17,11 +27,50 @@ uses separate version numbers for the product, engine, share web app, and shared
   bounding box, both still scored "completed"); a fidelity re-grade tied Mellum2 to the
   incumbent, and JetBrains' own technical report corroborated the miss (BS-Bench false-premise
   detection 14–24 vs Qwen3.5's 56–70). Deep research across the published record then ranked
-  Qwen3.5-9B first for this task profile (IFEval 83.9, BFCL v3 70.5, StructEval 90.96 vs the
-  incumbent's 84.40, peer-reviewed) and the owner chose to switch on that record. `qwen2.5:7b`
+  Qwen3.5-9B first for this task profile (its own published numbers: IFEval 83.9, BFCL v3 70.5;
+  the closest structured-output proxy is peer-reviewed StructEval, where the smaller Qwen3-4B
+  already scored 90.96 vs the incumbent qwen2.5-7B's 84.40 — no direct StructEval measurement
+  of the 9B exists) and the owner chose to switch on that record. `qwen2.5:7b`
   remains selectable (`local_qwen2_5`) as the fallback for boxes too small for Qwen3.5-9B's RAM
   footprint (~7–8 GB working set — smaller than Mellum2's ~9–10 GB). Full history:
   `packages/engine/docs/benchmarks/stage-v156-model-bakeoff.md`.
+- Planning latency roughly halved on local models: the native schema-constrained plan call (and,
+  after a follow-up fix, every local codegen call) now sends `think:false`, since qwen3.5 thinks
+  by default and an occasional thinking loop could eat the whole token budget before the actual
+  answer started. Measured on qwen3.5:9b: 60-104s with thinking disabled vs 150-226s with it on.
+  `qwen2.5:7b` and other non-thinking local models accept the flag as a no-op.
+- The template registry's synonym coverage was expanded to match the default model's measured
+  wording for the landing page's example chips (project box, cable clip, trinket dish), based on
+  sampling the real provider path rather than guessing at synonyms one gate failure at a time.
+- The OpenSCAD formatter's tree-sitter grammar migrated from the unmaintained
+  `bollian/tree-sitter-openscad@0.5.1` (last published Feb 2024) to the OpenSCAD org's official
+  `@openscad/tree-sitter-openscad@0.6.1` (MIT, license-verified).
+- The release end-to-end suite now runs against the built web assets (`vite build && vite
+  preview`) instead of the Vite dev server, so the release gate exercises what actually ships.
+
+### Fixed
+
+- The design pipeline retries once on an unparseable plan sample before failing closed — a rare
+  model sampling event rather than a broken model or a missing schema constraint. Benchmark and
+  bake-off measurement paths are pinned to stay single-shot so historical model numbers remain
+  comparable.
+- The engine supervisor now allows up to 120 seconds for the local engine to report healthy
+  (previously a hard 30-second kill), since a cold engine start under real post-install
+  conditions (antivirus scanning freshly staged files, cold Python import) can legitimately take
+  longer than 30 seconds. If the engine process dies during startup, the supervisor now fails
+  fast and reports the engine's own log tail instead of a generic timeout message.
+- The fallback chain now also catches the local (native Ollama) transport's error types
+  (`URLError`/`HTTPError`, including a 404 for a missing model, plus socket `ConnectionError` and
+  `TimeoutError`), so a down local backend correctly hands off to a configured alternate model.
+  Previously only the cloud `/v1` client's error types were caught, so a down local Ollama never
+  failed over.
+
+### Internal
+
+- `apps/ui/src/App.tsx` was decomposed from roughly 5,070 lines to roughly 2,760 lines across
+  five extraction phases, each pulling a cluster of related state and handlers into its own hook
+  (global shortcuts/error reporting; file-tree and tab CRUD; persistence/save plus the
+  native-menu event bridge; engine lifecycle; project-directory onboarding and open-file/folder).
 
 ## [1.4.0] - 2026-07-09
 

@@ -1,11 +1,11 @@
 # Code Signing Policy
 
-**Windows installers will be code-signed beginning with the first release after v1.4.0**
-(planned as v1.5.0), using Azure Trusted Signing (Microsoft's managed signing service; the
-GitHub action is published as `azure/artifact-signing-action`). The signing process below was
-proven end-to-end on a test artifact on 2026-07-11; no signed release has shipped yet.
-Releases v1.4.0 and earlier are unsigned; their published SHA-256 checksums remain valid for
-verifying those downloads.
+**Windows installers are code-signed beginning with v1.5.0**, using Azure Trusted Signing
+(Microsoft's managed signing service; the GitHub action is published as
+`azure/artifact-signing-action`). The signing process below was proven end-to-end on a test
+artifact on 2026-07-11, and v1.5.0 is the first shipped release built with it.
+Releases v1.4.0 and earlier are unsigned; their published SHA-256 checksums remain the
+integrity mechanism for verifying those downloads.
 
 ## How a release gets signed
 

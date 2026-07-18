@@ -1,6 +1,6 @@
 # TinkerQuarry User Manual
 
-**Product:** TinkerQuarry v1.4.0 Windows beta
+**Product:** TinkerQuarry v1.5.0 Windows beta
 **Engine:** KimCad 0.9.4
 **Last updated:** 2026-07-09
 **License:** GPL-2.0-only
@@ -58,8 +58,8 @@ That is an opt-in setting. The app should be read as private by default, not clo
 
 ## Installing On Windows
 
-1. Download `TinkerQuarry_1.4.0_x64-setup.exe` from the
-   [v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0).
+1. Download `TinkerQuarry_1.5.0_x64-setup.exe` from the
+   [v1.5.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0).
 2. Double-click the installer.
 3. Launch **TinkerQuarry**.
 4. Choose your default printer and material.
@@ -72,7 +72,7 @@ Only install from the official
 matters, verify the checksum before installing:
 
 ```powershell
-Get-FileHash .\TinkerQuarry_1.4.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\TinkerQuarry_1.5.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Compare the output against `SHA256SUMS.txt` on the release page. A match proves the file is
@@ -252,17 +252,17 @@ twins.
 
 | Surface | Version | Notes |
 | --- | ---: | --- |
-| Product release | v1.4.0 | Desktop product, README, docs, installer filename |
-| `apps/ui` | 1.4.0 | React/Tauri Studio package |
-| Tauri config | 1.4.0 | Native Windows app metadata |
-| Tauri Rust package | 1.4.0 | Native shell crate metadata |
+| Product release | v1.5.0 | Desktop product, README, docs, installer filename |
+| `apps/ui` | 1.5.0 | React/Tauri Studio package |
+| Tauri config | 1.5.0 | Native Windows app metadata |
+| Tauri Rust package | 1.5.0 | Native shell crate metadata |
 | KimCad engine | 0.9.4 | Internal Python engine and `/api/health` version |
 | `apps/web` | 0.6.0 | Optional share web surface |
 | `packages/shared` | 0.4.0 | Shared TypeScript helpers |
 | OpenSCAD | 2026.03.16 | Bundled Windows snapshot, Manifold default |
 | PrintProof3D | 0.6.2 | Arm's-length printability tool |
 
-These numbers are intentionally not collapsed into one version. The product line is v1.4.0; the
+These numbers are intentionally not collapsed into one version. The product line is v1.5.0; the
 engine reports 0.9.4.
 
 ## Repository Layout
@@ -433,7 +433,7 @@ Current-tree gate evidence:
 - `pnpm test:e2e:tauri:installed`: passed against the installed NSIS copy.
 
 The **only** source of truth for the published installer's checksum is `SHA256SUMS.txt` on the
-[v1.4.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.4.0) —
+[v1.5.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0) —
 compare your `Get-FileHash` output against that file (the release's `release-manifest.json`
 pins the exact source commit the artifacts were built from). This manual deliberately does not
 repeat the hash: a locally rebuilt installer produces a different, equally valid hash, and a
