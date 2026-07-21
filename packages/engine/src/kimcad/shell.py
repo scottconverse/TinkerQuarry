@@ -92,9 +92,12 @@ def build_shell(
 
     web_root = output_dir() / "web"  # SHELL-006 closed: routed through the 11.4 seam
     # #31 (KC-26): the desktop shell is the primary distribution, so it gets the SAME per-boot
-    # session-token guard as `kimcad web` (serve()). The WebView2 navigates to the loopback HTTP
-    # URL below, so the server injects this token into the served shell and the SPA returns it on
-    # state-changing requests — a drive-by cross-origin POST (which can't read it) is refused.
+    # session-token guard as `kimcad web` (serve()). A state-changing POST must carry the token
+    # in X-KimCad-Session or it is refused 403, so a drive-by cross-origin POST cannot reach it.
+    # NOTE (WALK-3, 2026-07-20): the served page no longer receives this token. It used to be
+    # substituted into a meta tag for the committed SPA to read; that bundle was deleted and the
+    # placeholder that replaced it runs no JavaScript, so handing it a live credential would
+    # give the secret away for nothing. Do not re-add the injection without a page that uses it.
     session_token = secrets.token_urlsafe(32)
     handler = make_handler(pipeline, web_root, config=config, session_token=session_token)
     httpd: ThreadingHTTPServer | None = None

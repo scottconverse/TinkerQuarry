@@ -59,7 +59,7 @@ llm:
       supports_structured_output: true
 
     local:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1   # Ollama default; LM Studio uses :1234
       model_name: qwen3.5:9b                # the on-device PLANNER, flipped 2026-07-15 per the
                                             # published-record research verdict -- NOT the v1.5-6
@@ -98,7 +98,7 @@ llm:
                                             # the v1.5-6 chat-model flip -- vision wasn't in scope.)
 
     local_qwen2_5:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1   # same Ollama; the prior (pre-v1.5-6) default
       model_name: qwen2.5:7b                # the default 2026-06-15 - 2026-07-15: on-machine
                                             # bake-off (16-thread CPU / 780M iGPU) planned 4/4 vs
@@ -114,7 +114,7 @@ llm:
       supports_structured_output: false
 
     local_qwen:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1   # same Ollama; the Stage 6 bake-off challenger
       model_name: qwen2.5-coder:1.5b        # Stage 6 candidate — evaluated via the live bake-off
                                             # 2026-06-02 and REJECTED (0/10: a code model can't
@@ -146,7 +146,7 @@ llm:
     # cand_gemma26,cand_seedcoder,cand_gemma12,local_qwen2_5`); nothing here needs to change to
     # re-run the comparison later.
     cand_mellum2:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1
       model_name: JetBrains/mellum2-instruct-q4_k_m   # MoE 12B/2.5B-active, Apache-2.0
       api_key_env: null
@@ -155,7 +155,7 @@ llm:
       supports_structured_output: false
 
     cand_gemma26:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1
       model_name: gemma4:26b-a4b-it-q4_K_M            # MoE 26B/4B-active, Apache-2.0
       api_key_env: null
@@ -164,7 +164,7 @@ llm:
       supports_structured_output: false
 
     cand_seedcoder:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1
       model_name: hf.co/unsloth/Seed-Coder-8B-Instruct-GGUF:Q4_K_M  # dense 8B, MIT
       api_key_env: null
@@ -173,7 +173,7 @@ llm:
       supports_structured_output: false
 
     cand_gemma12:
-      provider: openai_compatible
+      provider: ollama
       base_url: http://localhost:11434/v1
       model_name: gemma4:12b-it-q4_K_M                # dense 12B, Apache-2.0
       api_key_env: null

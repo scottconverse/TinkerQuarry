@@ -83,13 +83,21 @@ def test_shell_binds_a_stable_loopback_port_and_serves_the_real_app(fake_webview
         _shutdown(httpd)
 
 
-def test_shell_server_enforces_the_session_token_guard(fake_webview):
-    """#31 (KC-26): the desktop shell is the primary distribution, so it must enforce the SAME
-    per-boot session-token guard as `kimcad web`. A state-changing POST without the injected token
-    is refused 403; the served shell carries a real token (placeholder substituted); supplying the
-    token makes the POST pass. Pins that the guard isn't silently off in the packaged app."""
+def test_shell_server_enforces_the_session_token_guard(fake_webview, monkeypatch):
+    """#31 (KC-26): the desktop shell must enforce the SAME per-boot session-token guard as
+    `kimcad web`. A state-changing POST without the token is refused 403; supplying the real
+    token makes it pass. Pins that the guard isn't silently off in the packaged app.
+
+    WALK-3 changed HOW the test learns the token, not what it proves. The served page used to
+    carry the token in a meta tag for the SPA to read; that SPA is gone and the placeholder
+    deliberately does not receive it (see test_webapp.py::
+    test_session_token_is_never_served_to_the_placeholder_page). So the token is pinned here
+    instead. The negative AND positive cases both still run — a guard that 403s everything
+    would pass the first assertion alone, which is why the second one matters."""
     import http.client
-    import re
+
+    known_token = "test-token-walk3-fixed"
+    monkeypatch.setattr(shell.secrets, "token_urlsafe", lambda _n: known_token)
 
     httpd = shell.build_shell(demo=True, start_gui=False)
     try:
@@ -103,16 +111,16 @@ def test_shell_server_enforces_the_session_token_guard(fake_webview):
         conn.request("POST", "/api/settings", body=b"{}", headers={"Content-Type": "application/json"})
         assert conn.getresponse().status == 403
         conn.close()
-        # The served shell carries a REAL per-boot token (the placeholder was substituted).
+        # The served page must NOT carry the token: it runs no JavaScript, so handing it a live
+        # bearer credential would give it away for nothing.
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=30) as r:
             html = r.read().decode("utf-8")
         assert "__KIMCAD_SESSION_TOKEN__" not in html
-        m = re.search(r'name="kimcad-session-token" content="([^"]+)"', html)
-        assert m and m.group(1), "no session token injected into the shell"
-        # With the token, the same POST is no longer 403.
+        assert known_token not in html, "the shell served its per-boot token to the placeholder page"
+        # With the real token, the same POST is no longer 403.
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
         conn.request("POST", "/api/settings", body=b"{}",
-                     headers={"Content-Type": "application/json", "X-KimCad-Session": m.group(1)})
+                     headers={"Content-Type": "application/json", "X-KimCad-Session": known_token})
         assert conn.getresponse().status != 403
         conn.close()
     finally:

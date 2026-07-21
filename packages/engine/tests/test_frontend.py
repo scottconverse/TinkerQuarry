@@ -32,62 +32,64 @@ from kimcad.webapp import WEB_DIR
 _HTML = (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
 
-def test_built_spa_shell_exists_and_mounts_root():
-    """The served page is the built SPA shell: it has the React mount point and pulls in
-    a bundled ES module (no inline <script> — the app is compiled, not hand-written)."""
+# --- WALK-3 (GauntletGate 2026-07-19): the committed SPA bundle is GONE ------------------
+#
+# Six tests used to live here asserting the built bundle's shape: that index.html mounted
+# #root and pulled /assets/*.js, that every referenced asset existed, that a stylesheet was
+# linked, that the built CSS carried the theme tokens and the three self-hosted woff2 fonts,
+# and that three.js was code-split into Workspace.js.
+#
+# They were removed with the artifact they described, not silently: `kimcad web` served a
+# bundle that was EIGHT PRs stale (last regenerated at 3d61bc5) and rendered an onboarding
+# wizard that no longer exists anywhere in apps/ui/src. Nothing here could ever have caught
+# that, because every one of those assertions was about the bundle's INTERNAL consistency —
+# a perfectly self-consistent, perfectly stale build passed all six.
+#
+# Worth being blunt about what was actually lost: nothing that guarded the shipped product.
+# The Tauri installer builds its frontend fresh from apps/ui at release time
+# (tauri.conf.json frontendDist), so this bundle was never the shipped artifact. These tests
+# verified a build that no user ever ran. The theme-token and code-split checks that DO
+# matter belong to apps/ui's own suite, against the build that actually ships.
+#
+# What replaces them below is the contract that now holds: a self-contained placeholder that
+# tells the reader where the real UI is, and does not hand out the session token.
+# `scripts/check_no_committed_spa_bundle.py` keeps the bundle from creeping back.
+
+
+def test_served_page_is_the_standalone_placeholder_not_a_stale_spa():
+    """`kimcad web` serves a placeholder, not a compiled SPA. If a bundle is ever recommitted,
+    this fails — a stale UI served silently is exactly what WALK-3 was filed for."""
     assert (WEB_DIR / "index.html").exists()
-    assert 'id="root"' in _HTML, "SPA shell must contain the #root mount element"
-    assert re.search(r'<script[^>]+type="module"[^>]+src="/assets/[^"]+\.js"', _HTML), (
-        "SPA shell must load a bundled ES module from /assets/"
+    assert 'id="root"' not in _HTML, (
+        "a React mount point is back in the served page — the committed SPA bundle has returned"
+    )
+    assert not re.search(r'<script[^>]+src="/assets/', _HTML), (
+        "the served page references a bundled script again; the placeholder must be self-contained"
+    )
+    assert not (WEB_DIR / "assets").is_dir(), (
+        "web/assets/ is back on disk — the stale committed bundle has been recommitted"
     )
 
 
-def test_built_spa_references_only_existing_assets():
-    """Every /assets/<file> the shell references must exist on disk, so the committed build
-    is internally consistent (a renamed/cleared bundle can't be served as a blank page)."""
-    refs = set(re.findall(r'(?:src|href)="/assets/([^"]+)"', _HTML))
-    assert refs, "expected the shell to reference at least one bundled asset"
-    missing = sorted(name for name in refs if not (WEB_DIR / "assets" / name).is_file())
-    assert not missing, f"index.html references assets that aren't built: {missing}"
-
-
-def test_built_spa_loads_a_stylesheet():
-    """The Workshop theme ships as a bundled stylesheet (not inline), so the shell must
-    link one from /assets/."""
-    assert re.search(r'<link[^>]+rel="stylesheet"[^>]+href="/assets/[^"]+\.css"', _HTML), (
-        "SPA shell must link a bundled stylesheet from /assets/"
+def test_placeholder_explains_where_the_real_ui_is():
+    """The point of the placeholder is that someone who runs `kimcad web` and opens the port is
+    told what they are looking at, instead of being shown a years-old UI as if it were current."""
+    lowered = _HTML.lower()
+    assert "engine" in lowered, "the placeholder should say the engine is what is running here"
+    assert "/api/" in _HTML or "api" in lowered, (
+        "the placeholder should point at the API this server actually serves"
     )
 
 
-# --- Stage 4 Slice 2: the Workshop design system is actually in the built output ----------
-
-_ASSETS_DIR = WEB_DIR / "assets"
-
-
-def _built_css() -> str:
-    css_files = list(_ASSETS_DIR.glob("*.css"))
-    assert css_files, "no built CSS bundle found in web/assets — did the SPA build run?"
-    return "\n".join(p.read_text(encoding="utf-8") for p in css_files)
-
-
-def test_built_css_carries_tinkerquarry_tokens():
-    """The TinkerQuarry theme's signature tokens survive the build: the forge-amber accent (dark)
-    + terracotta accent (light), the deep earthy viewport colour, and the three named font
-    families. (Rebrand/retheme from the original Zen gold to TinkerQuarry's warm-earthy palette.)"""
-    css = _built_css()
-    assert "#e0a667" in css, "built CSS missing the TinkerQuarry forge-amber accent (dark theme)"
-    assert "#cf7a3f" in css, "built CSS missing the TinkerQuarry terracotta accent (light theme)"
-    assert "#0d0b07" in css, "built CSS missing the deep earthy viewport colour (dark theme)"
-    for family in ("Bricolage Grotesque", "Hanken Grotesk", "JetBrains Mono"):
-        assert family in css, f"built CSS missing the {family} font family"
-
-
-def test_workshop_fonts_are_bundled_for_offline_use():
-    """Each Workshop family ships as a self-hosted latin woff2 in the build (no CDN), so the
-    UI renders correctly fully offline on the target box."""
-    for stem in ("bricolage-grotesque", "hanken-grotesk", "jetbrains-mono"):
-        matches = list(_ASSETS_DIR.glob(f"{stem}-latin*.woff2"))
-        assert matches, f"missing bundled latin woff2 for {stem} (offline fonts incomplete)"
+def test_placeholder_does_not_hand_out_the_session_token():
+    """Deliberate call, recorded so it is not casually reverted: the old shell substituted the
+    per-boot bearer secret into a meta tag for the SPA's fetches. The placeholder runs no
+    JavaScript, so serving the token to anyone who GETs / would give away a credential that
+    nothing on the page can use."""
+    assert "__KIMCAD_SESSION_TOKEN__" not in _HTML, "unsubstituted token placeholder left in the page"
+    assert "kimcad-session-token" not in _HTML, (
+        "the placeholder is serving the per-boot session token to any client that GETs /"
+    )
 
 
 _FRONTEND_SRC = WEB_DIR.parents[4] / "apps" / "ui" / "src"
@@ -202,23 +204,7 @@ def test_frontend_source_consumes_connector_status_fields():
         )
 
 
-def test_viewport_chunk_is_code_split_from_the_entry():
-    """Stage 4 Slice 3: three.js (the 3D viewport) is lazy-loaded, so it lands in a separate
-    chunk (Workspace.js) rather than bloating the initial entry bundle. The committed build
-    must show that split — the workspace chunk present and clearly larger than the entry, since
-    three.js dwarfs the app shell."""
-    entry = _ASSETS_DIR / "kimcad.js"
-    chunk = _ASSETS_DIR / "Workspace.js"
-    assert entry.is_file(), "entry bundle kimcad.js is missing"
-    assert chunk.is_file(), "code-split Workspace chunk missing — is the viewport still lazy-loaded?"
-    assert chunk.stat().st_size > entry.stat().st_size, (
-        "the Workspace chunk should be larger than the entry (three.js lives in the chunk)"
-    )
-    # Directly verify three.js is in the lazy chunk and NOT in the entry — `WebGLRenderer` is a
-    # stable three.js public class name that survives minification (used via `new THREE.WebGLRenderer`).
-    entry_text = entry.read_text(encoding="utf-8", errors="ignore")
-    chunk_text = chunk.read_text(encoding="utf-8", errors="ignore")
-    assert "WebGLRenderer" in chunk_text, "three.js should be bundled in the lazy Workspace chunk"
-    assert "WebGLRenderer" not in entry_text, (
-        "three.js leaked into the entry bundle — the viewport is no longer lazy-loaded"
-    )
+# test_viewport_chunk_is_code_split_from_the_entry was removed with the bundle (WALK-3). It
+# asserted that three.js landed in Workspace.js rather than the kimcad.js entry — a real
+# property, but of a build no user ever ran. The equivalent guarantee for the build that DOES
+# ship belongs to apps/ui, where the lazy import lives.

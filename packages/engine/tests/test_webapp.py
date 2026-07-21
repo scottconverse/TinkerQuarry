@@ -615,11 +615,13 @@ def test_openscad_part_has_no_step_url_and_unknown_step_is_404(tmp_path):
         assert exc.value.code == 404
 
 
-def test_serves_spa_index_and_assets_and_rejects_traversal(tmp_path):
-    """Stage 4: ``/`` serves the built React SPA shell, ``/assets/<file>`` serves its
-    compiled JS/CSS bundles with a sensible content type, and the assets route rejects
-    anything but a plain filename (no path traversal)."""
-    import re
+def test_serves_placeholder_index_and_rejects_asset_traversal(tmp_path):
+    """``/`` serves the standalone placeholder (WALK-3 deleted the committed SPA bundle), and
+    the /assets/ route still rejects anything but a plain filename.
+
+    The traversal half is the part that matters and is unchanged: with the bundle gone every
+    /assets/ request 404s, and it must 404 by REFUSING the path, not by happening to find no
+    file. The bundle-shape assertions this test used to carry died with the bundle."""
     import urllib.error
     import urllib.request
 
@@ -630,7 +632,12 @@ def test_serves_spa_index_and_assets_and_rejects_traversal(tmp_path):
         assert r.status == 200
         assert "text/html" in r.headers.get("Content-Type", "")
         html = r.read().decode("utf-8")
-        assert 'id="root"' in html
+        assert 'id="root"' not in html, (
+            "a React mount point is back — the committed SPA bundle has returned (WALK-3)"
+        )
+        assert "kimcad-session-token" not in html, (
+            "the placeholder must not hand the per-boot bearer secret to anyone who GETs /"
+        )
         favicon = urllib.request.urlopen(base + "/favicon.ico", timeout=10)
         # Kim Everywhere (0.9.3): the route serves WEB_DIR/favicon.ico (200) when the file is
         # present (the shipped build always carries it); falls back to 204 if the file is
@@ -643,22 +650,13 @@ def test_serves_spa_index_and_assets_and_rejects_traversal(tmp_path):
             )
         else:
             assert favicon.read() == b""
-        # Every /assets/ bundle the shell references is served with the right content type.
-        refs = re.findall(r'(?:src|href)="/assets/([^"]+)"', html)
-        assert refs, "the served shell should reference at least one /assets/ bundle"
-        seen_js = seen_css = False
-        for name in refs:
-            ar = urllib.request.urlopen(base + "/assets/" + name, timeout=10)
-            assert ar.status == 200
-            ctype = ar.headers.get("Content-Type", "")
-            assert len(ar.read()) > 0
-            if name.endswith(".js"):
-                assert "javascript" in ctype
-                seen_js = True
-            elif name.endswith(".css"):
-                assert "text/css" in ctype
-                seen_css = True
-        assert seen_js and seen_css, "shell should load both a JS bundle and a stylesheet"
+        # The placeholder is self-contained: it must not reference a bundle at all.
+        assert '"/assets/' not in html, (
+            "the placeholder references /assets/ — it is supposed to need no build output"
+        )
+        # Traversal rejection, unchanged and still the point of this test. A traversal attempt
+        # must be refused on its shape; ".." must never escape WEB_DIR even once assets exist
+        # again for some other reason.
         for bad in ("/assets/nope.js", "/assets/", "/assets/sub/x.js", "/assets/..%2fx"):
             try:
                 urllib.request.urlopen(base + bad, timeout=10)
@@ -1171,9 +1169,17 @@ def _reverse_import_output_dirs(root):
     return [path for path in root.iterdir() if path.is_dir() and path.name.isdigit()]
 
 
-def test_session_token_is_injected_into_the_served_shell(tmp_path):
-    """#31: GET / serves the SPA shell with the per-boot token substituted into the meta-tag
-    placeholder, so the SPA reads + sends it; the literal placeholder never reaches the client."""
+def test_session_token_is_never_served_to_the_placeholder_page(tmp_path):
+    """WALK-3 INVERTED THIS TEST ON PURPOSE — read before "fixing" it.
+
+    It used to assert the opposite: that GET / substituted the per-boot token into a meta tag,
+    because the SPA it served needed to read the token to make its own fetches. That SPA is
+    gone. The placeholder runs no JavaScript, so serving it the token would hand a live bearer
+    credential to anything that GETs / while buying nothing at all.
+
+    The token guard itself is unaffected and still proven — a POST without the token is still
+    403'd (test_shell.py::test_shell_server_enforces_the_session_token_guard, and
+    test_no_session_token_leaves_posts_open below). What changed is only the delivery half."""
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     httpd = _serve_with_token(pipe, tmp_path, "tok-XYZ-123")
     host, port = "127.0.0.1", httpd.server_address[1]
@@ -1184,8 +1190,10 @@ def test_session_token_is_injected_into_the_served_shell(tmp_path):
         body = resp.read().decode("utf-8")
         conn.close()
         assert resp.status == 200
-        assert "tok-XYZ-123" in body
-        assert "__KIMCAD_SESSION_TOKEN__" not in body
+        assert "tok-XYZ-123" not in body, (
+            "the per-boot session token was served to a page that cannot use it"
+        )
+        assert "__KIMCAD_SESSION_TOKEN__" not in body, "unsubstituted placeholder leaked to the client"
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -2043,20 +2051,16 @@ def test_head_returns_headers_without_body(tmp_path):
 
 
 def test_static_assets_carry_an_etag_and_revalidate_304(tmp_path):
-    """QA-002: static assets carry an ETag; a matching If-None-Match gets a body-less 304
-    (correct revalidation for the build's stable, un-hashed filenames). The asset path is
-    discovered from the served shell so the test never pins a build-specific filename."""
+    """QA-002: static files carry an ETag; a matching If-None-Match gets a body-less 304.
+
+    WALK-3: this used to discover a /assets/ bundle path from the served shell. That bundle is
+    deleted, so the contract is now proven against favicon.ico — the static file the server still
+    serves through the same caching path."""
     import http.client
-    import re
-    import urllib.request
 
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     with _serve(pipe, tmp_path) as (host, port):
-        base = f"http://{host}:{port}"
-        html = urllib.request.urlopen(base + "/", timeout=10).read().decode("utf-8")
-        ref = re.search(r'(?:src|href)="/assets/([^"]+)"', html)
-        assert ref, "the served shell should reference at least one /assets/ bundle"
-        asset = "/assets/" + ref.group(1)
+        asset = "/favicon.ico"
         conn = http.client.HTTPConnection(host, port, timeout=10)
         try:
             conn.request("GET", asset)

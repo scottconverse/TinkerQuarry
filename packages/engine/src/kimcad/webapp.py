@@ -1048,6 +1048,28 @@ def make_handler(
             # nothing. Errors go to stderr; request chatter stays quiet.
             print(f"[kimcad] {format % args}", file=sys.stderr)
 
+        # QA-1 (v1.5.0 gate): has a status line already gone out on THIS request? The shared
+        # do_POST safety net below needs to know, because writing a second response onto a
+        # half-written one corrupts the stream. Every response path funnels through
+        # BaseHTTPRequestHandler.send_response, so one override covers _send, _json,
+        # _send_download, _stream_file, _method_not_allowed and the base class's own errors.
+        _response_started = False
+
+        def handle_one_request(self) -> None:
+            # The flag is PER-REQUEST, but a handler INSTANCE is per-CONNECTION and serves every
+            # request on it. Setting the flag without resetting it here would latch after the
+            # first response, and the safety net would then skip the 500 for every later request
+            # on that connection — reinstating the exact dropped-connection defect it exists to
+            # prevent. Today the server negotiates HTTP/1.0 (one request per connection) so this
+            # is latent, but it is one `protocol_version` edit away from being live, and it is
+            # proven by test_the_safety_net_does_not_latch_across_a_kept_alive_connection.
+            self._response_started = False
+            super().handle_one_request()
+
+        def send_response(self, code: int, message: str | None = None) -> None:
+            self._response_started = True
+            super().send_response(code, message)
+
         def _method_not_allowed(self) -> None:
             # QA-005: the resources exist for GET/HEAD/POST, so an unsupported verb is 405
             # (method not allowed), not the stdlib default 501 (not implemented). QA-006: return
@@ -1630,9 +1652,37 @@ def make_handler(
                         pass
             self._json(413, {"error": message})
 
+        def _reject_chunked_body(self) -> bool:
+            """QA-2 (v1.5.0 gate): does this request carry a chunked body we cannot read?
+
+            ``BaseHTTPRequestHandler`` never decodes ``Transfer-Encoding: chunked`` framing, and
+            both body readers treat an absent Content-Length as 0 — so a chunked POST had its
+            real bytes silently discarded and the caller was told the FIELD was empty ("Please
+            describe the part you want." for 42 bytes that did arrive). That is an actively
+            misleading diagnostic: it points at the client's data instead of at the transport.
+
+            RFC 9110 gives the honest answer: 411 Length Required. The shipped SPA's fetch()
+            always precomputes a Content-Length, so nothing in the product is affected; this is
+            for any other client (curl -T, a streaming HTTP library) that defaults to chunked.
+
+            Returns True after having sent the 411 — callers must return immediately."""
+            te = (self.headers.get("Transfer-Encoding") or "").strip().lower()
+            if not te or te == "identity":
+                return False
+            self.close_connection = True  # we can't frame-decode what's left on the wire
+            self._json(411, {
+                "error": "KimCad needs a Content-Length; chunked request bodies aren't supported. "
+                         "Send the body with an explicit Content-Length header.",
+            })
+            return True
+
         def _read_json_body(self) -> dict[str, Any] | None:
             """Read + parse the JSON request body behind the size guard. Returns the
-            parsed dict, or None after having already sent a 413/400 response."""
+            parsed dict, or None after having already sent a 411/413/400 response."""
+            # QA-2: a chunked body is unreadable here — say so instead of reading 0 bytes and
+            # blaming the caller's (perfectly valid) field.
+            if self._reject_chunked_body():
+                return None
             # ENG-004: reject oversized bodies before reading them (bodies are tiny).
             raw_len = self.headers.get("Content-Length")
             try:
@@ -1666,6 +1716,40 @@ def make_handler(
             return obj
 
         def do_POST(self) -> None:
+            """QA-1 (v1.5.0 gate) — the ONE shared safety net for every POST route.
+
+            The file's stated invariant is "never leak a traceback to the browser". It was
+            being broken in the other direction: an unguarded field type (e.g.
+            ``{"outcome": {...}}`` reaching ``outcome not in PRINT_OUTCOMES`` ->
+            ``TypeError: unhashable type: 'dict'``) let the exception escape the handler,
+            and ThreadingHTTPServer closed the connection with ZERO bytes written. "Empty
+            reply from server" is worse than a 500: it is indistinguishable from the process
+            being dead, so a client reports an outage instead of fixing its request.
+
+            Individual handlers still validate their own fields for a precise 400 (see the
+            isinstance-first guards below); this net exists so that any field they MISS —
+            today's or a future one's — degrades to the documented typed-500 contract instead
+            of a dropped connection. Both layers, not either."""
+            try:
+                self._dispatch_post()
+            except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                # A client that hung up mid-response (Cancel, tab close, refresh) is a normal
+                # event, not a server fault — handle_error() already says so quietly. There is
+                # nobody left to answer, so don't try.
+                raise
+            except Exception:
+                import traceback
+
+                # The operator's terminal gets the full detail (log_error -> stderr); the
+                # browser gets the typed envelope and never a traceback.
+                self.log_error("unhandled error in POST %s\n%s", self.path, traceback.format_exc())
+                if not self._response_started:
+                    self._json(500, {
+                        "error": "KimCad hit an unexpected error handling that request. "
+                                 "The terminal running KimCad shows the detail.",
+                    })
+
+        def _dispatch_post(self) -> None:
             # #31 (KC-26): a per-boot session token (injected into index.html, sent by the SPA as
             # the X-KimCad-Session header) is required on EVERY state-changing request when the
             # server is configured with one. A drive-by cross-origin POST from a malicious web page
@@ -2154,15 +2238,19 @@ def make_handler(
             if unknown:
                 self._json(400, {"error": "Unknown settings field(s): " + ", ".join(sorted(unknown)) + "."})
                 return
+            # QA-1: isinstance FIRST. `dp not in printer_keys` is a set membership test, so an
+            # unhashable dict/list raises TypeError and (before the do_POST net) dropped the
+            # connection with zero bytes. Same pattern the already-correct handlers use at
+            # _handle_send / _handle_render. None still means "clear the override".
             if "default_printer" in data:
                 dp = data.get("default_printer")
-                if dp is not None and dp not in printer_keys:
+                if dp is not None and (not isinstance(dp, str) or dp not in printer_keys):
                     self._json(400, {"error": "Unknown printer."})
                     return
                 updates["default_printer"] = dp  # None clears the override (back to config default)
             if "default_material" in data:
                 dm = data.get("default_material")
-                if dm is not None and dm not in material_keys:
+                if dm is not None and (not isinstance(dm, str) or dm not in material_keys):
                     self._json(400, {"error": "Unknown material."})
                     return
                 updates["default_material"] = dm
@@ -2341,7 +2429,9 @@ def make_handler(
             if data is None:
                 return
             outcome = data.get("outcome")
-            if outcome not in PRINT_OUTCOMES:
+            # QA-1: isinstance FIRST — PRINT_OUTCOMES is a set, so an unhashable dict/list here
+            # raised TypeError and dropped the connection with zero bytes returned.
+            if not isinstance(outcome, str) or outcome not in PRINT_OUTCOMES:
                 self._json(400, {"error": "Unknown print outcome."})
                 return
             if outcome == "skip":
@@ -3072,7 +3162,11 @@ def make_handler(
 
         def _read_raw_body(self, max_bytes: int) -> bytes | None:
             """Read the raw request body behind a size guard (for a binary import). Returns the
-            bytes, or None after sending a 413/400 (mirrors _read_json_body's guard)."""
+            bytes, or None after sending a 411/413/400 (mirrors _read_json_body's guard)."""
+            # QA-2: same chunked-body hole as _read_json_body — an absent Content-Length here
+            # produced "Empty upload." for a body that was actually sent.
+            if self._reject_chunked_body():
+                return None
             raw_len = self.headers.get("Content-Length")
             try:
                 declared = int(raw_len) if raw_len is not None else 0
@@ -3143,6 +3237,14 @@ def make_handler(
             data = self._read_json_body()
             if data is None:
                 return
+            # QA-1: isinstance FIRST. `key` becomes a dict key into reg.slice_cache, so an
+            # unhashable dict/list in either field raised TypeError at the .get() and dropped the
+            # connection with zero bytes. Both fields are printer/material KEYS — always strings.
+            for _field in ("printer", "material"):
+                _v = data.get(_field)
+                if _v is not None and not isinstance(_v, str):
+                    self._json(400, {"error": f"Invalid {_field}."})
+                    return
             key = (rid, data.get("printer") or None, data.get("material") or None)
             with reg.lock:
                 cached = reg.slice_cache.get(key)
