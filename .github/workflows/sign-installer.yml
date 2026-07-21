@@ -60,16 +60,36 @@ jobs:
           fi
           echo "tag $TAG -> commit $sha"
 
-          # head_sha pins the answer to THIS commit. A green release-gate run on some other
+          # EVERY release tag in this repo is ANNOTATED, so the ref points at a tag OBJECT whose
+          # sha differs from the commit's (v1.5.0: ref object 735d816f..., commit f3d3b903...).
+          # `commits/$TAG` above dereferences to the commit. But release-gate.yml is triggered by
+          # `push: tags: v*`, and it is NOT settled which of the two shas Actions records as a
+          # tag-push run's head_sha — this repo has no tag-push run in its history to check
+          # against, and guessing wrong makes this gate permanently unsatisfiable: no run would
+          # ever match, so no release could ever be signed by the intended route.
+          #
+          # Rather than bet on the answer, accept a successful run at EITHER sha. Both identify
+          # the same tag, so nothing is loosened: a run on some OTHER commit still fails.
+          tag_obj=$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object.sha' 2>/dev/null || echo "")
+          if [ -n "$tag_obj" ] && [ "$tag_obj" != "$sha" ]; then
+            echo "annotated tag: ref object $tag_obj dereferences to commit $sha; accepting either"
+          fi
+
+          # head_sha pins the answer to THIS tag. A green release-gate run on some other
           # commit — main, a branch, last week's tag — proves nothing about what is about to
           # be signed, which is exactly how a stale proof would sneak through.
-          # shellcheck disable=SC2059
-          url=$(printf "$runs_url" "$sha")
-          if ! runs=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | length'); then
-            echo "::error::Could not query release-gate.yml runs for $sha. Refusing to sign an installer whose release proof cannot be confirmed."
-            exit 1
-          fi
-          echo "successful release-gate runs at $sha: $runs"
+          runs=0
+          for candidate in $sha $tag_obj; do
+            # shellcheck disable=SC2059
+            url=$(printf "$runs_url" "$candidate")
+            if ! n=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | length'); then
+              echo "::error::Could not query release-gate.yml runs for $candidate. Refusing to sign an installer whose release proof cannot be confirmed."
+              exit 1
+            fi
+            echo "successful release-gate runs at $candidate: $n"
+            runs=$((runs + n))
+          done
+          echo "successful release-gate runs for tag $TAG (either sha): $runs"
 
           if [ "$runs" -eq 0 ]; then
             echo "::error::No successful release-gate.yml run exists for $TAG ($sha). This installer has NOT been release-proven: the full pnpm test:release lane (Rust tests, cargo audit, Playwright, the full engine pytest, the native build and both installed-binary smoke tests) has not passed on this commit. Refusing to sign."
