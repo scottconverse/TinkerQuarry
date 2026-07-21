@@ -1268,7 +1268,16 @@ def make_handler(
                 # #31 (KC-26): the re-probe is a side effect on a GET, so skip it for a cross-origin
                 # drive-by (it would otherwise let a malicious page force repeated CPU-bound probes);
                 # the read itself still answers with the cached health.
-                if wants_recheck and not self._is_cross_site():
+                # TQ-N1 (v1.5.0 gate): the PACKAGED desktop shell is cross-SITE by construction —
+                # its UI runs at http://tauri.localhost and calls the engine on 127.0.0.1, so
+                # WebView2 stamps Sec-Fetch-Site: cross-site on the app's own request. Guarding on
+                # that alone silently made the Settings "check again" button a no-op in the shipped
+                # product (200 OK, zero re-probes). The allow-listed desktop origins are the same
+                # narrow set end_headers()/do_OPTIONS already trust, and a browser sets Origin
+                # itself, so a hostile page cannot forge its way in here.
+                if wants_recheck and (
+                    not self._is_cross_site() or self._is_desktop_shell_origin()
+                ):
                     try:
                         get_config().recheck_cadquery_interpreter()
                     except Exception:  # noqa: BLE001 - a broken probe reads "not present"
@@ -1396,6 +1405,15 @@ def make_handler(
             they're plain navigations/reads, so the do_POST guard can't cover them."""
             return self.headers.get("Sec-Fetch-Site", "") in ("cross-site", "cross-origin")
 
+        def _is_desktop_shell_origin(self) -> bool:
+            """True when the request carries one of the packaged TinkerQuarry shell's own
+            origins. TQ-N1: the desktop app is cross-SITE relative to the loopback engine, so
+            `_is_cross_site()` alone cannot tell the product's own UI apart from a drive-by.
+            The allow-list is `desktop_cors_origin`'s — exact-match, the same set the CORS
+            preflight already trusts — and a browser sets `Origin` itself, so a page at
+            https://evil.example (or http://tauri.localhost.evil.example) cannot claim it."""
+            return desktop_cors_origin(self.headers.get("Origin")) is not None
+
         def _serve_step(self, raw_id: str) -> None:
             # Stage 8 Slice 4: the editable-CAD (STEP) export. KC-2 (#8): template-built
             # parts get theirs LAZILY — built here on first request from the design's
@@ -1404,7 +1422,13 @@ def make_handler(
             # #31 (KC-26): this GET can SPAWN a CadQuery build (side effect) and can't carry the
             # POST token (it's a browser download nav), so refuse a cross-origin drive-by here —
             # a malicious page can't read the result anyway and has no business triggering builds.
-            if self._is_cross_site():
+            # TQ-N1 (v1.5.0 gate): but the PACKAGED desktop shell is itself cross-SITE (UI on
+            # http://tauri.localhost, engine on 127.0.0.1), and App.tsx fetches this URL through
+            # engine.downloadApiAsset(). Guarding on Sec-Fetch-Site alone therefore refused the
+            # product its OWN STEP download with a 403 — STEP export was dead in the desktop build
+            # whether or not CadQuery was installed. Same narrow, exact-match origin allow-list as
+            # the CORS preflight; a hostile page still gets the 403.
+            if self._is_cross_site() and not self._is_desktop_shell_origin():
                 self._json(403, {"error": "Cross-origin request refused."})
                 return
             try:

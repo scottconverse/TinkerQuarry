@@ -11,6 +11,7 @@ import {
 } from '../ui';
 import type { Settings, MeasurementUnit } from '../../stores/settingsStore';
 import { SettingsCard, SettingsCardHeader, SettingsCardSection } from './SettingsPrimitives';
+import { CadExportCard } from './CadExportCard';
 import { getPlatform } from '../../platform';
 import { TbFolder } from 'react-icons/tb';
 
@@ -128,6 +129,10 @@ export function ProjectSettings({
           </Select>
         </SettingsCardSection>
       </SettingsCard>
+
+      {/* TQ-N1: the destination ProductEvidencePanels' Provenance line names when the engine
+          emits step_offer:"settings" ("enable CadQuery in Settings → Project for STEP"). */}
+      <CadExportCard />
     </div>
   );
 }

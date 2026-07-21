@@ -175,19 +175,34 @@ a KimCad you started earlier and forgot.
 kimcad web --port 8766
 ```
 
-## No "Download editable CAD (.STEP)" button / the STEP download fails
+## No "STEP" option in the Export dialog / the STEP download fails
 
-**Cause (no button):** the optional CAD export engine (CadQuery) isn't installed — the
-Export panel then says so and points at Settings. Note the experimental generator's parts
-are `.STL`-only by design; only standard (template-built) parts can export STEP.
+**Cause (no STEP option):** the optional CAD export engine (CadQuery) isn't installed.
+The Export dialog simply doesn't list STEP — it never shows a STEP entry it can't fulfil,
+so there's no error to read there. The *Provenance* panel is where the app says why: it
+reads "CAD handoff: trusted twin exists; enable CadQuery in Settings → Project for STEP".
 
-**Fix:** *Settings → Editable CAD export* walks through the one-time setup
-(`py -3.13 -m pip install cadquery`, then *check again* — no restart needed). The first
-STEP download after that takes a few seconds while KimCad prepares the file.
+Note that only standard (template-built) parts can export STEP at all. The experimental
+generator's parts are mesh-only by design. For those, Provenance instead reads
+"CAD handoff: STEP unavailable for this design", and installing CadQuery will not change it.
 
-**Cause (button present but the download errors):** the engine install is broken or was
-removed mid-session. Re-run the pip install, then *check again* in Settings; the terminal
-running `kimcad web` logs the underlying error.
+**Fix:** open *Settings → Project → Editable CAD export (.STEP)*. The card shows whether
+the CAD export engine is **Installed** or **Not installed**, and when it's missing it
+carries the one-time setup command:
+
+```
+py -3.13 -m pip install cadquery
+```
+
+Run that in a terminal, then press **Check again** on the same card — no restart needed.
+The status chip flips to *Installed*, and STEP appears in the Export dialog for standard
+parts from then on. (Python 3.11, 3.12 and 3.13 all work; KimCad probes the `py` launcher
+and `python3.13`/`3.12`/`3.11` on PATH.) The first STEP download after that takes a few
+seconds while KimCad prepares the file.
+
+**Cause (STEP is offered but the download errors):** the CadQuery install is broken or was
+removed mid-session. Re-run the pip install, then press **Check again** on that same
+Settings card; the terminal running `kimcad web` logs the underlying error.
 
 ## Parts download as .stl instead of .3mf
 

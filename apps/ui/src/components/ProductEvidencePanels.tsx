@@ -416,7 +416,11 @@ export function ProvenancePanel() {
       currentStepUrl
         ? 'CAD handoff: STEP from the trusted twin is available'
         : currentDesignResult?.step_offer === 'settings'
-          ? 'CAD handoff: trusted twin exists; enable CadQuery in Settings for STEP'
+          // TQ-N1: name the exact destination. This line used to say only "in Settings", and
+          // Settings had no such control at all; it now points at a real card (Settings →
+          // Project → "Editable CAD export (.STEP)"). stepDocTruth.test.ts pins this string
+          // against packages/engine/docs/troubleshooting.md so the two cannot drift apart again.
+          ? 'CAD handoff: trusted twin exists; enable CadQuery in Settings → Project for STEP'
           : 'CAD handoff: STEP unavailable for this design',
     ],
     [currentDesignResult, currentStepUrl, selectedConnector, selectedMaterial, selectedPrinterName],

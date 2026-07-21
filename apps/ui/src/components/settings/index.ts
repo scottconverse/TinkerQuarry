@@ -15,5 +15,6 @@ export { ProjectSettings } from './ProjectSettings';
 export { EditorSettings } from './EditorSettings';
 export { LibrariesSettings } from './LibrariesSettings';
 export { AiSettings } from './AiSettings';
+export { CadExportCard } from './CadExportCard';
 export { ApiProviderCard } from './ApiProviderCard';
 export { AboutSettings } from './AboutSettings';
