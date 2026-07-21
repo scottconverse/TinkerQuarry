@@ -194,12 +194,24 @@ at three different levels of done:
   obvious way to "add origin allow-listing" — would make the server answer preflights and open
   the exact drive-by it was meant to close. A regression test asserts the preflight returns no
   `Access-Control-Allow-Origin`; do not replace it with a CORS layer.
-- *Per-boot bearer token* — enforced server-side, but not surfaced by the frontend, so no
-  external client can currently authenticate. The feature is effectively inert until the UI
-  exposes the token.
-- *`export_file` path confinement* — implemented and known to be incomplete. Review found inputs
-  that escape the workspace root, including paths that climb above their own anchor. The guard
-  fails open on those, so it must be treated as unfinished.
+- *Per-boot bearer token* — enforced server-side and surfaced in Settings, and carried by all
+  four generated agent configs. Regenerated on every app start, so it cannot outlive the process
+  that issued it.
+- *`export_file` path confinement* — fails CLOSED. The original guard misread any path climbing
+  above its own anchor (`C:\..\...`) as relative, joined it onto the workspace root, and let the
+  `..` cancel the injected drive component — concluding "inside" while the caller's original
+  string was forwarded verbatim. It now refuses anything it cannot positively classify, matches
+  the frontend's absolute-path test exactly so the two resolvers cannot disagree, and rejects
+  Windows device names.
+
+Two residual limits, recorded rather than smoothed over:
+
+- `get_or_create_workspace` binds a session to any caller-supplied folder with no user approval,
+  so "confined to the bound workspace" means confined to a folder the token holder chose. The
+  token is the actual trust boundary here, not the confinement.
+- The confinement check is purely lexical — an export target does not exist yet, so
+  `canonicalize` is unavailable — meaning a junction or symlink already present inside the bound
+  workspace can still redirect a write outside it.
 
 The genuine exposure is local, non-browser callers: origin checks do nothing against a script
 that simply omits the header, which is why the token is the control that matters here.

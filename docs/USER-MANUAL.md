@@ -439,20 +439,31 @@ The MCP server exposes the following seven tools over a local HTTP interface:
 The server binds to `127.0.0.1:32123` — loopback only, not reachable from your network. It is
 **off by default**, and you turn it on in Settings under **External agents**.
 
-**This feature is not finished, and the honest state matters more than the summary:**
+Three controls apply once it is running:
 
-- **Origin checking — working.** Requests carrying a browser origin that is not the app's own are
-  refused, so a web page you happen to be visiting cannot reach it.
-- **Per-boot token — enforced by the server, but not yet usable.** Every request must carry a
-  token the app generates at startup, and the app does not currently show you that token
-  anywhere. Until it does, external MCP clients cannot connect at all.
-- **Export confinement — implemented, with known gaps.** `export_file` is meant to write only
-  inside the workspace folder the session is bound to. Review has found paths that still escape
-  that confinement, so treat it as incomplete.
+- **Origin checking.** A request carrying a browser origin that is not the app's own is refused,
+  so a web page you happen to be visiting cannot reach the server.
+- **A per-boot token.** Every request must carry `Authorization: Bearer <token>`. The token is
+  shown next to the toggle in Settings with a copy button, and the setup snippets for Claude
+  Code, Cursor, Codex and OpenCode include it already. It changes each time TinkerQuarry
+  restarts, so a saved agent config stops working until you paste the new one — that is
+  deliberate.
+- **Export confinement.** `export_file` writes only inside the workspace folder the session is
+  bound to. Absolute paths, paths climbing out with `..`, and Windows device names such as `CON`
+  are refused.
 
-**Our recommendation for this release: leave the MCP server off.** It cannot be used yet (no
-visible token), and the write confinement is not something we are prepared to stand behind. This
-section will be updated when both are fixed; the release notes will say so explicitly.
+**Two limits worth knowing before you turn it on:**
+
+- Binding a workspace is not confirmed with you. A client holding the token can call
+  `get_or_create_workspace` on any folder it names and then work inside it. The token is what
+  stands between an agent and your files — treat it like a password, and turn the server off
+  when you are not deliberately using it.
+- The confinement check is textual, because an export target does not exist yet when it is
+  checked. If a shortcut or junction already inside your workspace points somewhere else, a
+  write can still follow it out.
+
+Enable it when you intend to let an agent drive TinkerQuarry, and leave it off the rest of the
+time.
 
 ## Release Evidence
 
