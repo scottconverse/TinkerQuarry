@@ -106,7 +106,7 @@ supported path, permanently.
 
 `.STEP` is the editable, precision CAD model — open it in Fusion 360, FreeCAD, or
 SolidWorks and keep modeling. It appears on standard (template-built) parts once the
-optional **CAD export engine** is installed: *Settings → Editable CAD export* walks you
+optional **CAD export engine** is installed: *Settings → Project → Editable CAD export* walks you
 through the one-time setup (a single `pip install` in a terminal — it's the one power-user
 feature that asks for one). KimCad builds the STEP from its own trusted code, never from
 AI-generated code, and the first download takes a few seconds.

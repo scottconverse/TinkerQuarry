@@ -231,7 +231,7 @@ Settings card explains the one-time setup.
 
 CadQuery runs in a separate interpreter as an **arm's-length worker** (like
 OpenSCAD/OrcaSlicer). To enable it: install `cadquery` into a Python 3.13 environment —
-in-app: **Settings → Editable CAD export** walks through it (`py -3.13 -m pip install
+in-app: **Settings → Project → Editable CAD export** walks through it (`py -3.13 -m pip install
 cadquery`); repo convention is a `.venv-cq313` next to `.venv`. KimCad auto-discovers it
 (the repo-local worker venv first, then `py -3.13/-3.12/-3.11`, then `python3.x` on `PATH`).
 Pin or disable it with `binaries.cadquery_python` in `config/local.yaml` (`null` = auto,
