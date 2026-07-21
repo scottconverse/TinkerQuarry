@@ -60,7 +60,9 @@ async function probeCentre(page: Page, testId: string) {
         : "nothing (outside the viewport)";
     return {
       found: true,
-      hitsTarget: Boolean(hit && (hit === el || el.contains(hit) || hit.contains(el))),
+      hitsTarget: Boolean(
+        hit && (hit === el || el.contains(hit) || hit.contains(el)),
+      ),
       hit: describe(hit),
     };
   }, testId);
@@ -104,7 +106,11 @@ test("the engine-offline banner makes room for itself instead of covering the he
   ).toBeGreaterThanOrEqual(geometry.bannerBottom - 1);
 
   // ...and the consequence, control by control: a click at the centre reaches the control.
-  for (const testId of ["settings-button", "export-button", "save-design-button"]) {
+  for (const testId of [
+    "settings-button",
+    "export-button",
+    "save-design-button",
+  ]) {
     const probe = await probeCentre(page, testId);
     expect(probe.found, `${testId} should exist in the toolbar`).toBe(true);
     expect(

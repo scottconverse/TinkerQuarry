@@ -100,8 +100,6 @@ markers = [
     "needs_manifold: needs manifold3d installed; skipped when absent",
     "needs_cadquery: needs a discoverable CadQuery interpreter; skipped when absent",
     # KC-20 (#25): the Playwright e2e browser suite.
-    "needs_browser: needs Playwright Chromium (run `playwright install chromium`); skipped when absent",
-    "browser_serial: e2e browser test serialized around one localhost server (Windows socket churn)",
 ]
 # KC-16: surface accidental unmarked-marker typos as errors, not silent no-ops.
 filterwarnings = ["error::pytest.PytestUnknownMarkWarning"]

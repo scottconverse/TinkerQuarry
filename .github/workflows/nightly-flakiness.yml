@@ -32,7 +32,7 @@ jobs:
         # Each run may fail (that is the point); collect all five junit files regardless.
         run: |
           foreach ($i in 1..5) {
-            python -m pytest tests -m "not live and not real_tool and not needs_cadquery and not needs_browser" -q --junitxml="flaky-run$i.xml"
+            python -m pytest tests -m "not live and not real_tool and not needs_cadquery" -q --junitxml="flaky-run$i.xml"
             Write-Output "run $i exit: $LASTEXITCODE"
           }
           exit 0

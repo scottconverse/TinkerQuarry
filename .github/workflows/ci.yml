@@ -20,7 +20,7 @@ name: CI
 #   type-check                -> frontend / UI type check  (apps/ui only; same gap as lint)
 #   jest.js                   -> frontend / Full UI unit tests (non-live lane)  (engineLive.integration is deselected via TQ_CI_NO_LIVE — hosted runners have no engine venv to spawn)
 #   test:web:unit             -> frontend / Full web tests  (full parity with the release lane)
-#   run-engine-pytest.mjs     -> engine / Engine non-live test lane (with coverage)  (marker-filtered and without --strict-no-skips; the live/real_tool/needs_cadquery/needs_browser classes — including the Ollama-backed vocabulary tests whose failures produced PRs #26/#27/#30 — run only in release-gate.yml)
+#   run-engine-pytest.mjs     -> engine / Engine non-live test lane (with coverage)  (marker-filtered and without --strict-no-skips; the live/real_tool/needs_cadquery classes — including the Ollama-backed vocabulary tests whose failures produced PRs #26/#27/#30 — run only in release-gate.yml)
 # END RELEASE-PROOF-MAP
 # ============================================================================================
 
@@ -140,7 +140,7 @@ jobs:
         run: >
           python -m pytest
           tests
-          -m "not live and not real_tool and not needs_cadquery and not needs_browser"
+          -m "not live and not real_tool and not needs_cadquery"
           -q -rs
           --cov=kimcad --cov-report=xml
 

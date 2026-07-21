@@ -91,11 +91,14 @@ async function expectFocusTrapped(
     );
     const focused = await page.evaluate(() => {
       const el = document.activeElement as HTMLElement | null;
-      return el ? `${el.tagName.toLowerCase()}#${el.id}.${el.className}` : "none";
+      return el
+        ? `${el.tagName.toLowerCase()}#${el.id}.${el.className}`
+        : "none";
     });
-    expect(inside, `${label}: focus escaped to ${focused} after ${i} Tab presses`).toBe(
-      true,
-    );
+    expect(
+      inside,
+      `${label}: focus escaped to ${focused} after ${i} Tab presses`,
+    ).toBe(true);
   }
   // ...and the same going backwards.
   for (let i = 1; i <= 5; i += 1) {
@@ -103,7 +106,10 @@ async function expectFocusTrapped(
     const inside = await dialog.evaluate((node) =>
       node.contains(document.activeElement),
     );
-    expect(inside, `${label}: focus escaped backwards after ${i} Shift+Tab`).toBe(true);
+    expect(
+      inside,
+      `${label}: focus escaped backwards after ${i} Shift+Tab`,
+    ).toBe(true);
   }
 }
 
