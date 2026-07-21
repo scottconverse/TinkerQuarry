@@ -46,6 +46,14 @@ export interface McpServerStatus {
   status: McpServerState;
   endpoint: string | null;
   message: string | null;
+  /**
+   * Per-boot bearer secret an external MCP client must send as
+   * `Authorization: Bearer <token>`. The Rust listener rejects every request
+   * without it, so this has to reach the user — see `ExternalAgentsCard`.
+   * `null` whenever the server is not running, so a disabled server never
+   * shows a live secret.
+   */
+  sessionToken: string | null;
 }
 
 export interface WorkspaceDescriptor {
@@ -160,6 +168,7 @@ const DEFAULT_STATUS: McpServerStatus = {
   status: "disabled",
   endpoint: null,
   message: null,
+  sessionToken: null,
 };
 
 function isDesktopTauri(): boolean {
@@ -1264,32 +1273,68 @@ export async function getDesktopMcpStatus(): Promise<McpServerStatus> {
   return invoke<McpServerStatus>("get_mcp_server_status");
 }
 
-export function buildClaudeMcpCommand(port: number): string {
-  return `claude mcp add --transport http --scope user tinkerquarry http://127.0.0.1:${port}/mcp`;
+/**
+ * The four copy-paste agent configs.
+ *
+ * MCP-1b follow-up: the server now REQUIRES `Authorization: Bearer <token>` and answers 401
+ * without it, so a config that omits the header is a config that cannot work. Every one of
+ * these previously took only `port` — the card told the user about the header while handing
+ * them a snippet that lacked it. `token` is therefore part of each signature, not an optional
+ * extra.
+ *
+ * When the server is not running there is no token; callers pass `null` and get a snippet with
+ * a clearly fake placeholder rather than a silently header-less config that would 401.
+ */
+const TOKEN_PLACEHOLDER = "<paste-token-from-Settings>";
+
+function bearer(token: string | null): string {
+  return `Bearer ${token ?? TOKEN_PLACEHOLDER}`;
 }
 
-export function buildCodexMcpCommand(port: number): string {
-  return `codex mcp add tinkerquarry --url http://127.0.0.1:${port}/mcp`;
+export function buildClaudeMcpCommand(
+  port: number,
+  token: string | null = null,
+): string {
+  return `claude mcp add --transport http --scope user tinkerquarry http://127.0.0.1:${port}/mcp --header "Authorization: ${bearer(token)}"`;
 }
 
-export function buildCursorMcpConfig(port: number): string {
+export function buildCodexMcpCommand(
+  port: number,
+  token: string | null = null,
+): string {
+  return `codex mcp add tinkerquarry --url http://127.0.0.1:${port}/mcp --header "Authorization: ${bearer(token)}"`;
+}
+
+export function buildCursorMcpConfig(
+  port: number,
+  token: string | null = null,
+): string {
   return `{
   "mcpServers": {
     "tinkerquarry": {
-      "url": "http://127.0.0.1:${port}/mcp"
+      "url": "http://127.0.0.1:${port}/mcp",
+      "headers": {
+        "Authorization": "${bearer(token)}"
+      }
     }
   }
 }`;
 }
 
-export function buildOpenCodeMcpConfig(port: number): string {
+export function buildOpenCodeMcpConfig(
+  port: number,
+  token: string | null = null,
+): string {
   return `{
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "tinkerquarry": {
       "type": "remote",
       "url": "http://127.0.0.1:${port}/mcp",
-      "enabled": true
+      "enabled": true,
+      "headers": {
+        "Authorization": "${bearer(token)}"
+      }
     }
   }
 }`;
