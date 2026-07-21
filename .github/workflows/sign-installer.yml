@@ -22,7 +22,67 @@ permissions:
   contents: write
 
 jobs:
+  # Gate finding TEST-2: v1.5.0 was built, signed and published without the full release
+  # proof ever having run in Actions — release-gate.yml was workflow_dispatch-only and had
+  # zero runs, ever. Signing is the last point where that is still catchable, so it is
+  # caught here: no successful release-gate run at this tag's exact commit, no signature.
+  #
+  # There is deliberately no override input. The escape hatch is the correct route: run
+  # release-gate.yml against the tag (it also runs automatically on every `v*` tag push),
+  # wait for it to go green, then sign.
+  release-gate-proof:
+    name: Release gate passed at this tag's commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Require a successful release-gate run at the tag's exact commit
+        # Skipped for the no-tag smoke test, which signs a scratch exe and touches no release.
+        if: inputs.release-tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          set -uo pipefail
+          # Deliberately NOT `set -e`: every failure below must exit through an explicit
+          # branch that prints why. Under `set -e` a failing `gh api` inside a command
+          # substitution kills the script before its own error message is emitted, which
+          # turns "this tag is unproven" into an unexplained red X.
+
+          runs_url="repos/$REPO/actions/workflows/release-gate.yml/runs?head_sha=%s&per_page=100"
+
+          if ! sha=$(gh api "repos/$REPO/commits/$TAG" --jq '.sha') || [ -z "$sha" ]; then
+            echo "::error::Could not resolve tag '$TAG' to a commit in $REPO. Check the tag exists and was pushed."
+            exit 1
+          fi
+          echo "tag $TAG -> commit $sha"
+
+          # head_sha pins the answer to THIS commit. A green release-gate run on some other
+          # commit — main, a branch, last week's tag — proves nothing about what is about to
+          # be signed, which is exactly how a stale proof would sneak through.
+          # shellcheck disable=SC2059
+          url=$(printf "$runs_url" "$sha")
+          if ! runs=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | length'); then
+            echo "::error::Could not query release-gate.yml runs for $sha. Refusing to sign an installer whose release proof cannot be confirmed."
+            exit 1
+          fi
+          echo "successful release-gate runs at $sha: $runs"
+
+          if [ "$runs" -eq 0 ]; then
+            echo "::error::No successful release-gate.yml run exists for $TAG ($sha). This installer has NOT been release-proven: the full pnpm test:release lane (Rust tests, cargo audit, Playwright, the full engine pytest, the native build and both installed-binary smoke tests) has not passed on this commit. Refusing to sign."
+            echo "release-gate runs found at this commit (if any):"
+            gh api "$url" --jq '.workflow_runs[] | "  \(.status)/\(.conclusion // "pending")  \(.html_url)"' || echo "  <none>"
+            echo "Fix: run the 'Release Gate' workflow against $TAG, wait for it to go green, then re-run this."
+            exit 1
+          fi
+
+          echo "release-gate proof found for $TAG ($sha) - proceeding to sign."
+
   sign:
+    needs: release-gate-proof
     runs-on: windows-latest
     steps:
       # Standing rule (all repos): prove the service-principal secret is valid in
