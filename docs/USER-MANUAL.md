@@ -2,7 +2,7 @@
 
 **Product:** TinkerQuarry v1.5.0 Windows beta
 **Engine:** KimCad 0.9.4
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-18
 **License:** GPL-2.0-only
 
 This manual has three sections:
@@ -419,14 +419,49 @@ Controls in the current product:
 - secrets masked and never returned in full;
 - cloud/provider keys stored through the OS credential store when available, with disclosed fallback.
 
+## Model Context Protocol (MCP) Server
+
+TinkerQuarry ships an optional MCP server for integration with external AI agents and tools. The
+server is **disabled by default** and runs only when explicitly enabled by the user.
+
+**What it is:**
+The MCP server exposes the following seven tools over a local HTTP interface:
+
+- `get_or_create_workspace` — open or create a workspace folder in the app
+- `get_project_context` — retrieve the current project's state and structure
+- `set_render_target` — configure which rendering output to target
+- `get_diagnostics` — fetch current design validation and readiness state
+- `trigger_render` — initiate a design render and wait for completion
+- `get_preview_screenshot` — capture a screenshot of the rendered preview
+- `export_file` — export the current design to a file path on desktop
+
+**Security posture:**
+The server binds to `127.0.0.1:32123` — loopback only, not reachable from your network. It is
+**off by default**, and you turn it on in Settings under **External agents**.
+
+**This feature is not finished, and the honest state matters more than the summary:**
+
+- **Origin checking — working.** Requests carrying a browser origin that is not the app's own are
+  refused, so a web page you happen to be visiting cannot reach it.
+- **Per-boot token — enforced by the server, but not yet usable.** Every request must carry a
+  token the app generates at startup, and the app does not currently show you that token
+  anywhere. Until it does, external MCP clients cannot connect at all.
+- **Export confinement — implemented, with known gaps.** `export_file` is meant to write only
+  inside the workspace folder the session is bound to. Review has found paths that still escape
+  that confinement, so treat it as incomplete.
+
+**Our recommendation for this release: leave the MCP server off.** It cannot be used yet (no
+visible token), and the write confinement is not something we are prepared to stand behind. This
+section will be updated when both are fixed; the release notes will say so explicitly.
+
 ## Release Evidence
 
 Current-tree gate evidence:
 
 - `pnpm test:gate`: passed.
-- UI Jest: 94 suites / 670 tests in the final gate run.
+- UI Jest: 100 suites / 735 tests in the final gate run.
 - Web Jest: 4 suites / 20 tests in the final gate run.
-- Engine pytest: 1755 passed, 0 skipped, in the final gate run.
+- Engine pytest: 1796 passed, 0 skipped, in the final gate run.
 - Playwright browser e2e: 7 passed in the final gate run.
 - `scripts\native-release.cmd`: passed.
 - `pnpm test:e2e:tauri`: passed against the release executable.
@@ -552,5 +587,4 @@ Roadmap:
 - broader known-family reverse import;
 - STEP/STP reverse-to-parametric import;
 - expanded printer hardware certification;
-- signed Windows installer;
 - additional platform packages after Windows beta stabilizes.

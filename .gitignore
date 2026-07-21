@@ -12,6 +12,9 @@ node_modules/
 dist/
 .jest-cache/
 **/.jest-cache/
+# jest.formatter.config.cjs writes its own cache dir, which the pattern above does not match.
+.jest-cache-formatter/
+**/.jest-cache-formatter/
 coverage/
 **/coverage/
 

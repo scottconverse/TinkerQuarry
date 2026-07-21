@@ -67,7 +67,7 @@ with a digitally signed Windows installer.
 
 ### Internal
 
-- `apps/ui/src/App.tsx` was decomposed from roughly 5,070 lines to roughly 2,760 lines across
+- `apps/ui/src/App.tsx` was decomposed from roughly 5,358 lines to roughly 2,760 lines across
   five extraction phases, each pulling a cluster of related state and handlers into its own hook
   (global shortcuts/error reporting; file-tree and tab CRUD; persistence/save plus the
   native-menu event bridge; engine lifecycle; project-directory onboarding and open-file/folder).
