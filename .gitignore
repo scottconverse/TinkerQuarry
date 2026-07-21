@@ -42,6 +42,10 @@ gate-tinkerquarry-*/artifacts/
 .vite/
 .wrangler-functions-build/
 **/.wrangler-functions-build/
+# `pnpm share:dev` persists local KV/R2/Durable Object state here — real share records,
+# including their delete-token hashes. Never commit it. (The pattern above does not match it.)
+.wrangler/
+**/.wrangler/
 playwright-report/
 test-results/
 .fablize/

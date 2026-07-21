@@ -41,9 +41,13 @@ intended behavior.
 | Tauri runtime smoke | Passed | `pnpm test:e2e:tauri` against a fresh isolated profile: engine health `0.9.4`, OpenSCAD + OrcaSlicer present |
 | Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed`: installs the built setup.exe into a temp dir and drives the native build/slice/send workflow; engine health `0.9.4` |
 
-The published installer, its SHA-256 (`SHA256SUMS.txt`), and the release manifest live on the
-[v1.5.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0); the
-manifest pins the exact commit the artifacts were built from.
+Each release's installer, its SHA-256 (`SHA256SUMS.txt`), and its release manifest live on that
+release's own page; the manifest pins the exact commit the artifacts were built from. Start from
+the [releases page](https://github.com/scottconverse/TinkerQuarry/releases).
+
+**Do not install v1.5.0.** It is published but was moved back to pre-release after failing its
+gate; **v1.4.0 is the current release**. This document previously linked v1.5.0 as the place to
+get the installer, which was a live instruction to download a build we had already withdrawn.
 
 ## Product Surfaces
 
