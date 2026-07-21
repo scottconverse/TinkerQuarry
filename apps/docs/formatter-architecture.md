@@ -102,8 +102,14 @@ The core tree-sitter runtime.
 **Source**: Copied from the `web-tree-sitter` npm package.
 
 ```bash
-cp node_modules/web-tree-sitter/tree-sitter.wasm apps/ui/public/
+REPO="$(git rev-parse --show-toplevel)"
+cp "$REPO/apps/ui/node_modules/web-tree-sitter/tree-sitter.wasm" "$REPO/apps/ui/public/"
 ```
+
+(The package is a dependency of `apps/ui`, not of the workspace root — under pnpm there is no
+root-level `node_modules/web-tree-sitter`, so the shorter form fails wherever you run it. This
+page previously carried that shorter form alongside a caveat about pnpm layout that did not
+actually cover it.)
 
 ### 2. `tree-sitter-openscad.wasm`
 The OpenSCAD language grammar compiled to WASM.

@@ -32,7 +32,7 @@ exists to fix what that review found. **It is not finished — see "Known open" 
 - **Three API endpoints dropped the connection** with no reply at all when sent a wrong-typed
   field — indistinguishable, to a caller, from the server being down.
 - `kimcad design ""` could reach a real model and invent a design with a success exit code.
-- Running `kimcad web` on its own served a user interface eight releases out of date. It now
+- Running `kimcad web` on its own served a user interface eight pull requests out of date. It now
   serves a short page explaining where the real interface is.
 - Documentation corrections: the verification table described a different version, the manual
   reported test counts from an older run, two roadmaps still listed installer signing as future
@@ -47,11 +47,14 @@ exists to fix what that review found. **It is not finished — see "Known open" 
 
 ### Known open
 
-- **External agent (MCP) support is not usable and should be left off.** The server requires a
-  per-boot token that the app never displays, so nothing can connect; and its export path
-  confinement has known gaps. Documented honestly in the manual rather than quietly shipped.
-- Sharing a multi-file project has never worked: the share is created and the link returned,
-  but the design can never be read back. Under repair.
+- **External agent (MCP) access has real limits, though it now works.** The listener stays off
+  until you enable it, checks the browser origin, requires a per-boot token, and confines
+  exports to the bound workspace. Two limits remain: binding a workspace is not confirmed with
+  you, so the token is what actually protects your files; and the path check is textual, so a
+  shortcut already inside the workspace can still lead a write outward. Treat the token like a
+  password and leave the server off when you are not using it.
+- Some engine-generated designs still cannot be inspected after they fail the printability
+  check — the report exists but is not shown. Under repair.
 
 ## [1.5.0] - 2026-07-16
 

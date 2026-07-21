@@ -1,9 +1,11 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-07-16
-**Product release:** v1.5.0
+**As of:** 2026-07-21
+**Product release:** v1.5.1 (unreleased). **v1.4.0 is the current release** — v1.5.0 was published,
+failed its gate, and was moved back to pre-release.
 **Engine:** KimCad 0.9.4
-**Current gate:** full `pnpm test:release` (gate + native build + runtime smoke + installed-NSIS smoke) passed on the release tree
+**Current gate:** the v1.5.0 figures below are the historical record of THAT release's gate run.
+They are not a claim about this branch.
 
 ## Plain-English Truth
 
@@ -30,7 +32,7 @@ intended behavior.
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Full repo gate | Passed 2026-07-16 (v1.5.0 release gate) | `pnpm test:gate` exit 0 on the release tree |
-| GauntletGate v1.5.0 | **DO NOT ADVANCE** — 47 findings | 2 Blocker / 10 Critical / 15 Major / 18 Minor / 2 Nit. v1.5.0 was moved back to pre-release and v1.4.0 restored as the current release. Fixes are landing for v1.5.1. The full punch list is a local review artifact and is deliberately not published here. |
+| GauntletGate v1.5.0 | **DO NOT ADVANCE** — 51 findings | 2 Blocker / 10 Critical / 18 Major / 19 Minor / 2 Nit. v1.5.0 was moved back to pre-release and v1.4.0 restored as the current release. Fixes are landing for v1.5.1. The full punch list is a local review artifact and is deliberately not published here. |
 | UI unit coverage | Passed | 100 Jest suites / 735 tests in the gate run |
 | Web unit coverage | Passed | 4 Jest suites / 20 tests in the gate run |
 | Engine coverage | Passed | 1796 pytest tests, 0 skipped, in the gate run |
@@ -86,11 +88,11 @@ Known limits:
 
 | Surface | Version |
 | --- | ---: |
-| Product / desktop release | v1.5.0 |
-| `package.json` | 1.5.0 |
-| `apps/ui/package.json` | 1.5.0 |
-| `apps/ui/src-tauri/tauri.conf.json` | 1.5.0 |
-| `apps/ui/src-tauri/Cargo.toml` | 1.5.0 |
+| Product / desktop release | v1.5.1 (unreleased; v1.4.0 is the current release) |
+| `package.json` | 1.5.1 |
+| `apps/ui/package.json` | 1.5.1 |
+| `apps/ui/src-tauri/tauri.conf.json` | 1.5.1 |
+| `apps/ui/src-tauri/Cargo.toml` | 1.5.1 |
 | KimCad engine | 0.9.4 |
 | `apps/web` | 0.6.0 |
 | `packages/shared` | 0.4.0 |

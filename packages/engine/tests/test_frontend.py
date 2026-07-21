@@ -73,11 +73,31 @@ def test_served_page_is_the_standalone_placeholder_not_a_stale_spa():
 
 def test_placeholder_explains_where_the_real_ui_is():
     """The point of the placeholder is that someone who runs `kimcad web` and opens the port is
-    told what they are looking at, instead of being shown a years-old UI as if it were current."""
-    lowered = _HTML.lower()
-    assert "engine" in lowered, "the placeholder should say the engine is what is running here"
-    assert "/api/" in _HTML or "api" in lowered, (
-        "the placeholder should point at the API this server actually serves"
+    told what they are looking at AND how to get the real interface.
+
+    Asserted on the actionable content, not on whether words appear. The first version of this
+    test read `assert "engine" in lowered and ("/api/" in _HTML or "api" in lowered)`, which a
+    page containing the word "capability" would satisfy — a placeholder stripped of every
+    instruction would still have passed it. That is the exact defect this whole file was
+    rewritten to stop making."""
+    body = _HTML[_HTML.find("<body") :]
+
+    # It must name what IS here...
+    assert "/api/" in body, "the placeholder must name the API path this port actually serves"
+
+    # ...and both real ways to get a UI, because those are the only useful things it can say.
+    assert "Start menu" in body, (
+        "the placeholder must tell a plain user to open the installed app instead"
+    )
+    # Separator-agnostic: the page writes the Windows form (apps\ui) because it is a Windows
+    # product, but the assertion should not break if that is ever normalised.
+    normalised = body.replace("\\", "/")
+    for step in ("apps/ui", "pnpm dev", "localhost:1420"):
+        assert step in normalised, f"the placeholder lost the developer recipe step: {step!r}"
+
+    # And it must not imply a UI is coming on THIS port.
+    assert "The user interface is not" in body, (
+        "the placeholder must say plainly that the UI is not served here"
     )
 
 
