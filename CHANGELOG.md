@@ -5,6 +5,54 @@ All notable user-facing changes to TinkerQuarry are documented here.
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses separate version numbers for the product, engine, share web app, and shared helper package.
 
+## [1.5.1] - unreleased
+
+A correctness and honesty release. v1.5.0 was published, then failed a full multi-role review
+and was moved back to pre-release with v1.4.0 restored as the current release. This version
+exists to fix what that review found. **It is not finished — see "Known open" below.**
+
+### Fixed
+
+- **The app showed error codes instead of English.** When the engine replied without a report,
+  the UI rendered the literal text `model_unavailable` or `clarification_needed` instead of the
+  sentence the engine had actually sent — and the engine's clarifying question was read by no
+  component at all. Since an ambiguous prompt is an everyday outcome, this was the normal
+  failure of the product's core feature. Every browser test had missed it for a full release
+  because they all ran the engine in demo mode, which only ever returns "completed"; the fix
+  includes the harness that now drives all six non-completed states through a real browser.
+- **Local model servers other than Ollama were completely broken.** Every loopback backend was
+  sent to an Ollama-only endpoint, so LM Studio — documented as supported — failed every
+  request, spent about 150 seconds retrying, and then reported that your AI was not running
+  while it was running fine.
+- **The offline banner made the toolbar nearly unclickable.** While shown, it covered roughly
+  70% of the click area of every control along the top, including Settings.
+- **Dialogs did not hold keyboard focus.** Tab walked out of an open dialog into the page behind
+  it, so keyboard and screen-reader users could type into a hidden editor believing they were
+  still in the dialog. All five dialogs now share one implementation.
+- **Three API endpoints dropped the connection** with no reply at all when sent a wrong-typed
+  field — indistinguishable, to a caller, from the server being down.
+- `kimcad design ""` could reach a real model and invent a design with a success exit code.
+- Running `kimcad web` on its own served a user interface eight releases out of date. It now
+  serves a short page explaining where the real interface is.
+- Documentation corrections: the verification table described a different version, the manual
+  reported test counts from an older run, two roadmaps still listed installer signing as future
+  work after it shipped, the formatter rebuild recipe pointed at a grammar that was replaced,
+  and the license file named the wrong default models.
+
+### Changed
+
+- The full release proof now runs automatically on a schedule and on every version tag, and
+  installer signing refuses to proceed unless that proof succeeded at the exact commit being
+  signed. Previously it had never run once — it was a script someone had to remember.
+
+### Known open
+
+- **External agent (MCP) support is not usable and should be left off.** The server requires a
+  per-boot token that the app never displays, so nothing can connect; and its export path
+  confinement has known gaps. Documented honestly in the manual rather than quietly shipped.
+- Sharing a multi-file project has never worked: the share is created and the link returned,
+  but the design can never be read back. Under repair.
+
 ## [1.5.0] - 2026-07-16
 
 Product v1.5.0 ships with KimCad engine 0.9.4 (unchanged from v1.4.0). This is the first release
