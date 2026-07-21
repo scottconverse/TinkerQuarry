@@ -8,13 +8,6 @@ const axePath = path.resolve(
   "../../axe-core/axe.min.js",
 );
 
-async function skipSetupIfPresent(page: Page) {
-  const skipSetup = page.getByRole("button", { name: /skip setup/i });
-  if (await skipSetup.isVisible().catch(() => false)) {
-    await skipSetup.click();
-  }
-}
-
 async function scanA11y(page: Page, label: string) {
   await page.addScriptTag({ path: axePath });
   const violations = await page.evaluate(async () => {
@@ -44,7 +37,6 @@ test("release surfaces pass browser accessibility scans and keyboard traversal",
   page,
 }) => {
   await page.goto("/");
-  await skipSetupIfPresent(page);
   await expect(page.getByTestId("welcome-screen")).toBeVisible();
   await scanA11y(page, "welcome");
 
@@ -77,4 +69,67 @@ test("release surfaces pass browser accessibility scans and keyboard traversal",
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(2);
+});
+
+/**
+ * UIUX-2 (Critical, GauntletGate 2026-07-19) — no modal in the app trapped keyboard focus, so Tab
+ * cycled straight out of the dialog into the page hidden behind the backdrop (the live gate landed
+ * on a background <textarea> after 25 Tab presses while Settings was still open). The scan above
+ * cannot see it: axe-core reads the static DOM, and the test above presses Tab exactly once, at
+ * page load, never inside an open dialog.
+ */
+async function expectFocusTrapped(
+  page: Page,
+  dialog: ReturnType<Page["getByTestId"]>,
+  label: string,
+  presses = 30,
+) {
+  for (let i = 1; i <= presses; i += 1) {
+    await page.keyboard.press("Tab");
+    const inside = await dialog.evaluate((node) =>
+      node.contains(document.activeElement),
+    );
+    const focused = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      return el ? `${el.tagName.toLowerCase()}#${el.id}.${el.className}` : "none";
+    });
+    expect(inside, `${label}: focus escaped to ${focused} after ${i} Tab presses`).toBe(
+      true,
+    );
+  }
+  // ...and the same going backwards.
+  for (let i = 1; i <= 5; i += 1) {
+    await page.keyboard.press("Shift+Tab");
+    const inside = await dialog.evaluate((node) =>
+      node.contains(document.activeElement),
+    );
+    expect(inside, `${label}: focus escaped backwards after ${i} Shift+Tab`).toBe(true);
+  }
+}
+
+test("open dialogs keep keyboard focus inside them", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("welcome-screen")).toBeVisible();
+
+  await page
+    .locator('textarea[placeholder="Describe what you want to build..."]')
+    .fill("a 60 mm coaster, 4 mm tall");
+  await page.getByRole("button", { name: /^Build$/i }).click();
+  await expect(page.getByTestId("make-it-real-button")).toBeVisible({
+    timeout: 120_000,
+  });
+
+  await page.getByTestId("settings-button").click();
+  const settings = page.getByRole("dialog", { name: /settings/i });
+  await expect(settings).toBeVisible();
+  await expectFocusTrapped(page, settings, "Settings");
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
+
+  await page.getByTestId("export-button").click();
+  const exportDialog = page.getByTestId("export-dialog");
+  await expect(exportDialog).toBeVisible();
+  await expectFocusTrapped(page, exportDialog, "Export");
+  await page.keyboard.press("Escape");
+  await expect(exportDialog).toBeHidden();
 });

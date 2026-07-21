@@ -12,7 +12,7 @@ import {
 } from '../services/shareService';
 import { getProjectStore } from '../stores/projectStore';
 import type { ShareMode } from '../types/share';
-import { Button, IconButton, Input, Label, SegmentedControl, Text } from './ui';
+import { Button, Dialog, IconButton, Input, Label, SegmentedControl, Text } from './ui';
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -251,20 +251,19 @@ export function ShareDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
+    // UIUX-2: routed through the shared Dialog. This one was not even announced as a dialog
+    // before (no role/aria-modal at all), so it gains that here too.
+    <Dialog
+      onClose={onClose}
+      testId="share-dialog"
+      label="Share Design"
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center"
+      panelClassName="mx-4 flex w-full max-w-lg flex-col overflow-hidden rounded-xl shadow-2xl"
+      panelStyle={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-primary)',
+      }}
     >
-      <div
-        data-testid="share-dialog"
-        className="mx-4 flex w-full max-w-lg flex-col overflow-hidden rounded-xl shadow-2xl"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-primary)',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
         <div
           className="flex items-center justify-between"
           style={{
@@ -448,7 +447,6 @@ export function ShareDialog({
             {shareId ? 'Done' : 'Cancel'}
           </Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

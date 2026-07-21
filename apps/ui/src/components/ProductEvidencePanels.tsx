@@ -136,12 +136,43 @@ function materialDensity(material: string | null | undefined): number {
   }
 }
 
+/** The engine's own clarifying question (DesignResult.clarification), shown where the user reads
+ *  what the engine understood. WALK-1 (gate 2026-07-19): the engine has always sent this field and
+ *  nothing in the UI read it, so a clarification_needed outcome — the everyday result of a vague
+ *  prompt — surfaced as the bare status string with no question to answer. */
+function ClarificationNotice({ question }: { question: string }) {
+  return (
+    <section
+      role="status"
+      data-testid="intent-clarification"
+      className="mb-3 rounded-md border p-3"
+      style={{
+        borderColor: 'var(--color-warning)',
+        backgroundColor: 'var(--bg-primary)',
+      }}
+    >
+      <h4 className="mb-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+        The engine needs one more detail
+      </h4>
+      <div style={{ color: 'var(--text-primary)' }}>{question}</div>
+      <div className="mt-2" style={{ color: 'var(--text-tertiary)' }}>
+        Answer it in the describe box and build again.
+      </div>
+    </section>
+  );
+}
+
 export function IntentPanel() {
   const { currentDesignResult, onReverseImportCad } = useWorkspace();
   const plan = currentDesignResult?.plan;
+  const clarification =
+    typeof currentDesignResult?.clarification === 'string'
+      ? currentDesignResult.clarification.trim()
+      : '';
   if (!plan) {
     return (
       <PanelShell title="Intent">
+        {clarification && <ClarificationNotice question={clarification} />}
         <EmptyState action={<PanelAction onClick={onReverseImportCad}>Import mesh</PanelAction>}>
           Describe a part or import an STL/3MF/OBJ mesh to see parsed intent.
         </EmptyState>
@@ -154,6 +185,7 @@ export function IntentPanel() {
 
   return (
     <PanelShell title="Intent">
+      {clarification && <ClarificationNotice question={clarification} />}
       <Section title={plan.object_type ?? 'Design plan'}>
         <div style={{ color: 'var(--text-primary)' }}>{plan.summary ?? 'No summary recorded.'}</div>
         {plan.target_bbox_mm?.length === 3 && (

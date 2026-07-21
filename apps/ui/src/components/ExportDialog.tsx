@@ -7,6 +7,7 @@ import type { ExportFormat as RenderExportFormat } from '../services/renderServi
 import { useSettings } from '../stores/settingsStore';
 import {
   Button,
+  Dialog,
   IconButton,
   Select,
   SelectTrigger,
@@ -167,27 +168,18 @@ export function ExportDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+    // UIUX-2: routed through the shared Dialog so focus is trapped here like everywhere else.
+    <Dialog
+      onClose={onClose}
+      testId="export-dialog"
+      labelledBy="export-dialog-title"
+      panelClassName="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
+      panelStyle={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-primary)',
       }}
     >
-      <div
-        data-testid="export-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="export-dialog-title"
-        className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-primary)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
+      {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--border-primary)' }}
@@ -251,7 +243,6 @@ export function ExportDialog({
             Cancel
           </Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

@@ -26,6 +26,7 @@ import { WebMenuBar } from "./components/WebMenuBar";
 import { FileTreePanel } from "./components/FileTree";
 import {
   Button,
+  Dialog,
   IconButton,
   Tooltip,
   TooltipContent,
@@ -400,6 +401,17 @@ function App() {
       });
     },
   });
+
+  // UIUX-6: Render / Export / Share are disabled by the same two conditions but carried no
+  // `title`, so the shared a11y mechanism had no text to publish to keyboard and screen-reader
+  // users. `ready` is the OpenSCAD WASM load state, so the two causes are genuinely distinct
+  // and worth telling apart — "still loading" resolves on its own, "rendering" does not.
+  const disabledReason = isRendering
+    ? "Rendering — wait for the current render to finish"
+    : !ready
+      ? "The OpenSCAD engine is still starting up"
+      : null;
+
   const activePreviewSrc =
     activeRenderArtifact?.previewSrc ?? renderTargetRender?.previewSrc ?? "";
   const activePreviewKind =
@@ -1022,7 +1034,10 @@ function App() {
 
   // Global keyboard shortcuts + window error reporting — extracted (v1.5 phase 1a) to
   // hooks/useGlobalKeyboardShortcuts.ts and hooks/useGlobalErrorReporting.ts.
-  const openSettingsShortcut = useCallback(() => setShowSettingsDialog(true), []);
+  const openSettingsShortcut = useCallback(
+    () => setShowSettingsDialog(true),
+    [],
+  );
   useGlobalKeyboardShortcuts({
     aiPromptPanelRef,
     openSettings: openSettingsShortcut,
@@ -1152,8 +1167,9 @@ function App() {
         null,
       selectedMaterial: material || null,
       selectedConnector:
-        engineConnectors.find((connector) => connector.name === connectorName) ??
-        null,
+        engineConnectors.find(
+          (connector) => connector.name === connectorName,
+        ) ?? null,
       workspaceModelStatus,
       visualReviewSummary,
       visualReviewResult,
@@ -1523,6 +1539,7 @@ function App() {
                 variant="primary"
                 onClick={manualRender}
                 disabled={isRendering || !ready}
+                title={disabledReason ?? "Render the current file"}
                 size="sm"
                 className="text-xs px-2 py-1"
               >
@@ -1549,11 +1566,15 @@ function App() {
             variant="secondary"
             onClick={handleReverseImportCad}
             size="sm"
-            disabled={isRendering || reverseImportStatus.state === "running" || !ready}
+            disabled={
+              isRendering || reverseImportStatus.state === "running" || !ready
+            }
             className="text-xs px-2 py-1"
             title="Import STL, 3MF, or OBJ into the trusted parametric CAD lane"
           >
-            {reverseImportStatus.state === "running" ? "Importing" : "Import CAD"}
+            {reverseImportStatus.state === "running"
+              ? "Importing"
+              : "Import CAD"}
           </Button>
 
           {reverseImportStatus.state === "error" && (
@@ -1830,6 +1851,7 @@ function App() {
             onClick={() => setShowExportDialog(true)}
             size="sm"
             disabled={isRendering || !ready}
+            title={disabledReason ?? "Export this model to a file"}
             className="text-xs px-2 py-1"
           >
             <span className="inline-flex items-center gap-1.5">
@@ -1844,6 +1866,7 @@ function App() {
               onClick={handleOpenShareDialog}
               size="sm"
               disabled={isRendering || !ready}
+              title={disabledReason ?? "Share this design with a link"}
               className="text-xs px-2 py-1"
             >
               <span className="inline-flex items-center gap-1.5">
@@ -2628,83 +2651,67 @@ function App() {
           onClose={() => setShowFirstRealDialog(false)}
         />
       )}
+      {/* UIUX-2: the fifth dialog call site. Routed through the shared Dialog primitive so it
+          gets the same focus trap as the other four; it previously had none. */}
       {printOutcome != null && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            backdropFilter: "blur(4px)",
-          }}
-          onClick={() => {
-            void handlePrintOutcome("skip");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              void handlePrintOutcome("skip");
-            }
+        <Dialog
+          onClose={() => void handlePrintOutcome("skip")}
+          labelledBy="print-outcome-title"
+          testId="print-outcome-dialog"
+          panelClassName="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
+          panelStyle={{
+            backgroundColor: "var(--bg-secondary)",
+            border: "1px solid var(--border-primary)",
           }}
         >
           <div
-            data-testid="print-outcome-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="print-outcome-title"
-            className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
-            style={{
-              backgroundColor: "var(--bg-secondary)",
-              border: "1px solid var(--border-primary)",
-            }}
-            onClick={(e) => e.stopPropagation()}
+            id="print-outcome-title"
+            className="px-6 py-4 text-sm font-medium"
+            style={{ borderBottom: "1px solid var(--border-primary)" }}
           >
-            <div
-              id="print-outcome-title"
-              className="px-6 py-4 text-sm font-medium"
-              style={{ borderBottom: "1px solid var(--border-primary)" }}
-            >
-              {printOutcome.simulated
-                ? "How did the simulated send turn out?"
-                : "How did the print turn out?"}
-            </div>
-            <div
-              className="px-6 py-5 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {printOutcome.simulated
-                ? "Recording this simulated outcome keeps the safe beta send flow tested without treating it as hardware feedback."
-                : "Recording the print result helps TinkerQuarry learn which checks predicted reality."}
-            </div>
-            <div
-              className="flex flex-wrap justify-end gap-2 px-6 py-4"
-              style={{ borderTop: "1px solid var(--border-primary)" }}
-            >
-              <Button
-                variant="ghost"
-                onClick={() => void handlePrintOutcome("skip")}
-              >
-                Skip
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => void handlePrintOutcome("failed")}
-              >
-                Failed
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => void handlePrintOutcome("issues")}
-              >
-                Issues
-              </Button>
-              <Button
-                ref={printOutcomeCleanRef}
-                variant="primary"
-                onClick={() => void handlePrintOutcome("clean")}
-              >
-                Clean
-              </Button>
-            </div>
+            {printOutcome.simulated
+              ? "How did the simulated send turn out?"
+              : "How did the print turn out?"}
           </div>
-        </div>
+          <div
+            className="px-6 py-5 text-sm"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {printOutcome.simulated
+              ? "Recording this simulated outcome keeps the safe beta send flow tested without treating it as hardware feedback."
+              : "Recording the print result helps TinkerQuarry learn which checks predicted reality."}
+          </div>
+          <div
+            className="flex flex-wrap justify-end gap-2 px-6 py-4"
+            style={{ borderTop: "1px solid var(--border-primary)" }}
+          >
+            <Button
+              variant="ghost"
+              onClick={() => void handlePrintOutcome("skip")}
+            >
+              Skip
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handlePrintOutcome("failed")}
+            >
+              Failed
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handlePrintOutcome("issues")}
+            >
+              Issues
+            </Button>
+            <Button
+              ref={printOutcomeCleanRef}
+              variant="primary"
+              onClick={() => void handlePrintOutcome("clean")}
+            >
+              Clean
+            </Button>
+          </div>
+        </Dialog>
       )}
       <ShareDialog
         isOpen={showShareDialog}

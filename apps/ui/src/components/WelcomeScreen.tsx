@@ -13,6 +13,10 @@ import {
   TbUpload,
 } from "react-icons/tb";
 import { getPlatform } from "../platform";
+import {
+  modelStatusBorderColor,
+  type ModelStatusSeverity,
+} from "./modelStatusSeverity";
 import { type AiProvider } from "../stores/apiKeyStore";
 import type { AiDraft, AttachmentStore } from "../types/aiChat";
 import {
@@ -78,12 +82,16 @@ interface WelcomeScreenProps {
   hasCustomProjectDirectory?: boolean;
 }
 
+// UIUX-4 (gate 2026-07-19): every example chip states at least one real dimension, because
+// docs/USER-MANUAL.md's own good-prompt guidance says a prompt needs one — and because a
+// dimensionless prompt is exactly what makes the engine come back with clarification_needed on a
+// new user's very first click. Keep the mm figures when editing these.
 const EXAMPLE_PROMPTS = [
-  "Create a 3D printable mini lamp",
-  "Design a parametric phone stand",
-  "Make a custom gear with 20 teeth",
-  "Create a simple mounting bracket",
-  "Design a pencil holder with holes",
+  "Create a 3D printable mini lamp shade, 80 mm tall, 70 mm across",
+  "Design a parametric phone stand for a 9 mm thick phone, 60 degree lean",
+  "Make a custom gear with 20 teeth, 2 mm module, 6 mm bore",
+  "Create a simple mounting bracket, 60 x 30 mm with two 4 mm screw holes",
+  "Design a pencil holder, 90 mm tall, 70 mm across, with 8 mm holes",
 ];
 
 const SOURCE_ENGINE_STEPS = [
@@ -240,6 +248,14 @@ export function WelcomeScreen({
       !modelStatus.model_present ||
       modelStatus.vision_present === false);
   const canBuildLocalDraft = canSubmitLocalDraft && modelReady;
+  // UIUX-5: the status box's severity, matching the branch order the box itself renders below.
+  const modelStatusSeverity: ModelStatusSeverity = modelReady
+    ? "ready"
+    : modelStatusError
+      ? "error"
+      : modelNeedsSetup
+        ? "setup"
+        : "checking";
 
   const refreshModelStatus = async () => {
     const r = await engine.modelStatus();
@@ -435,12 +451,11 @@ export function WelcomeScreen({
               <div
                 role={modelReady ? "status" : "alert"}
                 data-testid="welcome-model-status"
+                data-severity={modelStatusSeverity}
                 className="mt-3 rounded-md border px-3 py-2 text-xs"
                 style={{
                   backgroundColor: "var(--bg-secondary)",
-                  borderColor: modelReady
-                    ? "var(--border-secondary)"
-                    : "var(--color-warning)",
+                  borderColor: modelStatusBorderColor(modelStatusSeverity),
                   color: "var(--text-secondary)",
                 }}
               >

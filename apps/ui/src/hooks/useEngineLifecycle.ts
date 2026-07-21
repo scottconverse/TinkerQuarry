@@ -667,6 +667,18 @@ export function useEngineLifecycle({
         setVisualReviewResult(null);
         setVisualReviewImages([]);
         setVisualReviewLog([]);
+        // WALK-1 (gate 2026-07-19): clarification_needed carries the engine's actual QUESTION in
+        // `clarification`. Publish it onto the current design result so the Intent panel can show
+        // it — a toast that scrolls away is not an answerable question. Merge rather than replace,
+        // so a clarifying question about a refine doesn't wipe the plan the user is looking at.
+        const clarification = result.result?.clarification?.trim() || null;
+        if (clarification) {
+          setCurrentDesignResult((prev) =>
+            prev
+              ? { ...prev, clarification }
+              : (result.result ?? { rid: -1, status: "clarification_needed", clarification }),
+          );
+        }
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
         // reason; this is a designed outcome, not a crash, so don't capture it as an error.
         notifyError({

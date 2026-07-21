@@ -108,6 +108,60 @@ describe('ProductEvidencePanels', () => {
     expect(screen.getAllByRole('button', { name: 'Import mesh' })).toHaveLength(2);
   });
 
+  // WALK-1 (Blocker, gate 2026-07-19): the engine sends its clarifying question in
+  // DesignResult.clarification, and no component in the app read that field — so an everyday
+  // clarification_needed outcome left the user with a raw status string and no question.
+  it('surfaces the engine clarifying question in the Intent panel when there is no plan', () => {
+    renderPanel(
+      <IntentPanel />,
+      workspace({
+        currentDesignResult: {
+          rid: 11,
+          status: 'clarification_needed',
+          has_mesh: false,
+          clarification: 'How wide should the bracket be, in millimetres?',
+        } as WorkspaceState['currentDesignResult'],
+      }),
+    );
+    expect(screen.getByTestId('intent-clarification')).toHaveTextContent(
+      'How wide should the bracket be, in millimetres?',
+    );
+    // ...and never the raw enum.
+    expect(screen.queryByText(/clarification_needed/)).not.toBeInTheDocument();
+  });
+
+  it('keeps showing the clarifying question alongside the last understood plan', () => {
+    renderPanel(
+      <IntentPanel />,
+      workspace({
+        currentDesignResult: {
+          rid: 12,
+          status: 'clarification_needed',
+          clarification: 'What bore diameter do you need?',
+          plan: { object_type: 'Bracket', summary: 'A flat mounting bracket.' },
+        } as WorkspaceState['currentDesignResult'],
+      }),
+    );
+    expect(screen.getByTestId('intent-clarification')).toHaveTextContent(
+      'What bore diameter do you need?',
+    );
+    expect(screen.getByText('A flat mounting bracket.')).toBeInTheDocument();
+  });
+
+  it('shows no clarification block for a completed design', () => {
+    renderPanel(
+      <IntentPanel />,
+      workspace({
+        currentDesignResult: {
+          rid: 13,
+          status: 'completed',
+          plan: { object_type: 'Coaster', summary: 'A 70 mm coaster.' },
+        } as WorkspaceState['currentDesignResult'],
+      }),
+    );
+    expect(screen.queryByTestId('intent-clarification')).not.toBeInTheDocument();
+  });
+
   it('labels mass as a solid estimate and preserves visual thumbnails', () => {
     renderPanel(
       <PropertiesPanel />,

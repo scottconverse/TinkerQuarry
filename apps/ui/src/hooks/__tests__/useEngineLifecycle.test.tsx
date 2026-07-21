@@ -214,6 +214,98 @@ describe('useEngineLifecycle (extracted from App.tsx, phase 1d) — mocked engin
     harness.unmount();
   });
 
+  // WALK-1 (Blocker, gate 2026-07-19): the engine's clarifying question rode home in
+  // DesignResult.clarification and the hook dropped the whole failed result on the floor, so the
+  // Intent panel had nothing to render. The question must reach currentDesignResult.
+  it('handleEngineDescribe: a clarification_needed result publishes the engine question', async () => {
+    mockDescribeIntoStudio.mockResolvedValue({
+      ok: false,
+      gate: 'How tall should it be, in mm?',
+      result: {
+        rid: 9,
+        status: 'clarification_needed',
+        clarification: 'How tall should it be, in mm?',
+      } as DesignResult,
+    });
+    const { harness } = mount();
+    await flush();
+
+    await act(async () => {
+      await harness.current().handleEngineDescribe('a bracket', { skipVisualLoop: true });
+    });
+
+    expect(harness.current().currentDesignResult?.clarification).toBe(
+      'How tall should it be, in mm?',
+    );
+    expect(harness.current().hasEngineDesign).toBe(false);
+    harness.unmount();
+  });
+
+  it('handleEngineDescribe: a clarification keeps the previously understood plan visible', async () => {
+    mockDescribeIntoStudio.mockResolvedValue({
+      ...DESIGN_1,
+      result: {
+        rid: 1,
+        status: 'completed',
+        plan: { object_type: 'Bracket', summary: 'A flat bracket.' },
+      } as DesignResult,
+    });
+    const { harness } = mount();
+    await flush();
+    await act(async () => {
+      await harness.current().handleEngineDescribe('a bracket', { skipVisualLoop: true });
+    });
+    expect(harness.current().currentDesignResult?.plan?.object_type).toBe('Bracket');
+
+    mockDescribeIntoStudio.mockResolvedValue({
+      ok: false,
+      gate: 'What bore diameter?',
+      result: {
+        rid: 2,
+        status: 'clarification_needed',
+        clarification: 'What bore diameter?',
+      } as DesignResult,
+    });
+    await act(async () => {
+      await harness.current().handleEngineDescribe('add a hole', {
+        refine: true,
+        skipVisualLoop: true,
+      });
+    });
+
+    expect(harness.current().currentDesignResult?.clarification).toBe('What bore diameter?');
+    expect(harness.current().currentDesignResult?.plan?.object_type).toBe('Bracket');
+    harness.unmount();
+  });
+
+  it('handleEngineDescribe: a non-clarification failure does not disturb the last design result', async () => {
+    mockDescribeIntoStudio.mockResolvedValue({
+      ...DESIGN_1,
+      result: { rid: 1, status: 'completed', plan: { object_type: 'Coaster' } } as DesignResult,
+    });
+    const { harness } = mount();
+    await flush();
+    await act(async () => {
+      await harness.current().handleEngineDescribe('a coaster', { skipVisualLoop: true });
+    });
+
+    mockDescribeIntoStudio.mockResolvedValue({
+      ok: false,
+      gate: "That design didn't pass the printability check.",
+      result: { rid: 3, status: 'gate_failed' } as DesignResult,
+    });
+    await act(async () => {
+      await harness.current().handleEngineDescribe('thinner', {
+        refine: true,
+        skipVisualLoop: true,
+      });
+    });
+
+    expect(harness.current().currentDesignResult?.plan?.object_type).toBe('Coaster');
+    expect(harness.current().currentDesignResult?.clarification ?? null).toBeNull();
+    harness.unmount();
+  });
+
   it('handleAiPanelSubmit: trims the draft, clears it, and forwards it as a refine turn', async () => {
     mockDescribeIntoStudio.mockResolvedValue(DESIGN_1);
     const { harness, setDraftText } = mount({ draftText: '  make it taller  ' });
