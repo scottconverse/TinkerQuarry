@@ -4,10 +4,10 @@
  * by tests without being executed as its own suite.
  */
 
-import { type TextStreamPart, type ToolSet } from 'ai';
-import { render } from '@testing-library/react';
-import { jest } from '@jest/globals';
-import { createElement } from 'react';
+import { type TextStreamPart, type ToolSet } from "ai";
+import { render } from "@testing-library/react";
+import { jest } from "@jest/globals";
+import { createElement } from "react";
 
 export type StreamChunk = TextStreamPart<ToolSet>;
 
@@ -32,6 +32,17 @@ export function createHookHarness<T>(useValue: () => T) {
   return {
     current() {
       return latest!;
+    },
+    /**
+     * Re-run the hook with whatever its inputs now are.
+     *
+     * Needed to test any effect keyed on a changing prop: mounting with the final value means
+     * the dependency never CHANGES, so the effect fires once at mount and never again. E2E-B
+     * (a tune that left the displayed dimensions stale) is exactly that shape — describe first,
+     * then edit — and could not be reproduced without it.
+     */
+    rerender() {
+      view.rerender(createElement(Harness));
     },
     unmount: view.unmount,
   };

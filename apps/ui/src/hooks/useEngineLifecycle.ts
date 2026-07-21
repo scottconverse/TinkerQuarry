@@ -676,7 +676,11 @@ export function useEngineLifecycle({
           setCurrentDesignResult((prev) =>
             prev
               ? { ...prev, clarification }
-              : (result.result ?? { rid: -1, status: "clarification_needed", clarification }),
+              : (result.result ?? {
+                  rid: -1,
+                  status: "clarification_needed",
+                  clarification,
+                }),
           );
         }
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
@@ -1108,13 +1112,19 @@ export function useEngineLifecycle({
       void (async () => {
         setReverseImportStatus({ state: "running", filename: file.name });
         try {
-          notifySuccess("Importing CAD...", { toastId: "reverse-import-started" });
+          notifySuccess("Importing CAD...", {
+            toastId: "reverse-import-started",
+          });
           const bytes = new Uint8Array(await file.arrayBuffer());
           const result = await reverseImportIntoStudio(bytes, file.name);
           if (!result.ok) {
             const message =
               result.error ?? result.gate ?? "Could not import that mesh file.";
-            setReverseImportStatus({ state: "error", filename: file.name, message });
+            setReverseImportStatus({
+              state: "error",
+              filename: file.name,
+              message,
+            });
             notifyError({
               operation: "Reverse import failed",
               error: message,
@@ -1128,14 +1138,24 @@ export function useEngineLifecycle({
             toastId: "reverse-import-ready",
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          setReverseImportStatus({ state: "error", filename: file.name, message });
+          const message =
+            error instanceof Error ? error.message : String(error);
+          setReverseImportStatus({
+            state: "error",
+            filename: file.name,
+            message,
+          });
           notifyError({ operation: "Reverse import failed", error });
         }
       })();
     };
     input.click();
-  }, [commitEngineOutcome, hideWelcomeScreen, ready, reverseImportStatus.state]);
+  }, [
+    commitEngineOutcome,
+    hideWelcomeScreen,
+    ready,
+    reverseImportStatus.state,
+  ]);
 
   const handleReopenDesign = useCallback(
     async (id: string) => {
@@ -1313,6 +1333,18 @@ export function useEngineLifecycle({
       void engine.render(rid, tuned).then((r) => {
         if (r.ok && r.data.status === "completed") {
           lastEngineScadRef.current = renderTargetContent;
+          // E2E-B: this effect used to publish ONLY the readiness. Everything else — the Intent
+          // panel's dimensions, the Properties panel, explain-design-summary — reads
+          // currentDesignResult, so after a tune they all kept showing the ORIGINAL size while
+          // the part that would actually slice was the tuned one. A user tuning 80mm -> 120mm
+          // was shown "Dimensions match: 80.0 x 60.0 x 40.0 mm" for a 120mm part, and that
+          // survived into the slice.
+          //
+          // The slice path (handleMakeItReal, above) already does exactly this after its own
+          // tuned re-render — the correct pattern existed in this file and this effect simply
+          // did not follow it.
+          setCurrentDesignResult(r.data);
+          setCurrentDesignHeadline(r.data.report?.headline ?? null);
           setLiveReadiness(engineGateSummary(r.data));
           setVisualReviewSummary(null);
           setVisualDiffSummary(null);
