@@ -3,8 +3,10 @@
 import type { ShareContext } from '@ui/types/share';
 
 interface ImportMetaEnv {
+  /** Explicit share API origin. Empty/absent means same-origin (WEB-6). */
   readonly VITE_SHARE_API_URL?: string;
-  readonly VITE_ENABLE_PROD_SHARE_DEV?: string;
+  /** Turns the share feature on. Set by .env.share / .env.share-dev (WEB-6). */
+  readonly VITE_SHARE_ENABLED?: string;
 }
 
 interface ImportMeta {

@@ -1,0 +1,3 @@
+# Local share-testing bundle (pnpm share:dev). Pinned to http://localhost:8788,
+# never deployable. The repo-root .gitignore only covers apps/*/dist.
+dist-share-dev/

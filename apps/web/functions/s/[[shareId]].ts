@@ -1,4 +1,5 @@
 import { getShareUrl, getThumbnailUrl, readShare, type Env } from '../_lib/share';
+import { applySecurityHeaders } from '../_lib/securityHeaders';
 
 function normalizeShareIdParam(value: string | string[] | undefined): string | null {
   if (typeof value === 'string') {
@@ -44,25 +45,52 @@ function replaceMetaTag(
     'i'
   );
   const replacement = `<meta ${selector.attr}="${selector.name}" content="${escapeHtmlAttribute(content)}" />`;
+  // WEB-2: String.prototype.replace interprets $&, $`, $' and $n inside a
+  // replacement STRING. The replacement carries attacker-controlled text (the
+  // share title), and escapeHtmlAttribute does not escape '$'. The function form
+  // of replace never performs substitution, so pass a replacer instead of a
+  // string on BOTH branches.
   if (pattern.test(html)) {
-    return html.replace(pattern, replacement);
+    return html.replace(pattern, () => replacement);
   }
-  return html.replace('</head>', `  ${replacement}\n  </head>`);
+  return html.replace('</head>', () => `  ${replacement}\n  </head>`);
+}
+
+type ShareDebugInfo = {
+  rawParam: string | string[] | undefined;
+  shareId: string | null;
+  shareFound: boolean;
+  metadataApplied: boolean;
+  hasThumbnail: boolean;
+  ogTitle: string | null;
+  ogImage: string | null;
+  twitterCard: string | null;
+};
+
+/**
+ * WEB-11: these headers used to ship on every public response with no gate.
+ * x-share-og-title exposed the user's own title and x-share-found was a
+ * share-existence oracle. They are diagnostics, so they are off unless the
+ * deployment explicitly asks for them.
+ */
+function shareDebugEnabled(env: Env): boolean {
+  return env.SHARE_DEBUG_HEADERS === 'true';
 }
 
 function withShareDebugHeaders(
   response: Response,
-  debug: {
-    rawParam: string | string[] | undefined;
-    shareId: string | null;
-    shareFound: boolean;
-    metadataApplied: boolean;
-    hasThumbnail: boolean;
-    ogTitle: string | null;
-    ogImage: string | null;
-    twitterCard: string | null;
-  }
+  debug: ShareDebugInfo,
+  env: Env
 ): Response {
+  if (!shareDebugEnabled(env)) {
+    return response;
+  }
+
+  // WEB-11: run EVERY value through the sanitizer. It used to be applied only to
+  // ogTitle/ogImage/twitterCard — values the code builds itself — and skipped
+  // for x-share-param-raw and x-share-id, the two that come straight off the
+  // URL. A control character in those threw `Headers.set: invalid header value`,
+  // i.e. an unhandled 500 on the public route.
   const toHeaderValue = (value: string | null) =>
     (value ?? 'missing').replace(/[^\t\x20-\x7e]/g, '?');
 
@@ -72,8 +100,8 @@ function withShareDebugHeaders(
     'x-share-param-type',
     Array.isArray(debug.rawParam) ? 'array' : debug.rawParam ? 'string' : 'missing'
   );
-  headers.set('x-share-param-raw', formatRawParamValue(debug.rawParam));
-  headers.set('x-share-id', debug.shareId ?? 'missing');
+  headers.set('x-share-param-raw', toHeaderValue(formatRawParamValue(debug.rawParam)));
+  headers.set('x-share-id', toHeaderValue(debug.shareId));
   headers.set('x-share-found', debug.shareFound ? 'true' : 'false');
   headers.set('x-share-meta-applied', debug.metadataApplied ? 'true' : 'false');
   headers.set('x-share-thumbnail', debug.hasThumbnail ? 'true' : 'false');
@@ -88,60 +116,70 @@ function withShareDebugHeaders(
   });
 }
 
+/** WEB-11: share ids are secrets — never log them on an ungated public route. */
+function logShareMeta(env: Env, payload: Record<string, unknown>): void {
+  if (!shareDebugEnabled(env)) {
+    return;
+  }
+  console.info('[share-meta]', JSON.stringify(payload));
+}
+
 async function handleShareMeta(context: EventContext<Env, string, unknown>) {
   const rawShareParam = context.params.shareId;
   const shareId = normalizeShareIdParam(rawShareParam);
   const response = await context.next();
 
   if (!shareId) {
-    console.info(
-      '[share-meta]',
-      JSON.stringify({
-        route: 'functions/s/[[shareId]]',
-        rawParam: rawShareParam,
-        shareId: null,
-        shareFound: false,
-        metadataApplied: false,
-        hasThumbnail: false,
-      })
-    );
-
-    return withShareDebugHeaders(response, {
+    logShareMeta(context.env, {
+      route: 'functions/s/[[shareId]]',
       rawParam: rawShareParam,
       shareId: null,
       shareFound: false,
       metadataApplied: false,
       hasThumbnail: false,
-      ogTitle: null,
-      ogImage: null,
-      twitterCard: null,
     });
+
+    return withShareDebugHeaders(
+      response,
+      {
+        rawParam: rawShareParam,
+        shareId: null,
+        shareFound: false,
+        metadataApplied: false,
+        hasThumbnail: false,
+        ogTitle: null,
+        ogImage: null,
+        twitterCard: null,
+      },
+      context.env
+    );
   }
 
   const share = await readShare(context.env, shareId);
   if (!share) {
-    console.info(
-      '[share-meta]',
-      JSON.stringify({
-        route: 'functions/s/[[shareId]]',
-        rawParam: rawShareParam,
-        shareId,
-        shareFound: false,
-        metadataApplied: false,
-        hasThumbnail: false,
-      })
-    );
-
-    return withShareDebugHeaders(response, {
+    logShareMeta(context.env, {
+      route: 'functions/s/[[shareId]]',
       rawParam: rawShareParam,
       shareId,
       shareFound: false,
       metadataApplied: false,
       hasThumbnail: false,
-      ogTitle: null,
-      ogImage: null,
-      twitterCard: null,
     });
+
+    return withShareDebugHeaders(
+      response,
+      {
+        rawParam: rawShareParam,
+        shareId,
+        shareFound: false,
+        metadataApplied: false,
+        hasThumbnail: false,
+        ogTitle: null,
+        ogImage: null,
+        twitterCard: null,
+      },
+      context.env
+    );
   }
 
   const html = await response.text();
@@ -178,34 +216,38 @@ async function handleShareMeta(context: EventContext<Env, string, unknown>) {
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   headers.set('Content-Type', 'text/html; charset=utf-8');
+  // WEB-9: this route builds its own Headers, so it does not inherit
+  // public/_headers. Re-apply the same policy here.
+  applySecurityHeaders(headers);
   const rewrittenResponse = new Response(updated, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
 
-  console.info(
-    '[share-meta]',
-    JSON.stringify({
-      route: 'functions/s/[[shareId]]',
-      rawParam: rawShareParam,
-      shareId,
-      shareFound: true,
-      metadataApplied: true,
-      hasThumbnail: Boolean(share.thumbnailKey),
-    })
-  );
-
-  return withShareDebugHeaders(rewrittenResponse, {
+  logShareMeta(context.env, {
+    route: 'functions/s/[[shareId]]',
     rawParam: rawShareParam,
     shareId,
     shareFound: true,
     metadataApplied: true,
     hasThumbnail: Boolean(share.thumbnailKey),
-    ogTitle,
-    ogImage: thumbnailUrl,
-    twitterCard,
   });
+
+  return withShareDebugHeaders(
+    rewrittenResponse,
+    {
+      rawParam: rawShareParam,
+      shareId,
+      shareFound: true,
+      metadataApplied: true,
+      hasThumbnail: Boolean(share.thumbnailKey),
+      ogTitle,
+      ogImage: thumbnailUrl,
+      twitterCard,
+    },
+    context.env
+  );
 }
 
 export const onRequestGet: PagesFunction<Env> = handleShareMeta;

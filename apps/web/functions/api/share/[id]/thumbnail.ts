@@ -1,4 +1,5 @@
 import {
+  getBearerToken,
   getThumbnailUrl,
   hashToken,
   json,
@@ -9,20 +10,119 @@ import {
 
 const MAX_THUMBNAIL_BYTES = 512 * 1024;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** A share thumbnail is a small preview render; nothing legitimate exceeds this. */
+const MAX_THUMBNAIL_DIMENSION = 4096;
 
-function isPng(bytes: ArrayBuffer): boolean {
-  if (bytes.byteLength < PNG_SIGNATURE.length) return false;
-  const view = new Uint8Array(bytes, 0, PNG_SIGNATURE.length);
-  return PNG_SIGNATURE.every((byte, index) => view[index] === byte);
+const VALID_BIT_DEPTHS = new Set([1, 2, 4, 8, 16]);
+const VALID_COLOUR_TYPES = new Set([0, 2, 3, 4, 6]);
+
+/** CRC-32 with the PNG polynomial, over a chunk's type + data bytes. */
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
-function getBearerToken(request: Request): string | null {
-  const header = request.headers.get('Authorization') || '';
-  if (!header.startsWith('Bearer ')) {
-    return null;
+/**
+ * WEB-10: the old check compared only the 8-byte PNG signature, so ANY 512 KB
+ * blob prefixed with those bytes was stored to R2 and served back from the
+ * project's own origin as image/png, cached immutable for a year — an arbitrary
+ * file host. Walk the real chunk structure instead: every chunk must declare a
+ * length that fits, carry a valid CRC, start with a well-formed IHDR, contain
+ * image data, and end at IEND with no trailing bytes.
+ */
+function isPng(buffer: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.byteLength < PNG_SIGNATURE.length) {
+    return false;
   }
-  const token = header.slice('Bearer '.length).trim();
-  return token || null;
+  if (PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) {
+    return false;
+  }
+
+  const view = new DataView(buffer);
+  let offset = PNG_SIGNATURE.length;
+  let sawIhdr = false;
+  let sawData = false;
+  let sawEnd = false;
+
+  while (offset < bytes.byteLength) {
+    // length (4) + type (4) + data + crc (4)
+    if (offset + 8 > bytes.byteLength) {
+      return false;
+    }
+    const length = view.getUint32(offset);
+    if (length > 0x7fffffff) {
+      return false;
+    }
+    const dataStart = offset + 8;
+    const crcStart = dataStart + length;
+    if (crcStart + 4 > bytes.byteLength) {
+      return false;
+    }
+
+    const type = String.fromCharCode(
+      bytes[offset + 4],
+      bytes[offset + 5],
+      bytes[offset + 6],
+      bytes[offset + 7]
+    );
+    if (!/^[A-Za-z]{4}$/.test(type)) {
+      return false;
+    }
+    if (crc32(bytes.subarray(offset + 4, crcStart)) !== view.getUint32(crcStart)) {
+      return false;
+    }
+
+    if (!sawIhdr) {
+      // The first chunk must be a well-formed IHDR.
+      if (type !== 'IHDR' || length !== 13) {
+        return false;
+      }
+      const width = view.getUint32(dataStart);
+      const height = view.getUint32(dataStart + 4);
+      if (width < 1 || height < 1) {
+        return false;
+      }
+      if (width > MAX_THUMBNAIL_DIMENSION || height > MAX_THUMBNAIL_DIMENSION) {
+        return false;
+      }
+      if (!VALID_BIT_DEPTHS.has(bytes[dataStart + 8])) {
+        return false;
+      }
+      if (!VALID_COLOUR_TYPES.has(bytes[dataStart + 9])) {
+        return false;
+      }
+      if (bytes[dataStart + 10] !== 0 || bytes[dataStart + 11] !== 0) {
+        return false;
+      }
+      if (bytes[dataStart + 12] > 1) {
+        return false;
+      }
+      sawIhdr = true;
+    } else if (type === 'IHDR') {
+      return false; // exactly one header
+    }
+
+    if (type === 'IDAT') {
+      sawData = true;
+    }
+    if (type === 'IEND') {
+      sawEnd = true;
+      offset = crcStart + 4;
+      break;
+    }
+
+    offset = crcStart + 4;
+  }
+
+  // IEND must terminate the file exactly — no smuggled trailing payload.
+  return sawIhdr && sawData && sawEnd && offset === bytes.byteLength;
 }
 
 async function buildThumbnailResponse(
@@ -50,9 +150,11 @@ async function buildThumbnailResponse(
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
   headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-  if (!headers.has('Content-Type')) {
-    headers.set('Content-Type', 'image/png');
-  }
+  // WEB-9/WEB-10: this is third-party-uploaded content served from the product's
+  // own origin, so pin the declared type and forbid MIME sniffing.
+  headers.set('Content-Type', 'image/png');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
   return new Response(includeBody ? object.body : null, { headers });
 }
 

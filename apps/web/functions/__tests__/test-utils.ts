@@ -2,6 +2,9 @@ export type MockKvStore = Map<string, string>;
 
 export function createMockEnv(initialKv: Record<string, string> = {}) {
   const kvStore: MockKvStore = new Map(Object.entries(initialKv));
+  /** Options passed to the last SHARE_KV.put for each key (WEB-5: expirationTtl). */
+  const kvPutOptions: Map<string, unknown> = new Map();
+  const r2Store: Map<string, ArrayBuffer> = new Map();
   const limiterStore: Map<string, number> = new Map();
   const rateLimiter = {
     idFromName: (name: string) => name,
@@ -22,14 +25,30 @@ export function createMockEnv(initialKv: Record<string, string> = {}) {
     env: {
       SHARE_KV: {
         get: async (key: string) => kvStore.get(key) ?? null,
-        put: async (key: string, value: string) => {
+        put: async (key: string, value: string, options?: unknown) => {
           kvStore.set(key, value);
+          kvPutOptions.set(key, options ?? null);
+        },
+        delete: async (key: string) => {
+          kvStore.delete(key);
+          kvPutOptions.delete(key);
         },
       },
-      SHARE_R2: {},
+      SHARE_R2: {
+        put: async (key: string, value: ArrayBuffer) => {
+          r2Store.set(key, value);
+        },
+        get: async (key: string) => r2Store.get(key) ?? null,
+        head: async (key: string) => r2Store.get(key) ?? null,
+        delete: async (key: string) => {
+          r2Store.delete(key);
+        },
+      },
       SHARE_RATE_LIMITER: rateLimiter,
     },
     kvStore,
+    kvPutOptions,
+    r2Store,
     limiterStore,
   };
 }
@@ -40,6 +59,7 @@ export function createPagesContext(args: {
     SHARE_KV: {
       get: (key: string) => Promise<string | null>;
       put: (key: string, value: string, options?: unknown) => Promise<void>;
+      delete?: (key: string) => Promise<void>;
     };
     SHARE_R2: unknown;
     SHARE_RATE_LIMITER?: unknown;
