@@ -46,6 +46,48 @@ struct EngineLaunch {
     install_root: Option<PathBuf>,
 }
 
+/// How long a cold engine start is allowed to take before we give up on it.
+const ENGINE_START_BUDGET: Duration = Duration::from_secs(120);
+
+/// The decision one iteration of the engine-startup poll loop reaches.
+///
+/// Extracted from `ensure_engine` so the die-fast behaviour added in PR #29 is
+/// unit-testable instead of only reachable by starting a real child process.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum StartupPoll {
+    /// The engine answered `/api/health`; startup succeeded.
+    Ready,
+    /// The child process already exited. Carries its exit status for the error
+    /// message. This must beat `TimedOut` — the exit status is the actionable
+    /// diagnosis and it is what lets a dead engine fail in seconds instead of
+    /// burning the full budget.
+    Died(String),
+    /// Still alive but out of budget; the caller kills it.
+    TimedOut,
+    /// Alive, not healthy yet, still inside the budget.
+    KeepWaiting,
+}
+
+/// Pure decision for one poll iteration. Precedence: healthy > exited > out of
+/// budget > keep waiting.
+fn classify_startup_poll(
+    healthy: bool,
+    exit_status: Option<&str>,
+    elapsed: Duration,
+    budget: Duration,
+) -> StartupPoll {
+    if healthy {
+        return StartupPoll::Ready;
+    }
+    if let Some(status) = exit_status {
+        return StartupPoll::Died(status.to_string());
+    }
+    if elapsed >= budget {
+        return StartupPoll::TimedOut;
+    }
+    StartupPoll::KeepWaiting
+}
+
 #[tauri::command]
 pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<EngineInfo, String> {
     let mut guard = state
@@ -134,25 +176,37 @@ pub fn ensure_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<En
     // error, so each poll first checks whether the child has exited and fails immediately
     // with the log tail when it has.
     let mut child = child;
-    let start_deadline = Instant::now() + Duration::from_secs(120);
+    let started_at = Instant::now();
     loop {
-        if health_ready(&info.api_base_url, Duration::from_millis(500)) {
-            break;
-        }
-        if let Ok(Some(status)) = child.try_wait() {
-            return Err(format!(
-                "KimCad engine exited during startup ({status}). Engine log: {} — tail:\n{}",
-                log_path.display(),
-                log_tail(&log_path, 2048)
-            ));
-        }
-        if Instant::now() >= start_deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(format!(
-                "KimCad engine started but did not become healthy within 120 seconds. Engine log: {}",
-                log_path.display()
-            ));
+        let healthy = health_ready(&info.api_base_url, Duration::from_millis(500));
+        let exit_status = match child.try_wait() {
+            Ok(Some(status)) => Some(status.to_string()),
+            _ => None,
+        };
+        match classify_startup_poll(
+            healthy,
+            exit_status.as_deref(),
+            started_at.elapsed(),
+            ENGINE_START_BUDGET,
+        ) {
+            StartupPoll::Ready => break,
+            StartupPoll::Died(status) => {
+                return Err(format!(
+                    "KimCad engine exited during startup ({status}). Engine log: {} — tail:\n{}",
+                    log_path.display(),
+                    log_tail(&log_path, 2048)
+                ));
+            }
+            StartupPoll::TimedOut => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "KimCad engine started but did not become healthy within {} seconds. Engine log: {}",
+                    ENGINE_START_BUDGET.as_secs(),
+                    log_path.display()
+                ));
+            }
+            StartupPoll::KeepWaiting => {}
         }
         std::thread::sleep(Duration::from_millis(250));
     }
@@ -344,4 +398,70 @@ fn python_binary_names() -> Vec<&'static str> {
 
 fn is_executable_candidate(path: &Path) -> bool {
     path.is_file()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BUDGET: Duration = Duration::from_secs(120);
+
+    #[test]
+    fn startup_poll_waits_while_a_live_child_is_still_warming_up() {
+        assert_eq!(
+            classify_startup_poll(false, None, Duration::from_secs(3), BUDGET),
+            StartupPoll::KeepWaiting
+        );
+    }
+
+    #[test]
+    fn startup_poll_reports_ready_as_soon_as_health_passes() {
+        assert_eq!(
+            classify_startup_poll(true, None, Duration::from_secs(3), BUDGET),
+            StartupPoll::Ready
+        );
+    }
+
+    #[test]
+    fn startup_poll_dies_fast_when_the_child_exits_during_startup() {
+        // PR #29's whole point: a child that already exited must not burn the
+        // remaining budget. 3 s in, well under the 120 s budget.
+        assert_eq!(
+            classify_startup_poll(false, Some("exit code: 3"), Duration::from_secs(3), BUDGET),
+            StartupPoll::Died("exit code: 3".to_string())
+        );
+    }
+
+    #[test]
+    fn startup_poll_prefers_the_exit_diagnosis_over_the_timeout_diagnosis() {
+        // Both conditions true at once. The exit status is the actionable
+        // message (it carries the log tail), so it must win.
+        assert_eq!(
+            classify_startup_poll(
+                false,
+                Some("exit code: 1"),
+                Duration::from_secs(500),
+                BUDGET
+            ),
+            StartupPoll::Died("exit code: 1".to_string())
+        );
+    }
+
+    #[test]
+    fn startup_poll_times_out_only_when_the_child_is_still_alive() {
+        assert_eq!(
+            classify_startup_poll(false, None, Duration::from_secs(120), BUDGET),
+            StartupPoll::TimedOut
+        );
+    }
+
+    #[test]
+    fn startup_poll_prefers_ready_over_every_other_outcome() {
+        // A child that answered /api/health and then exited in the same tick is
+        // a successful start, not a startup death.
+        assert_eq!(
+            classify_startup_poll(true, Some("exit code: 0"), Duration::from_secs(500), BUDGET),
+            StartupPoll::Ready
+        );
+    }
 }
