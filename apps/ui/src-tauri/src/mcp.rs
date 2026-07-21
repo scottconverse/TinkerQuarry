@@ -1114,42 +1114,118 @@ fn lexical_path_parts(path: &str) -> Option<(String, Vec<String>)> {
     Some((anchor, components))
 }
 
-/// Is `requested` inside `workspace_root`?
+/// Win32 resolves these names to devices in *every* directory, so a file
+/// "written" to one silently goes nowhere (or blocks) instead of producing an
+/// export. Extensions and trailing dots/spaces do not disarm them: `CON.stl`
+/// and `aux.` are the device too.
+const RESERVED_WINDOWS_DEVICE_NAMES: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+fn is_reserved_windows_device_name(component: &str) -> bool {
+    let stem = component
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches([' ', '.']);
+    RESERVED_WINDOWS_DEVICE_NAMES
+        .iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+}
+
+/// Byte-for-byte the desktop side's own `isAbsolutePath`
+/// (`desktopMcp.ts`: `path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)`).
+///
+/// This has to be an exact mirror, not merely a "reasonable" absolute-path
+/// test. `resolveExportDestination` forwards an absolute path verbatim to
+/// `writeFile` and joins a relative one onto the project root, so whenever this
+/// guard and that function classify a string differently, the guard is reasoning
+/// about a destination the app will not actually write to. That divergence is
+/// exactly how the first version of this check failed open.
+fn desktop_treats_path_as_absolute(path: &str) -> bool {
+    if path.starts_with('/') {
+        return true;
+    }
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/')
+}
+
+/// Why an export destination was refused, so the caller gets a message that
+/// names the real problem.
+#[derive(Debug, PartialEq, Eq)]
+enum ExportPathVerdict {
+    Confined,
+    OutsideWorkspace,
+    ReservedDeviceName(String),
+}
+
+/// Where does `requested` actually land, and is that inside `workspace_root`?
 ///
 /// Comparison is whole-component and case-insensitive, matching Windows path
 /// semantics — a raw `starts_with` would accept `…\widget-evil\` for the root
 /// `…\widget`.
-fn export_path_is_confined(workspace_root: &str, requested: &str) -> bool {
+///
+/// Every unresolvable case is a REFUSAL. `lexical_path_parts` returns `None`
+/// for any path that climbs above its own anchor (`C:\..\…`), and the previous
+/// version of this check read that `None` as "not an absolute path", joined the
+/// string onto the workspace root, and let the `..` cancel the drive component
+/// the join had just injected — so `C:\..\Users\me\AppData\…\Startup\p.stl`
+/// was judged "inside" and then written to the real autostart folder.
+fn classify_export_path(workspace_root: &str, requested: &str) -> ExportPathVerdict {
     let Some((root_anchor, root_components)) = lexical_path_parts(workspace_root) else {
-        return false;
+        return ExportPathVerdict::OutsideWorkspace;
     };
 
-    // A relative path is resolved against the workspace root, which is how the
-    // desktop side resolves it too (`desktopMcp.ts` `resolveExportDestination`).
-    let requested_is_absolute = lexical_path_parts(requested)
-        .map(|(anchor, _)| !anchor.is_empty())
-        .unwrap_or(false);
-    let combined = if requested_is_absolute {
-        requested.trim().to_string()
+    let requested = requested.trim();
+
+    // `\\?\…`, `\\.\…` and UNC `\\server\share\…` carry no drive letter and no
+    // leading `/`, so `desktopMcp.ts` calls them RELATIVE and joins them onto
+    // the project root — landing somewhere this guard's reading of the path
+    // does not predict. Never guess about a write path: refuse.
+    if requested.starts_with("\\\\") || requested.starts_with("//") {
+        return ExportPathVerdict::OutsideWorkspace;
+    }
+
+    let combined = if desktop_treats_path_as_absolute(requested) {
+        requested.to_string()
     } else {
-        format!("{}\\{}", workspace_root.trim(), requested.trim())
+        // Matches Tauri's `join`, which normalizes without absolute-replacement
+        // (`tauri::path::plugin::normalize_path_no_absolute`), so a root-relative
+        // `\out\w.stl` really does land inside the workspace.
+        format!("{}\\{}", workspace_root.trim(), requested)
     };
 
     let Some((anchor, components)) = lexical_path_parts(&combined) else {
-        return false;
+        return ExportPathVerdict::OutsideWorkspace;
     };
 
     if !anchor.eq_ignore_ascii_case(&root_anchor) {
-        return false;
+        return ExportPathVerdict::OutsideWorkspace;
     }
     // Strictly inside: the root directory itself is not a file destination.
     if components.len() <= root_components.len() {
-        return false;
+        return ExportPathVerdict::OutsideWorkspace;
     }
-    root_components
+    let confined = root_components
         .iter()
         .zip(&components)
-        .all(|(root_component, component)| component.eq_ignore_ascii_case(root_component))
+        .all(|(root_component, component)| component.eq_ignore_ascii_case(root_component));
+    if !confined {
+        return ExportPathVerdict::OutsideWorkspace;
+    }
+
+    if let Some(device) = components
+        .iter()
+        .find(|component| is_reserved_windows_device_name(component))
+    {
+        return ExportPathVerdict::ReservedDeviceName(device.clone());
+    }
+
+    ExportPathVerdict::Confined
 }
 
 /// Arguments forwarded to the desktop side for `export_file`, refused unless the
@@ -1178,10 +1254,18 @@ fn export_file_arguments(
         );
     };
 
-    if !export_path_is_confined(workspace_root, requested) {
-        return Err(format!(
-            "❌ `export_file` refused to write outside the workspace.\n\nRequested: {requested}\nWorkspace root: {workspace_root}\n\nExports over MCP are confined to the workspace this session is bound to. Choose a destination inside that folder, or export from the TinkerQuarry window where you can approve the destination yourself."
-        ));
+    match classify_export_path(workspace_root, requested) {
+        ExportPathVerdict::Confined => {}
+        ExportPathVerdict::ReservedDeviceName(device) => {
+            return Err(format!(
+                "❌ `export_file` refused to write to the reserved Windows device name `{device}`.\n\nRequested: {requested}\n\nWindows resolves that name to a device in every directory, so the export would silently go nowhere instead of producing a file. Choose an ordinary filename."
+            ));
+        }
+        ExportPathVerdict::OutsideWorkspace => {
+            return Err(format!(
+                "❌ `export_file` refused to write outside the workspace.\n\nRequested: {requested}\nWorkspace root: {workspace_root}\n\nExports over MCP are confined to the workspace this session is bound to. Choose a destination inside that folder, or export from the TinkerQuarry window where you can approve the destination yourself."
+            ));
+        }
     }
 
     Ok(serde_json::json!({
@@ -2426,5 +2510,152 @@ mod tests {
             &export_params("   "),
         )
         .expect_err("an empty path must be refused");
+    }
+
+    const WIDGET_ROOT: &str = "C:\\Users\\me\\projects\\widget";
+
+    /// The exploit the v1.5.1 verifier landed against the first confinement
+    /// guard. `C:\..\…` climbs above its own anchor, so `lexical_path_parts`
+    /// returns `None`; the old guard read that `None` as "not absolute", joined
+    /// the string onto the workspace root, and the `..` then cancelled the
+    /// drive component the join had just injected — so the guard concluded
+    /// "inside" while the desktop side (`desktopMcp.ts` `isAbsolutePath`, which
+    /// only looks at `^[A-Za-z]:[\\/]`) forwarded the string verbatim to the
+    /// real autostart folder.
+    #[test]
+    fn export_file_refuses_a_drive_relative_climb_into_the_startup_folder() {
+        let error = export_file_arguments(
+            Some(WIDGET_ROOT),
+            &export_params(
+                "C:\\..\\Users\\me\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\p.stl",
+            ),
+        )
+        .expect_err("a drive-relative climb out of the workspace must be refused");
+
+        assert!(
+            error.contains("outside the workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    /// Same climb, spelled with forward slashes. `lexical_path_parts`
+    /// normalizes `/` to `\`, so a guard that only special-cased backslashes
+    /// would still be open here.
+    #[test]
+    fn export_file_refuses_a_drive_relative_climb_spelled_with_forward_slashes() {
+        export_file_arguments(Some(WIDGET_ROOT), &export_params("C:/../Users/me/evil.stl"))
+            .expect_err("a forward-slash drive-relative climb must be refused");
+    }
+
+    /// A climb that lands back on a path which *textually* re-enters the
+    /// workspace is still an escape, because the caller's original string — not
+    /// the guard's resolved form — is what the desktop side writes.
+    #[test]
+    fn export_file_refuses_a_drive_relative_climb_that_re_enters_the_root_name() {
+        export_file_arguments(
+            Some(WIDGET_ROOT),
+            &export_params("C:\\..\\Users\\me\\projects\\widget\\out\\p.stl"),
+        )
+        .expect_err("a climb above the drive anchor must be refused however it lands");
+    }
+
+    /// `\\?\`, `\\.\` and UNC spellings are classified as *relative* by
+    /// `desktopMcp.ts`, so the two resolvers can never agree on where they land.
+    /// The guard must refuse rather than guess.
+    #[test]
+    fn export_file_refuses_a_device_or_unc_spelling_the_desktop_side_would_rewrite() {
+        for requested in [
+            "\\\\?\\C:\\..\\Users\\me\\evil.stl",
+            "\\\\.\\C:\\..\\Users\\me\\evil.stl",
+            "\\\\server\\share\\..\\..\\evil.stl",
+        ] {
+            export_file_arguments(Some(WIDGET_ROOT), &export_params(requested))
+                .unwrap_err_or_panic(requested);
+        }
+    }
+
+    /// Windows resolves `CON`, `NUL`, `PRN`, `AUX`, `COM1`-`COM9` and
+    /// `LPT1`-`LPT9` to devices no matter which directory they are spelled in,
+    /// so an "export" to one silently goes nowhere instead of producing a file.
+    #[test]
+    fn export_file_refuses_reserved_windows_device_names() {
+        for requested in [
+            "CON",
+            "NUL",
+            "PRN",
+            "AUX",
+            "com1",
+            "LPT9",
+            "out\\CON.stl",
+            "out/nul.stl",
+            "CON.stl",
+            "aux.",
+        ] {
+            export_file_arguments(Some(WIDGET_ROOT), &export_params(requested))
+                .unwrap_err_or_panic(requested);
+        }
+
+        // The verifier's probe verbatim: it read `true` here, and the export
+        // then silently went to a device instead of a file.
+        assert_eq!(
+            classify_export_path(WIDGET_ROOT, "CON"),
+            ExportPathVerdict::ReservedDeviceName("CON".to_string())
+        );
+    }
+
+    /// A name that merely *starts* with a reserved word is an ordinary file.
+    #[test]
+    fn export_file_allows_names_that_only_look_like_device_names() {
+        for requested in [
+            "conduit.stl",
+            "out\\console.stl",
+            "auxiliary.stl",
+            "com10.stl",
+        ] {
+            export_file_arguments(Some(WIDGET_ROOT), &export_params(requested))
+                .unwrap_or_else(|error| panic!("{requested} must be allowed, got: {error}"));
+        }
+    }
+
+    /// Regression for the over-refusal the verifier found. `desktopMcp.ts`
+    /// classifies `\out\w.stl` as RELATIVE (its `isAbsolutePath` requires a
+    /// drive letter or a leading forward slash), and Tauri's `join` normalizes
+    /// without absolute-replacement, so it resolves to
+    /// `C:\Users\me\projects\widget\out\w.stl` — safely inside.
+    #[test]
+    fn export_file_allows_a_root_relative_path_the_desktop_side_resolves_inside() {
+        let args = export_file_arguments(Some(WIDGET_ROOT), &export_params("\\out\\w.stl"))
+            .expect("a root-relative path resolves inside the workspace and must be allowed");
+
+        assert_eq!(
+            args.get("file_path").and_then(Value::as_str),
+            Some("\\out\\w.stl"),
+            "the client's own path string must reach the desktop side unchanged"
+        );
+    }
+
+    /// A leading forward slash IS absolute to `desktopMcp.ts`, which forwards it
+    /// verbatim, so the guard must keep treating it as absolute and refuse it.
+    #[test]
+    fn export_file_refuses_a_leading_forward_slash_absolute_path() {
+        export_file_arguments(
+            Some(WIDGET_ROOT),
+            &export_params("/Windows/System32/drivers/etc/hosts"),
+        )
+        .expect_err("a POSIX-rooted path is absolute to the desktop side and must be refused");
+    }
+
+    /// Small helper so the loop-driven cases name the offending input on
+    /// failure instead of panicking with a bare `unwrap`.
+    trait UnwrapErrOrPanic {
+        fn unwrap_err_or_panic(self, label: &str);
+    }
+
+    impl UnwrapErrOrPanic for Result<Value, String> {
+        fn unwrap_err_or_panic(self, label: &str) {
+            if let Ok(value) = self {
+                panic!("{label} must be refused, but the guard allowed it: {value}");
+            }
+        }
     }
 }
