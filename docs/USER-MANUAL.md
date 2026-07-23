@@ -264,18 +264,19 @@ twins.
 
 | Surface | Version | Notes |
 | --- | ---: | --- |
-| Product release | v1.5.0 | Desktop product, README, docs, installer filename |
-| `apps/ui` | 1.5.0 | React/Tauri Studio package |
-| Tauri config | 1.5.0 | Native Windows app metadata |
-| Tauri Rust package | 1.5.0 | Native shell crate metadata |
+| Product release | v1.5.1 (unreleased; v1.4.0 is the current release) | Desktop product, README, docs, installer filename |
+| `apps/ui` | 1.5.1 | React/Tauri Studio package |
+| Tauri config | 1.5.1 | Native Windows app metadata |
+| Tauri Rust package | 1.5.1 | Native shell crate metadata |
 | KimCad engine | 0.9.4 | Internal Python engine and `/api/health` version |
 | `apps/web` | 0.6.0 | Optional share web surface |
 | `packages/shared` | 0.4.0 | Shared TypeScript helpers |
 | OpenSCAD | 2026.03.16 | Bundled Windows snapshot, Manifold default |
 | PrintProof3D | 0.6.2 | Arm's-length printability tool |
 
-These numbers are intentionally not collapsed into one version. The product line is v1.5.0; the
-engine reports 0.9.4.
+These numbers are intentionally not collapsed into one version. The current release is **v1.4.0**;
+the in-progress version is **v1.5.1** (v1.5.0 was published, failed its gate, and was moved back to
+pre-release). The engine reports 0.9.4.
 
 ## Repository Layout
 

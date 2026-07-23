@@ -64,9 +64,9 @@ The supported beta platform is Windows.
 
    > **Not v1.5.0** — it was published, then failed review and was moved back to pre-release.
    > The link above always resolves to whatever is current.
-2. Double-click the installer. The installer is now digitally signed (verified publisher Scott
-   Converse) — SmartScreen may still warn while the certificate builds reputation, but the
-   signature itself is present and verifiable.
+2. Double-click the installer. The current release (v1.4.0) is an unsigned beta, so SmartScreen
+   will warn — choose **More info**, then **Run anyway**. Code signing (Azure Trusted Signing,
+   verified publisher Scott Converse) landed in v1.5.0, which is currently withdrawn to pre-release.
 3. Launch **TinkerQuarry**.
 4. Confirm printer/material settings.
 5. Build a small first part, such as `a 70 mm round coaster, 4 mm tall`.

@@ -9,7 +9,7 @@ hero + footer still branded the page "v1.5.0" while its Download button resolves
 
 This guard fails if any of README.md / docs/index.html / docs/STATUS.md reintroduces a "v1.5.0 is
 current" claim, brands the product as v1.5.0, or hardcodes a link to the withdrawn tag. It does NOT
-forbid mentioning v1.5.0 — the withdrawal itself has to be documented ("v1.5.0 was moved back to
+forbid mentioning v1.5.0 - the withdrawal itself has to be documented ("v1.5.0 was moved back to
 pre-release", "signed as of v1.5.0", "Not v1.5.0"). It targets only the current-claim phrasings.
 
 When v1.5.0 is eventually re-cut or superseded, update WITHDRAWN below.
@@ -29,19 +29,29 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WITHDRAWN = "1.5.0"
 
-FILES = ["README.md", "docs/index.html", "docs/STATUS.md"]
+FILES = ["README.md", "docs/index.html", "docs/STATUS.md", "docs/USER-MANUAL.md"]
 
 # (compiled pattern, human explanation). Each targets a CURRENT-claim phrasing, never a bare mention.
 _V = re.escape(f"v{WITHDRAWN}")
+# Each pattern targets a CURRENT/LATEST claim or a download of the withdrawn build, NEVER a bare
+# mention (the withdrawal itself must be documentable). Broadened after the v1.5.1 re-verify found
+# rewordings that slipped past the first draft: "The product line is v1.5.0" (no "current"), "is the
+# latest release", a Product-release table cell, and releases/download/<asset> links.
 BAD_PATTERNS = [
-    (re.compile(rf"releases/tag/{re.escape('v' + WITHDRAWN)}"),
-     f"a hardcoded link to the withdrawn {WITHDRAWN} tag - use /releases/latest so it resolves to the current release"),
-    (re.compile(rf"current\s+product\s+line\s+is\s+\**\s*TinkerQuarry\s+{_V}", re.IGNORECASE),
-     f"'current product line is TinkerQuarry v{WITHDRAWN}' - v{WITHDRAWN} is withdrawn"),
-    (re.compile(rf"{_V}[^\n]{{0,40}}\bis\s+the\s+current\s+release", re.IGNORECASE),
-     f"'v{WITHDRAWN} is the current release' - it is withdrawn to pre-release"),
+    (re.compile(rf"releases/(?:tag|download)/{re.escape('v' + WITHDRAWN)}\b"),
+     f"a hardcoded link to the withdrawn {WITHDRAWN} release - use /releases/latest so it resolves to the current release"),
+    (re.compile(rf"\bproduct\s+line\s+is\s+\**\s*(?:TinkerQuarry\s+)?{_V}", re.IGNORECASE),
+     f"'the product line is v{WITHDRAWN}' - v{WITHDRAWN} is withdrawn; the current release is v1.4.0"),
+    (re.compile(rf"{_V}[^\n]{{0,40}}\bis\s+the\s+(?:current|latest)\s+release", re.IGNORECASE),
+     f"'v{WITHDRAWN} is the current/latest release' - it is withdrawn to pre-release"),
+    (re.compile(rf"\b(?:current|latest)\s+release\s+is\s+\**\s*{_V}", re.IGNORECASE),
+     f"'the current/latest release is v{WITHDRAWN}' - it is withdrawn to pre-release"),
     (re.compile(rf"\bpublic\s+{_V}\s+release\b", re.IGNORECASE),
      f"'public v{WITHDRAWN} release' - v{WITHDRAWN} is withdrawn to pre-release"),
+    (re.compile(rf"\bdownload\s+{_V}\b", re.IGNORECASE),
+     f"a 'download v{WITHDRAWN}' instruction - v{WITHDRAWN} is withdrawn; point at the current release"),
+    (re.compile(rf"Product\s+release\s*\|\s*\**\s*{_V}\b", re.IGNORECASE),
+     f"a version-matrix row naming v{WITHDRAWN} as the Product release - it is withdrawn"),
     (re.compile(rf"{_V}\s+Windows\s+beta", re.IGNORECASE),
      f"the landing hero brands the page as the v{WITHDRAWN} beta - v{WITHDRAWN} is withdrawn"),
     (re.compile(rf"TinkerQuarry\s+{_V}\s*/"),

@@ -94,32 +94,51 @@ def test_withdrawn_version_guard_passes_on_the_real_repo():
     assert guard.main() == 0, "the real docs must not present the withdrawn v1.5.0 as current"
 
 
+# A clean, legal baseline for every scanned file — historical/withdrawal mentions the guard must
+# allow. Seeding ALL of guard.FILES (not a hardcoded 3) keeps the test correct when the scanned-file
+# list grows (it grew to include docs/USER-MANUAL.md after the re-verify).
+_LEGAL = (
+    "v1.4.0 is the current release. v1.5.0 was published, failed its gate, and was moved back to "
+    "pre-release; the installer is signed as of v1.5.0. Not v1.5.0 - the latest link resolves to "
+    "whatever is current.\n"
+)
+
+
+def _seed_docs(guard, root, overrides=None):
+    overrides = overrides or {}
+    for rel in guard.FILES:
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(overrides.get(rel, _LEGAL), encoding="utf-8")
+
+
 def test_withdrawn_version_guard_catches_a_v150_current_claim(monkeypatch, tmp_path):
     """A doc that re-declares the withdrawn v1.5.0 as current must fail the guard, while the
     historical/withdrawal mentions the guard deliberately allows must NOT trip it."""
     guard = _load("check_no_withdrawn_version_claims")
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "README.md").write_text(
-        "The current product line is **TinkerQuarry v1.5.0** with engine 0.9.4.\n", encoding="utf-8"
-    )
-    (tmp_path / "docs" / "index.html").write_text("<span>v1.5.0 Windows beta</span>\n", encoding="utf-8")
-    # a legal historical mention that must NOT be flagged
-    (tmp_path / "docs" / "STATUS.md").write_text(
-        "v1.5.0 was published, failed its gate, and was moved back to pre-release.\n", encoding="utf-8"
-    )
+    _seed_docs(guard, tmp_path, overrides={
+        "README.md": "The current product line is **TinkerQuarry v1.5.0** with engine 0.9.4.\n",
+        "docs/index.html": "<span>v1.5.0 Windows beta</span>\n",
+    })
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
     assert guard.main() == 1, "a 'v1.5.0 is current' claim / v1.5.0 branding must fail the guard"
 
 
+def test_withdrawn_version_guard_catches_reworded_and_link_regressions(monkeypatch, tmp_path):
+    """The re-verify found the first draft missed rewordings and the download-link shape."""
+    guard = _load("check_no_withdrawn_version_claims")
+    _seed_docs(guard, tmp_path, overrides={
+        "README.md": "The product line is v1.5.0.\n",  # no "current" — first draft missed this
+        "docs/STATUS.md": "The latest release is v1.5.0.\n",
+        "docs/index.html": "<a href='/x/releases/download/v1.5.0/setup.exe'>Download</a>\n",
+        "docs/USER-MANUAL.md": "| Product release | v1.5.0 | notes |\n",  # matrix cell
+    })
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    assert guard.main() == 1, "reworded current-claims and download-links must all be caught"
+
+
 def test_withdrawn_version_guard_allows_historical_mentions(monkeypatch, tmp_path):
     guard = _load("check_no_withdrawn_version_claims")
-    (tmp_path / "docs").mkdir()
-    for rel in ("README.md", "docs/STATUS.md"):
-        (tmp_path / rel).write_text(
-            "v1.4.0 is the current release. v1.5.0 was withdrawn to pre-release; the installer is "
-            "signed as of v1.5.0. Not v1.5.0 - the latest link resolves to whatever is current.\n",
-            encoding="utf-8",
-        )
-    (tmp_path / "docs" / "index.html").write_text("<span>v1.4.0 Windows beta</span>\n", encoding="utf-8")
+    _seed_docs(guard, tmp_path, overrides={"docs/index.html": "<span>v1.4.0 Windows beta</span>\n"})
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
     assert guard.main() == 0, "historical / withdrawal mentions of v1.5.0 must remain legal"

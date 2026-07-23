@@ -108,6 +108,66 @@ describe('PUT /api/share/:id/thumbnail', () => {
     await expect(response.json()).resolves.toEqual({ error: 'Thumbnail is too large.' });
   });
 
+  // WEB-10 token-check coverage. The upload-token check (timing-safe compare + null-hash guard) had
+  // no failure-path test, so reverting it to a plain `!==` or dropping the null guard stayed green.
+  // These pin the rejection path: no token, a wrong token, and a share with no stored hash all 401
+  // before the body is ever read.
+  async function putThumbnail(opts: {
+    storedHash: string | null;
+    authHeader?: string;
+  }): Promise<Response> {
+    const { env } = createMockEnv({
+      'share:abc12345': JSON.stringify({
+        id: 'abc12345',
+        code: 'compressed',
+        title: 'Bracket',
+        createdAt: '2026-03-29T18:00:00.000Z',
+        forkedFrom: null,
+        thumbnailKey: null,
+        thumbnailUploadTokenHash: opts.storedHash,
+        codeSize: 11,
+      }),
+    });
+    const arrayBuffer = jest.fn(async () => {
+      throw new Error('body should not be read on an auth failure');
+    });
+    const headers = new Headers({ 'Content-Type': 'image/png' });
+    if (opts.authHeader) headers.set('Authorization', opts.authHeader);
+    const response = (await onRequestPut(
+      createPagesContext({
+        request: {
+          url: 'https://studio.test/api/share/abc12345/thumbnail',
+          headers,
+          arrayBuffer,
+        } as unknown as Request,
+        env: env as never,
+        params: { id: 'abc12345' },
+      }) as never
+    )) as Response;
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    return response;
+  }
+
+  it('rejects a thumbnail upload with no token (401)', async () => {
+    const response = await putThumbnail({ storedHash: await hashToken('the-real-token') });
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects a thumbnail upload with the wrong token (401)', async () => {
+    const response = await putThumbnail({
+      storedHash: await hashToken('the-real-token'),
+      authHeader: 'Bearer not-the-real-token',
+    });
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects a thumbnail upload when the share has no upload slot (409, before any token check)', async () => {
+    // A null upload-token hash means the slot was already consumed / never issued — the handler
+    // 409s before it ever looks at the token, regardless of what token is presented.
+    const response = await putThumbnail({ storedHash: null, authHeader: 'Bearer anything' });
+    expect(response.status).toBe(409);
+  });
+
   it('rejects image/png uploads whose bytes are not a PNG', async () => {
     const token = 'thumbnail-token';
     const { env } = createMockEnv({

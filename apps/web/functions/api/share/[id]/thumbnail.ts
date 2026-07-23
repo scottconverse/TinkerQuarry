@@ -185,14 +185,17 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return json({ error: 'Thumbnail already exists for this share.' }, { status: 409 });
   }
 
+  // A share with no stored upload-token hash already returned 409 above, so from here
+  // `share.thumbnailUploadTokenHash` is a non-null string (TS narrows it).
   const token = getBearerToken(context.request);
-  if (!token || !share.thumbnailUploadTokenHash) {
+  if (!token) {
     return json({ error: 'Missing thumbnail upload token.' }, { status: 401 });
   }
 
   const providedHash = await hashToken(token);
   // WEB-10: timing-safe compare, matching the sibling delete-token check in [id].ts — a plain !==
-  // leaks token-prefix length through response timing.
+  // leaks token-prefix length through response timing. (Functionally identical to !==; the timing
+  // property is a code-review guarantee, so the tests below cover the REJECTION path, not the timing.)
   if (!timingSafeEqual(providedHash, share.thumbnailUploadTokenHash)) {
     return json({ error: 'Invalid thumbnail upload token.' }, { status: 401 });
   }
