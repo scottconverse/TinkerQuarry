@@ -191,9 +191,6 @@ packages/engine/   KimCad engine, HTTP API, tools, config, printer profiles
 packages/shared/   Shared TypeScript helpers
 docs/              Product docs, landing page, manual, architecture, status, discussions
 scripts/           Native release, smoke, and test helpers (incl. the license gate)
-frontend/          Historical prototype reference, not release evidence
-backend/           Historical pre-fork connector seam lab (mock-level tests only;
-                   superseded by packages/engine — see backend/README.md), not release evidence
 ```
 
 ## Documentation

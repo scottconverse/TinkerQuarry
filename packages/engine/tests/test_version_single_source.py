@@ -31,13 +31,15 @@ def test_package_metadata_matches_pyproject():
 
 
 def test_no_source_file_carries_a_version_literal():
+    # Scans the engine Python source. (A former second tuple scanned `frontend/src`, a tree that
+    # never existed under packages/engine and is gone entirely since TQ-N5 removed the repo-root
+    # prototype; the UI's own version lockstep is covered by test_workspace_ui_package_version.)
     declared = _declared()
     offenders: list[str] = []
-    for tree, pattern in ((ROOT / "src" / "kimcad", "*.py"), (ROOT / "frontend" / "src", "*.ts*")):
-        for p in tree.rglob(pattern):
-            text = p.read_text(encoding="utf-8", errors="replace")
-            if f'"{declared}"' in text or "'" + declared + "'" in text or '"0.1.0"' in text:
-                offenders.append(str(p.relative_to(ROOT)))
+    for p in (ROOT / "src" / "kimcad").rglob("*.py"):
+        text = p.read_text(encoding="utf-8", errors="replace")
+        if f'"{declared}"' in text or "'" + declared + "'" in text or '"0.1.0"' in text:
+            offenders.append(str(p.relative_to(ROOT)))
     assert offenders == [], f"version literals outside pyproject: {offenders}"
 
 

@@ -85,26 +85,9 @@ packages are installed from the npm registry at build time; their source is **no
 in this repository (`node_modules/` is not tracked). The compiled bundle they produce ships inside
 the Windows installer, and is covered by section 1/2 above.
 
-`frontend/` is **not** the SPA. It is a historical static prototype kept for design reference
-(see [frontend/README.md](../../frontend/README.md)); it has no `package.json` and installs
-nothing. It *does* redistribute three third-party bundles as source, all **MIT**:
-
-| File | Component | License |
-|---|---|---|
-| `frontend/vendor/react.development.js` | React | **MIT** |
-| `frontend/vendor/react-dom.development.js` | React DOM | **MIT** |
-| `frontend/vendor/babel.min.js` | Babel standalone | **MIT** |
-
-**Upstream license headers:** the two React bundles carry theirs (`@license React`). `babel.min.js`
-is a minified build and carries **no** header — its MIT terms come from the upstream
-[babel/babel](https://github.com/babel/babel/blob/main/LICENSE) project, not from the file. Stated
-precisely because a blanket "headers intact" claim was written here and was false for one of the
-three; an attribution document that rounds up is worse than one that says which file is which.
-
-Those three are not part of any release artifact. Note that the automated license gate
-(`scripts/license_scan.py`) checks the engine's Python side only — `packages/engine/src/kimcad`
-imports plus `requirements.lock` — so neither front-end tree is covered by it; this section is
-maintained by hand.
+The automated license gate (`scripts/license_scan.py`) checks the engine's Python side only —
+`packages/engine/src/kimcad` imports plus `requirements.lock` — so the `apps/ui/` front-end tree
+is not covered by it; this section is maintained by hand.
 
 ---
 
