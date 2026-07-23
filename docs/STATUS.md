@@ -33,8 +33,8 @@ intended behavior.
 | --- | --- | --- |
 | Full repo gate | Passed 2026-07-16 (v1.5.0 release gate) | `pnpm test:gate` exit 0 on the release tree |
 | GauntletGate v1.5.0 | **DO NOT ADVANCE** — 51 findings | 2 Blocker / 10 Critical / 18 Major / 19 Minor / 2 Nit. v1.5.0 was moved back to pre-release and v1.4.0 restored as the current release. Fixes are landing for v1.5.1. The full punch list is a local review artifact and is deliberately not published here. |
-| UI unit coverage | Passed | 100 Jest suites / 735 tests in the gate run |
-| Web unit coverage | Passed | 4 Jest suites / 20 tests in the gate run |
+| UI unit coverage | Passed | 111 Jest suites / 813 tests at branch HEAD 84f0a97 (v1.5.1 gate pending) |
+| Web unit coverage | Passed | 5 Jest suites / 60 tests at branch HEAD 84f0a97 (v1.5.1 gate pending) |
 | Engine coverage | Passed | 1796 pytest tests, 0 skipped, in the gate run |
 | Browser e2e | Passed | 7 Playwright tests (accessibility, manufacturing flow, workspace, mobile/tablet) |
 | Rust/Tauri tests | Passed | `pnpm test:rust` in gate |

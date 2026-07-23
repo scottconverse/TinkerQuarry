@@ -51,6 +51,11 @@ jobs:
         # freshness, so it drifted eight PRs behind apps/ui/src and served a UI that no longer
         # existed. It was deleted; this keeps it deleted.
         run: python scripts/check_no_committed_spa_bundle.py
+      - name: No public doc presents the withdrawn v1.5.0 as current
+        # v1.5.1 re-gate (2026-07-22): the v1.5.0 withdrawal was corrected in STATUS.md but not
+        # propagated to the README headline or the landing page, which still branded v1.5.0 as
+        # current while the Download button resolved to v1.4.0. This keeps the public docs honest.
+        run: python scripts/check_no_withdrawn_version_claims.py
 
 
   frontend:

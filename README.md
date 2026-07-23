@@ -10,7 +10,7 @@ private by default: no account, no telemetry, no cloud model unless you explicit
 [![Engine](https://img.shields.io/badge/engine-0.9.4-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Gate](https://img.shields.io/badge/gate-current%20tree%20clean-15803d)](docs/STATUS.md)
+[![Gate](https://img.shields.io/badge/gate-v1.4.0%20current-15803d)](docs/STATUS.md)
 
 ## The Short Version
 
@@ -28,11 +28,12 @@ Typical parts:
 TinkerQuarry is not a certified engineering system. It does not replace human review, professional
 CAD for formal drawings, or safety-critical design validation.
 
-## What Is In v1.5.0
+## What Is In TinkerQuarry
 
-The current product line is **TinkerQuarry v1.5.0** with **KimCad engine 0.9.4**. The package
-versions intentionally differ because the desktop product, internal engine, share web surface, and
-shared helpers are separately versioned surfaces.
+The current release is **TinkerQuarry v1.4.0** with **KimCad engine 0.9.4**. v1.5.1 is in
+progress; v1.5.0 was published, failed its gate, and was moved back to pre-release (see
+[docs/STATUS.md](docs/STATUS.md)). The package versions intentionally differ because the desktop
+product, internal engine, share web surface, and shared helpers are separately versioned surfaces.
 
 Implemented and documented:
 
@@ -153,8 +154,10 @@ Important native-build note: Windows NSIS packaging can fail from very deep work
 of path-length limits in bundled slicer/profile assets. The verified workaround is to build from a
 short path such as `C:\tqbuild\TinkerQuarry`.
 
-The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The public v1.5.0 release is
-[github.com/scottconverse/TinkerQuarry/releases](https://github.com/scottconverse/TinkerQuarry/releases/latest).
+The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The current release is
+v1.4.0 — see the
+[releases page](https://github.com/scottconverse/TinkerQuarry/releases/latest) (v1.5.0 is published
+but withdrawn to pre-release).
 
 ## Architecture At A Glance
 

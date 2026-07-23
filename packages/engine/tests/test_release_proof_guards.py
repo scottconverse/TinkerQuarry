@@ -85,3 +85,41 @@ def test_check_d_accepts_a_real_head_sha_query():
     }
     exe = guard._executable_step_text(real)
     assert "head_sha" in exe and "release-gate.yml" in exe
+
+
+# --- withdrawn-version-claim guard (v1.5.1 re-gate) ------------------------------------
+
+def test_withdrawn_version_guard_passes_on_the_real_repo():
+    guard = _load("check_no_withdrawn_version_claims")
+    assert guard.main() == 0, "the real docs must not present the withdrawn v1.5.0 as current"
+
+
+def test_withdrawn_version_guard_catches_a_v150_current_claim(monkeypatch, tmp_path):
+    """A doc that re-declares the withdrawn v1.5.0 as current must fail the guard, while the
+    historical/withdrawal mentions the guard deliberately allows must NOT trip it."""
+    guard = _load("check_no_withdrawn_version_claims")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "README.md").write_text(
+        "The current product line is **TinkerQuarry v1.5.0** with engine 0.9.4.\n", encoding="utf-8"
+    )
+    (tmp_path / "docs" / "index.html").write_text("<span>v1.5.0 Windows beta</span>\n", encoding="utf-8")
+    # a legal historical mention that must NOT be flagged
+    (tmp_path / "docs" / "STATUS.md").write_text(
+        "v1.5.0 was published, failed its gate, and was moved back to pre-release.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    assert guard.main() == 1, "a 'v1.5.0 is current' claim / v1.5.0 branding must fail the guard"
+
+
+def test_withdrawn_version_guard_allows_historical_mentions(monkeypatch, tmp_path):
+    guard = _load("check_no_withdrawn_version_claims")
+    (tmp_path / "docs").mkdir()
+    for rel in ("README.md", "docs/STATUS.md"):
+        (tmp_path / rel).write_text(
+            "v1.4.0 is the current release. v1.5.0 was withdrawn to pre-release; the installer is "
+            "signed as of v1.5.0. Not v1.5.0 - the latest link resolves to whatever is current.\n",
+            encoding="utf-8",
+        )
+    (tmp_path / "docs" / "index.html").write_text("<span>v1.4.0 Windows beta</span>\n", encoding="utf-8")
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    assert guard.main() == 0, "historical / withdrawal mentions of v1.5.0 must remain legal"

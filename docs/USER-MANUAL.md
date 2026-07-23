@@ -482,8 +482,8 @@ time.
 Current-tree gate evidence:
 
 - `pnpm test:gate`: passed.
-- UI Jest: 100 suites / 735 tests in the final gate run.
-- Web Jest: 4 suites / 20 tests in the final gate run.
+- UI Jest: 111 suites / 813 tests at branch HEAD 84f0a97 (v1.5.1 gate pending).
+- Web Jest: 5 suites / 60 tests at branch HEAD 84f0a97 (v1.5.1 gate pending).
 - Engine pytest: 1796 passed, 0 skipped, in the final gate run.
 - Playwright browser e2e: 7 passed in the final gate run.
 - `scripts\native-release.cmd`: passed.
