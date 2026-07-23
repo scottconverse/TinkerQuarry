@@ -1241,8 +1241,23 @@ def test_cross_origin_get_cannot_trigger_side_effecting_builds_or_reprobes(tmp_p
         raise last  # type: ignore[misc]
 
     try:
-        # A cross-site STEP GET is refused (it would otherwise trigger a CadQuery build).
+        # A cross-site STEP GET from an untrusted origin is refused (it would otherwise trigger a
+        # CadQuery build).
         assert _get("/api/step/1", {"Sec-Fetch-Site": "cross-site"}) == 403
+        assert (
+            _get("/api/step/1", {"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"})
+            == 403
+        )
+        # TQ-N1 / CADQUERY-1 REGRESSION GUARD: the PACKAGED desktop shell is itself cross-SITE (UI on
+        # http://tauri.localhost, engine on 127.0.0.1) and fetches STEP via engine.downloadApiAsset().
+        # Its OWN cross-site GET, carrying the desktop origin, must NOT be refused — guarding on
+        # Sec-Fetch-Site alone made STEP export DEAD (403) in the desktop build. It passes the exact
+        # origin allow-list, falls through to the id lookup, and 404s for an unregistered id (NOT 403).
+        # Deleting `and not self._is_desktop_shell_origin()` from _serve_step turns this back to 403.
+        assert (
+            _get("/api/step/1", {"Sec-Fetch-Site": "cross-site", "Origin": "http://tauri.localhost"})
+            == 404
+        )
         # Same-origin / headerless STEP GET runs normally -> 404 for an unregistered id (no build,
         # but NOT refused for being cross-origin).
         assert _get("/api/step/1", {"Sec-Fetch-Site": "same-origin"}) == 404

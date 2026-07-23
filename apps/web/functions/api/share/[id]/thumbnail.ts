@@ -4,6 +4,7 @@ import {
   hashToken,
   json,
   readShare,
+  timingSafeEqual,
   type Env,
   writeShare,
 } from '../../../_lib/share';
@@ -185,12 +186,14 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   }
 
   const token = getBearerToken(context.request);
-  if (!token) {
+  if (!token || !share.thumbnailUploadTokenHash) {
     return json({ error: 'Missing thumbnail upload token.' }, { status: 401 });
   }
 
   const providedHash = await hashToken(token);
-  if (providedHash !== share.thumbnailUploadTokenHash) {
+  // WEB-10: timing-safe compare, matching the sibling delete-token check in [id].ts — a plain !==
+  // leaks token-prefix length through response timing.
+  if (!timingSafeEqual(providedHash, share.thumbnailUploadTokenHash)) {
     return json({ error: 'Invalid thumbnail upload token.' }, { status: 401 });
   }
 
