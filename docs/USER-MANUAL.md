@@ -70,7 +70,7 @@ Apart from those two, the app should be read as private by default, not cloud by
    [latest GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/latest).
 
    > **Do not install v1.5.0.** It was published, then failed a full review and was moved back
-   > to pre-release; v1.4.0 is the current release. The link above always resolves to whatever
+   > to pre-release; v1.5.1 is the current release. The link above always resolves to whatever
    > is current, which is why it is not pinned to a version here.
 2. Double-click the installer.
 3. Launch **TinkerQuarry**.
@@ -264,7 +264,7 @@ twins.
 
 | Surface | Version | Notes |
 | --- | ---: | --- |
-| Product release | v1.5.1 (unreleased; v1.4.0 is the current release) | Desktop product, README, docs, installer filename |
+| Product release | v1.5.1 (current release, supersedes v1.4.0) | Desktop product, README, docs, installer filename |
 | `apps/ui` | 1.5.1 | React/Tauri Studio package |
 | Tauri config | 1.5.1 | Native Windows app metadata |
 | Tauri Rust package | 1.5.1 | Native shell crate metadata |
@@ -274,8 +274,8 @@ twins.
 | OpenSCAD | 2026.03.16 | Bundled Windows snapshot, Manifold default |
 | PrintProof3D | 0.6.2 | Arm's-length printability tool |
 
-These numbers are intentionally not collapsed into one version. The current release is **v1.4.0**;
-the in-progress version is **v1.5.1** (v1.5.0 was published, failed its gate, and was moved back to
+These numbers are intentionally not collapsed into one version. The current release is **v1.5.1**
+(it supersedes v1.4.0; v1.5.0 was published, failed its gate, and remains withdrawn to
 pre-release). The engine reports 0.9.4.
 
 ## Repository Layout
@@ -482,12 +482,11 @@ time.
 
 Current-tree gate evidence:
 
-- `pnpm test:gate`: passed.
-- UI Jest: 111 suites / 813 tests at branch HEAD 84f0a97 (v1.5.1 gate pending).
-- Web Jest: 5 suites / 60 tests at branch HEAD 84f0a97 (v1.5.1 gate pending).
-- Engine pytest: 1796 passed, 0 skipped, in the final gate run.
-- Playwright browser e2e: 7 passed in the final gate run.
-- `scripts\native-release.cmd`: passed.
+- UI, engine (non-live pytest), web, and Rust/Tauri unit suites: all green on the v1.5.1 release
+  commit (exact counts are in PR #33 CI — not pinned here, so they can't go stale).
+- `scripts\native-release.cmd`: passed (native tauri-CLI NSIS rebuild + runtime smoke, engine 0.9.4
+  health `ok`).
+- Scoped adversarial re-gate + independent re-verify of the whole v1.5.1 delta: clear after fixes.
 - `pnpm test:e2e:tauri`: passed against the release executable.
 - `pnpm test:e2e:tauri:installed`: passed against the installed NSIS copy.
 

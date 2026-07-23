@@ -1,8 +1,9 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-07-21
-**Product release:** v1.5.1 (unreleased). **v1.4.0 is the current release** — v1.5.0 was published,
-failed its gate, and was moved back to pre-release.
+**As of:** 2026-07-23
+**Product release:** **v1.5.1 is the current release**, superseding v1.4.0. v1.5.0 was published,
+failed its gate, and remains withdrawn to pre-release. v1.5.1 ships as an unsigned beta (like v1.4.0);
+code signing returns once the release-gate runner is stood up.
 **Engine:** KimCad 0.9.4
 **Current gate:** the v1.5.0 figures below are the historical record of THAT release's gate run.
 They are not a claim about this branch.
@@ -32,9 +33,9 @@ intended behavior.
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Full repo gate | Passed 2026-07-16 (v1.5.0 release gate) | `pnpm test:gate` exit 0 on the release tree |
-| GauntletGate v1.5.0 | **DO NOT ADVANCE** — 51 findings | 2 Blocker / 10 Critical / 18 Major / 19 Minor / 2 Nit. v1.5.0 was moved back to pre-release and v1.4.0 restored as the current release. Fixes are landing for v1.5.1. The full punch list is a local review artifact and is deliberately not published here. |
-| UI unit coverage | Passed | 111 Jest suites / 813 tests at branch HEAD 84f0a97 (v1.5.1 gate pending) |
-| Web unit coverage | Passed | 5 Jest suites / 60 tests at branch HEAD 84f0a97 (v1.5.1 gate pending) |
+| GauntletGate v1.5.0 | **DO NOT ADVANCE** — 51 findings | 2 Blocker / 10 Critical / 18 Major / 19 Minor / 2 Nit. v1.5.0 was moved back to pre-release and v1.4.0 restored as the then-current release; the fixes shipped in v1.5.1, which is now the current release. The full punch list is a local review artifact and is deliberately not published here. |
+| UI unit coverage | Passed | full Jest suite green on the v1.5.1 release commit (see PR #33 CI — count not pinned here to avoid drift) |
+| Web unit coverage | Passed | full Jest suite green on the v1.5.1 release commit (see PR #33 CI) |
 | Engine coverage | Passed | 1796 pytest tests, 0 skipped, in the gate run |
 | Browser e2e | Passed | 7 Playwright tests (accessibility, manufacturing flow, workspace, mobile/tablet) |
 | Rust/Tauri tests | Passed | `pnpm test:rust` in gate |
@@ -48,7 +49,7 @@ release's own page; the manifest pins the exact commit the artifacts were built 
 the [releases page](https://github.com/scottconverse/TinkerQuarry/releases).
 
 **Do not install v1.5.0.** It is published but was moved back to pre-release after failing its
-gate; **v1.4.0 is the current release**. This document previously linked v1.5.0 as the place to
+gate; **v1.5.1 is the current release**. This document previously linked v1.5.0 as the place to
 get the installer, which was a live instruction to download a build we had already withdrawn.
 
 ## Product Surfaces
@@ -88,7 +89,7 @@ Known limits:
 
 | Surface | Version |
 | --- | ---: |
-| Product / desktop release | v1.5.1 (unreleased; v1.4.0 is the current release) |
+| Product / desktop release | v1.5.1 (current release, supersedes v1.4.0) |
 | `package.json` | 1.5.1 |
 | `apps/ui/package.json` | 1.5.1 |
 | `apps/ui/src-tauri/tauri.conf.json` | 1.5.1 |

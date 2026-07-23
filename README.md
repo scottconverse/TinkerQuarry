@@ -10,7 +10,7 @@ private by default: no account, no telemetry, no cloud model unless you explicit
 [![Engine](https://img.shields.io/badge/engine-0.9.4-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Gate](https://img.shields.io/badge/gate-v1.4.0%20current-15803d)](docs/STATUS.md)
+[![Gate](https://img.shields.io/badge/gate-v1.5.1%20current-15803d)](docs/STATUS.md)
 
 ## The Short Version
 
@@ -30,8 +30,8 @@ CAD for formal drawings, or safety-critical design validation.
 
 ## What Is In TinkerQuarry
 
-The current release is **TinkerQuarry v1.4.0** with **KimCad engine 0.9.4**. v1.5.1 is in
-progress; v1.5.0 was published, failed its gate, and was moved back to pre-release (see
+The current release is **TinkerQuarry v1.5.1** with **KimCad engine 0.9.4**. It supersedes v1.4.0;
+v1.5.0 was published, failed its gate, and remains withdrawn to pre-release (see
 [docs/STATUS.md](docs/STATUS.md)). The package versions intentionally differ because the desktop
 product, internal engine, share web surface, and shared helpers are separately versioned surfaces.
 
@@ -64,9 +64,10 @@ The supported beta platform is Windows.
 
    > **Not v1.5.0** — it was published, then failed review and was moved back to pre-release.
    > The link above always resolves to whatever is current.
-2. Double-click the installer. The current release (v1.4.0) is an unsigned beta, so SmartScreen
+2. Double-click the installer. The current release (v1.5.1) is an unsigned beta, so SmartScreen
    will warn — choose **More info**, then **Run anyway**. Code signing (Azure Trusted Signing,
-   verified publisher Scott Converse) landed in v1.5.0, which is currently withdrawn to pre-release.
+   verified publisher Scott Converse) was introduced in v1.5.0; that build was withdrawn, and
+   signing returns to the shipped line in a later build.
 3. Launch **TinkerQuarry**.
 4. Confirm printer/material settings.
 5. Build a small first part, such as `a 70 mm round coaster, 4 mm tall`.
@@ -155,7 +156,7 @@ of path-length limits in bundled slicer/profile assets. The verified workaround 
 short path such as `C:\tqbuild\TinkerQuarry`.
 
 The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The current release is
-v1.4.0 — see the
+v1.5.1 — see the
 [releases page](https://github.com/scottconverse/TinkerQuarry/releases/latest) (v1.5.0 is published
 but withdrawn to pre-release).
 
