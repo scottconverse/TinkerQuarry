@@ -41,9 +41,20 @@ ALLOWED_FILES = {"index.html", "favicon.ico", "kim.ico"}
 def main() -> int:
     problems: list[str] = []
 
+    # TEST-2 (rev 5): a missing directory is NOT "clean". The placeholder shell served at `/` by
+    # `kimcad web`/`kimcad shell` lives here and is asserted live by tests/test_webapp.py and
+    # tests/test_frontend.py. Returning 0 when the whole tree is gone let a mutation that deletes it
+    # pass this guard while turning the port into a bare 404 - the guard would have looked identical
+    # to one that caught something. The placeholder is a required artifact; its absence is a failure.
     if not WEB_DIR.is_dir():
-        print(f"note: {WEB_DIR.relative_to(REPO_ROOT).as_posix()} does not exist - nothing to guard.")
-        return 0
+        print("engine SPA-bundle guard FAILED:\n")
+        print(
+            f"  FAIL {WEB_DIR.relative_to(REPO_ROOT).as_posix()} is gone. `kimcad web` serves the "
+            "placeholder shell from this directory at `/`; deleting it turns the port into a bare "
+            "404 and breaks tests/test_webapp.py + tests/test_frontend.py. Restore the placeholder "
+            "index.html - do not delete the directory.\n"
+        )
+        return 1
 
     stray = sorted(
         p.relative_to(WEB_DIR).as_posix()

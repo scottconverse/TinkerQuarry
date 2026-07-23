@@ -297,6 +297,35 @@ def check_b_and_c_coverage_map(problems: list[str]) -> None:
             )
 
 
+def _executable_step_text(job: dict[str, Any]) -> str:
+    """The EXECUTABLE body of a job's steps - each step's `run:` script and any `with:` values -
+    with shell (`#`) comments stripped line by line.
+
+    TEST-2 (rev 5): check D used to test tokens against ``yaml.safe_dump(proof)``, i.e. the whole
+    job serialized back to YAML. A step's `run:` block is one big string that INCLUDES its own
+    ``# ...`` comment lines, so ``"head_sha" in dump`` was satisfied by the paragraph of comments
+    that *explains* head_sha - someone could delete the real ``?head_sha=`` query, keep the
+    comment, and this guard stayed green. Stripping comments here means only an executable
+    reference counts. (Our proof step is bash; `#` is the comment marker.)"""
+    chunks: list[str] = []
+
+    def strip_comments(text: str) -> str:
+        return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        run = step.get("run")
+        if isinstance(run, str):
+            chunks.append(strip_comments(run))
+        with_block = step.get("with")
+        if isinstance(with_block, dict):
+            for value in with_block.values():
+                if isinstance(value, str):
+                    chunks.append(strip_comments(value))
+    return "\n".join(chunks)
+
+
 def check_d_release_path_gated(problems: list[str]) -> None:
     sign = load_workflow(SIGN_YML)
     jobs = sign.get("jobs") or {}
@@ -309,16 +338,19 @@ def check_d_release_path_gated(problems: list[str]) -> None:
             "release-gate.yml run at the tag's own commit and fails when there is none."
         )
     else:
-        body = yaml.safe_dump(proof)
-        if "release-gate.yml" not in body:
+        # Comment-stripped, so a `# ... head_sha ...` note describing the query cannot stand in for
+        # the query itself (TEST-2 rev 5).
+        exe = _executable_step_text(proof)
+        if "release-gate.yml" not in exe:
             problems.append(
-                f"D. `{PROOF_JOB_ID}` never mentions release-gate.yml, so it cannot be looking "
-                "for a release-gate run."
+                f"D. `{PROOF_JOB_ID}` never references release-gate.yml in an executable step (a "
+                "comment does not count), so it cannot be looking for a release-gate run."
             )
-        if "head_sha" not in body:
+        if "head_sha" not in exe:
             problems.append(
-                f"D. `{PROOF_JOB_ID}` does not filter runs by `head_sha`. A release-gate run on "
-                "some other commit does not prove anything about this tag."
+                f"D. `{PROOF_JOB_ID}` does not filter runs by `head_sha` in an executable step (a "
+                "comment mentioning it does not count). A release-gate run on some other commit "
+                "does not prove anything about this tag."
             )
     consumers = [
         job_id

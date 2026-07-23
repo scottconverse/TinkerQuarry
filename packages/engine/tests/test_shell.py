@@ -1,7 +1,8 @@
 """Stage 11 Slice 11.1 — the app shell. The GUI is faked (webview swapped via the test
-seam); what's under test is the wiring: ephemeral loopback bind, the served SPA being the
-real handler, window-close stopping the server, the external-link bridge, and graceful
-absence of pywebview."""
+seam); what's under test is the wiring: stable loopback bind, the loopback API being the
+real handler (the served `/` page is a self-contained placeholder since WALK-3, not an SPA)
+guarded by the per-boot session token, window-close stopping the server, the external-link
+bridge, and graceful absence of pywebview."""
 
 from __future__ import annotations
 
