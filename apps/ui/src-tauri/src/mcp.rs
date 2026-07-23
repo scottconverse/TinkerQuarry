@@ -294,11 +294,20 @@ const MCP_ALLOWED_ORIGINS: [&str; 4] = [
 /// Requests with no `Origin` header still pass — that is rmcp's documented
 /// behaviour and it is what keeps native, non-browser MCP clients working. Those
 /// callers are gated by the bearer token in `finish_mcp_router` instead.
+///
+/// `allowed_hosts` is pinned to the actual bound port (GAP2-N2). rmcp's default
+/// list — `["localhost", "127.0.0.1", "::1"]` — is portless, and its
+/// `host_is_allowed` treats a portless entry as "any port" (rmcp-1.8.0
+/// `tower.rs:301-314`), so a `Host: 127.0.0.1:<other>` header would pass. Naming
+/// the port closes that. Defence-in-depth only — the bearer token is the real
+/// gate — but it costs nothing to make the Host check exact.
 fn build_mcp_config(
+    port: u16,
     cancellation_token: tokio_util::sync::CancellationToken,
 ) -> StreamableHttpServerConfig {
     StreamableHttpServerConfig::default()
         .with_allowed_origins(MCP_ALLOWED_ORIGINS)
+        .with_allowed_hosts([format!("127.0.0.1:{port}"), format!("localhost:{port}")])
         .with_cancellation_token(cancellation_token)
 }
 
@@ -1565,7 +1574,7 @@ pub async fn configure_mcp_server(
                 Ok(handler)
             },
             std::sync::Arc::new(LocalSessionManager::default()),
-            build_mcp_config(ct_child.clone()),
+            build_mcp_config(port, ct_child.clone()),
         );
 
         let router = finish_mcp_router(
@@ -2050,14 +2059,16 @@ mod tests {
         let listener = runtime
             .block_on(async { tokio::net::TcpListener::bind("127.0.0.1:0").await })
             .expect("probe listener");
-        let addr = listener.local_addr().expect("probe addr").to_string();
+        let socket_addr = listener.local_addr().expect("probe addr");
+        let addr = socket_addr.to_string();
+        let port = socket_addr.port();
 
         let serve_token = ct_child.clone();
         runtime.spawn(async move {
             let service = StreamableHttpService::new(
                 || Ok(ProbeHandler),
                 std::sync::Arc::new(LocalSessionManager::default()),
-                build_mcp_config(ct_child.clone()),
+                build_mcp_config(port, ct_child.clone()),
             );
             let router = finish_mcp_router(
                 axum::Router::new().nest_service("/mcp", service),
@@ -2271,6 +2282,36 @@ mod tests {
         assert!(
             !status.contains(" 403") && !status.contains(" 401"),
             "a native MCP client with a valid token was refused; status was: {status}"
+        );
+    }
+
+    #[test]
+    fn mcp_rejects_a_host_header_naming_a_foreign_port() {
+        // GAP2-N2 REGRESSION GUARD — do not delete.
+        //
+        // rmcp's default `allowed_hosts` is portless (`["localhost", "127.0.0.1",
+        // "::1"]`), and `host_is_allowed` treats a portless entry as "any port",
+        // so `Host: 127.0.0.1:<other>` would pass. `build_mcp_config` pins the
+        // bound port. A valid bearer and a valid Origin are supplied here so the
+        // ONLY thing that can reject the request is the Host-port check.
+        let server = start_probe_server();
+        let body = INITIALIZE_BODY;
+        let mut request = format!(
+            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:1\r\n\
+             Accept: application/json, text/event-stream\r\n\
+             Content-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n",
+            body.len()
+        );
+        request.push_str(&bearer(PROBE_TOKEN));
+        request.push_str("\r\nOrigin: http://tauri.localhost\r\n\r\n");
+        request.push_str(body);
+
+        let response = probe(&server.addr, &request);
+        assert!(
+            status_line(&response).contains(" 403"),
+            "a Host header naming a foreign port was accepted; status was: {}",
+            status_line(&response)
         );
     }
 
