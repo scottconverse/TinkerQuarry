@@ -128,6 +128,8 @@ export interface EngineLifecycleTargets {
   activeTabRef: MutableRefObject<WorkspaceTab>;
   draftText: string;
   setDraftText: (text: string) => void;
+  /** E2E-C: record a local-engine describe/refine turn on the AI panel's message surface. */
+  appendEngineTurn: (userText: string, assistantText: string) => void;
 }
 
 export function useEngineLifecycle({
@@ -148,6 +150,7 @@ export function useEngineLifecycle({
   activeTabRef,
   draftText,
   setDraftText,
+  appendEngineTurn,
 }: EngineLifecycleTargets) {
   // TinkerQuarry Phase 4 (B core): describe → engine → Studio document, then render the engine's
   // (self-contained) SCAD directly so the viewer updates immediately (no content-watch timing). This
@@ -265,8 +268,22 @@ export function useEngineLifecycle({
   const commitEngineOutcome = useCallback(
     (
       result: EngineDocOutcome,
-      opts: { pushUndo?: boolean; clearVisual?: boolean } = {},
+      opts: { pushUndo?: boolean; clearVisual?: boolean; readOnly?: boolean } = {},
     ) => {
+      // E2E-D: `readOnly` shows a gate-FAILED design so the user can inspect it and download it,
+      // while committing NONE of the slice-continuity state. Deliberately absent here: hasEngineDesign
+      // (keeps the Make it real / Save buttons disabled), lastEngineRidRef / lastEngineScadRef
+      // (handleMakeItReal slices lastEngineRidRef — leaving it null is the imperative safety net), the
+      // undo push, currentStepUrl, and an iteration-log entry (its Restore button re-activates a rid as
+      // sliceable). We render the part and surface its report + readiness so the user sees WHY it failed.
+      if (opts.readOnly) {
+        if (!result.scad) return;
+        renderCodeDirect(result.scad);
+        setCurrentDesignHeadline(result.headline ?? null);
+        setCurrentDesignResult(result.result ?? currentDesignResult);
+        setLiveReadiness(result.gate || null);
+        return;
+      }
       if (!result.ok || !result.scad) return;
       renderCodeDirect(result.scad);
       if (
@@ -667,6 +684,13 @@ export function useEngineLifecycle({
         setVisualReviewResult(null);
         setVisualReviewImages([]);
         setVisualReviewLog([]);
+        // E2E-D: a gate-FAILED design still has a mesh + source. Show it read-only so the user can
+        // inspect the part and download it (Export gates on a rendered viewer, not on hasEngineDesign),
+        // and see the failing checks in the readiness panel — rather than have it silently discarded.
+        // Slicing and Save stay refused: readOnly never sets hasEngineDesign.
+        if (result.showable && result.scad) {
+          commitEngineOutcome(result, { readOnly: true });
+        }
         // WALK-1 (gate 2026-07-19): clarification_needed carries the engine's actual QUESTION in
         // `clarification`. Publish it onto the current design result so the Intent panel can show
         // it — a toast that scrolls away is not an answerable question. Merge rather than replace,
@@ -695,9 +719,17 @@ export function useEngineLifecycle({
           toastId: "engine-design",
         });
       }
+      // E2E-C: record this local-engine turn on the AI panel's message surface — the user's words and
+      // the engine's plain-English outcome — so the local-first path has a visible conversation history.
+      const assistantText = result.ok
+        ? `${result.headline ? `${result.headline} ` : ""}${result.gate || "Looks printable."}`
+        : result.gate ||
+          result.error ||
+          "I couldn't produce a printable design from that.";
+      appendEngineTurn(prompt, assistantText);
       return result;
     },
-    [commitEngineOutcome, runAutonomousVisualLoop],
+    [appendEngineTurn, commitEngineOutcome, runAutonomousVisualLoop],
   );
   const handleApplyVisualCorrection = useCallback(async () => {
     const prompt = visualCorrectionPrompt?.trim() ?? "";

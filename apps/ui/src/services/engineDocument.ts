@@ -13,6 +13,10 @@ import { getProjectStore, listProjectFiles } from '../stores/projectStore';
 
 export interface EngineDocOutcome {
   ok: boolean;
+  /** E2E-D: true when the design did NOT pass the gate (so `ok` is false and it must not be
+   *  sliced) but the engine still produced a mesh + source, so it can be shown read-only for the
+   *  user to inspect and download. Never set together with `ok`. */
+  showable?: boolean;
   /** Plain-English readiness/gate summary (verdict + score + any failing/warning checks). */
   gate: string;
   /** Plain-English "what the engine made" line — the dimensional outcome, e.g. "Dimensions match:
@@ -97,11 +101,17 @@ export async function describeIntoStudio(
   // `history` (prior turns) makes this a REFINE in context ("make it 10mm taller") — the engine's
   // /api/design accepts it (webapp.py). Omitted = a fresh describe.
   const opts = history && history.length ? { history } : {};
-  const { result, ok } = await run(prompt, opts);
+  const { result, preview, ok } = await run(prompt, opts);
   const gate = engineGateSummary(result);
   const headline = result.report?.headline || undefined;
   const rid = ridFromResult(result);
-  if (!ok || rid == null) {
+  // E2E-D: a design that FAILED the gate (ok === false) but still produced a mesh — gate_failed is
+  // the case — has a report and source the user should be able to inspect and download, not have
+  // silently discarded. Load it read-only (`showable`); slicing stays refused because `ok` is false.
+  // A failure with no mesh (clarification_needed / model_unavailable / plan_failed) has nothing to
+  // show, so it takes the plain error path below.
+  const showable = !ok && preview != null && rid != null;
+  if ((!ok && !showable) || rid == null) {
     return {
       ok: false,
       gate,
@@ -132,7 +142,8 @@ export async function describeIntoStudio(
   }
 
   return {
-    ok: true,
+    ok,
+    showable: showable || undefined,
     gate,
     headline,
     rid,

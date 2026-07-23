@@ -126,6 +126,7 @@ describe("useEngineLifecycle (extracted from App.tsx, phase 1d) — mocked engin
     const hideWelcomeScreen = jest.fn();
     const showWelcomeScreen = jest.fn();
     const setDraftText = jest.fn();
+    const appendEngineTurn = jest.fn();
 
     const targets: EngineLifecycleTargets = {
       renderCodeDirect,
@@ -145,6 +146,7 @@ describe("useEngineLifecycle (extracted from App.tsx, phase 1d) — mocked engin
       activeTabRef,
       draftText: "",
       setDraftText,
+      appendEngineTurn,
       ...overrides,
     };
 
@@ -163,6 +165,7 @@ describe("useEngineLifecycle (extracted from App.tsx, phase 1d) — mocked engin
       hideWelcomeScreen,
       showWelcomeScreen,
       setDraftText,
+      appendEngineTurn,
     };
   }
 
@@ -223,6 +226,28 @@ describe("useEngineLifecycle (extracted from App.tsx, phase 1d) — mocked engin
     harness.unmount();
   });
 
+  // E2E-C: a local-engine describe/refine must be recorded on the AI panel's message surface — the
+  // user's words AND the engine's plain-English outcome — so the local-first path isn't a blank panel.
+  it("handleEngineDescribe: records the turn on the AI message surface (E2E-C)", async () => {
+    mockDescribeIntoStudio.mockResolvedValue(DESIGN_1);
+    const { harness, appendEngineTurn } = mount();
+    await flush();
+
+    await act(async () => {
+      await harness
+        .current()
+        .handleEngineDescribe("a snap box", { skipVisualLoop: true });
+    });
+
+    expect(appendEngineTurn).toHaveBeenCalledTimes(1);
+    const [userText, assistantText] = appendEngineTurn.mock.calls[0];
+    expect(userText).toBe("a snap box");
+    // the engine's own words reach the panel — headline + gate, not a raw status enum
+    expect(assistantText).toContain(DESIGN_1.headline);
+    expect(assistantText).toContain(DESIGN_1.gate);
+    harness.unmount();
+  });
+
   it("handleEngineDescribe: a failed design (gate_failed) leaves no design committed", async () => {
     mockDescribeIntoStudio.mockResolvedValue({
       ok: false,
@@ -240,6 +265,34 @@ describe("useEngineLifecycle (extracted from App.tsx, phase 1d) — mocked engin
     expect(renderCodeDirect).not.toHaveBeenCalled();
     expect(harness.current().hasEngineDesign).toBe(false);
     expect(harness.current().lastEngineRidRef.current).toBeNull();
+    harness.unmount();
+  });
+
+  // E2E-D: a gate-failed design that DOES have a mesh is shown read-only — its SCAD renders (so it's
+  // visible and Export works) — but it must NOT become sliceable: hasEngineDesign stays false (Make it
+  // real / Save buttons disabled) and lastEngineRidRef stays null (handleMakeItReal's imperative guard).
+  it("handleEngineDescribe: a gate-failed design WITH a mesh renders read-only but stays non-sliceable (E2E-D)", async () => {
+    mockDescribeIntoStudio.mockResolvedValue({
+      ok: false,
+      showable: true,
+      gate: "gate_failed: walls 0.6mm below the 0.8mm minimum",
+      headline: "Walls too thin",
+      rid: 8,
+      scad: "thin_box();",
+      result: { rid: 8, status: "gate_failed" } as DesignResult,
+    });
+    const { harness, renderCodeDirect } = mount();
+    await flush();
+
+    await act(async () => {
+      await harness
+        .current()
+        .handleEngineDescribe("a thin-walled box", { skipVisualLoop: true });
+    });
+
+    expect(renderCodeDirect).toHaveBeenCalledWith("thin_box();"); // it IS shown + downloadable
+    expect(harness.current().hasEngineDesign).toBe(false); // ...but NOT sliceable (button gate)
+    expect(harness.current().lastEngineRidRef.current).toBeNull(); // ...and NOT sliceable (handler gate)
     harness.unmount();
   });
 

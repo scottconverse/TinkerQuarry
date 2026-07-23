@@ -351,6 +351,39 @@ describe('useAiAgent', () => {
     expect(hook.current().error).toBe('Please set your API key in Settings first');
   });
 
+  // E2E-C: the local-engine describe/refine path appends its turns here so the AI panel isn't a blank
+  // surface on the local-first default path.
+  it('appendEngineTurn records a local-engine turn on the message surface (E2E-C)', () => {
+    const hook = createHarness();
+    expect(hook.current().messages).toEqual([]);
+
+    act(() => {
+      hook
+        .current()
+        .appendEngineTurn('a 20mm cube', 'Dimensions match: 20 x 20 x 20 mm. Looks printable.');
+    });
+
+    const msgs = hook.current().messages;
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0]).toMatchObject({
+      type: 'user',
+      parts: [{ type: 'text', text: 'a 20mm cube' }],
+    });
+    expect(msgs[1]).toMatchObject({
+      type: 'assistant',
+      state: 'complete',
+      content: expect.stringContaining('Looks printable'),
+    });
+  });
+
+  it('appendEngineTurn ignores an empty/whitespace prompt', () => {
+    const hook = createHarness();
+    act(() => {
+      hook.current().appendEngineTurn('   ', 'should not be recorded');
+    });
+    expect(hook.current().messages).toEqual([]);
+  });
+
   it('submits to an OpenAI-compatible provider without requiring an API key', async () => {
     storeOpenAiCompatibleConfig({
       baseUrl: 'http://127.0.0.1:11434/v1',

@@ -70,6 +70,44 @@ describe('describeIntoStudio — orchestration (Phase 4 B core)', () => {
     expect(getProjectState().files['main.scad'].content).toBe('// old');
   });
 
+  // E2E-D: a design that fails the gate BUT has a mesh must be shown read-only (report + mesh +
+  // source, downloadable) instead of discarded — while never being marked sliceable (ok stays false).
+  it('surfaces a gate-failed design read-only when it has a mesh, and loads its source', async () => {
+    const runWithMesh = async () => ({
+      result: {
+        status: 'gate_failed',
+        has_mesh: true,
+        mesh_url: '/api/mesh/8',
+        report: { headline: 'Walls 0.6 mm — below the 0.8 mm minimum.' },
+      } as DesignResult,
+      preview: { previewSrc: '/api/mesh/8', previewKind: 'mesh' as const },
+      ok: false,
+    });
+    const out = await describeIntoStudio('a thin-walled box', undefined, {
+      run: runWithMesh,
+      source: stubSource('thin_box();'),
+    });
+    expect(out.ok).toBe(false); // NOT sliceable — it failed the gate
+    expect(out.showable).toBe(true); // ...but inspectable + downloadable
+    expect(out.rid).toBe(8);
+    expect(out.scad).toBe('thin_box();');
+    expect(getProjectState().files['main.scad'].content).toBe('thin_box();');
+  });
+
+  // Falsification pair for the test above: the SAME gate_failed status with NO mesh must NOT become
+  // showable and must leave the document untouched — proving `showable` keys on the mesh, not on the
+  // word "gate_failed". (If the discriminator were wrong, this would flip to showable and replace the doc.)
+  it('does NOT surface a gate-failed design that has no mesh', async () => {
+    const out = await describeIntoStudio('a nonsense part', undefined, {
+      run: stubRun({ status: 'gate_failed', error: 'no geometry' }, false),
+      source: stubSource('should_not_load();'),
+    });
+    expect(out.ok).toBe(false);
+    expect(out.showable).toBeUndefined();
+    expect(out.scad).toBeUndefined();
+    expect(getProjectState().files['main.scad'].content).toBe('// old');
+  });
+
   it('passes prior turns to the engine as `history` (the refine path)', async () => {
     let seenOpts: Record<string, unknown> | undefined;
     const prior = [

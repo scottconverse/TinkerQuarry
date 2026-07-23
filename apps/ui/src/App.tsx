@@ -106,6 +106,7 @@ import {
   MAX_VISUAL_CORRECTION_ROUNDS,
   canApplyVisualCorrection,
 } from "./utils/visualCorrection";
+import { explainDisabledActions } from "./utils/explainDisabledActions";
 import { getManufacturingWorkflowState } from "./utils/manufacturingWorkflow";
 import { notifyError } from "./utils/notifications";
 import {
@@ -587,6 +588,7 @@ function App() {
     updatePreviewSceneStyle,
     updateUseModelColors,
     loadModelAndProviders,
+    appendEngineTurn,
   } = useAiAgent();
 
   // The "Make it real" engine-lifecycle cluster — describe/refine into the local engine, the
@@ -662,6 +664,7 @@ function App() {
     activeTabRef,
     draftText: draft.text,
     setDraftText,
+    appendEngineTurn,
   });
 
   // Tab management functions
@@ -1349,6 +1352,16 @@ function App() {
     : hasEngineDesign
       ? "Send stays disabled until this candidate is sliced"
       : "Build a design before slicing or sending";
+  // UIUX-6: plain-English reasons for every disabled primary toolbar action, rendered as always-visible
+  // text below so keyboard/screen-reader users can reach them (a native `disabled` button is out of the
+  // tab order, so its hover title alone never reaches them).
+  const disabledActionReasons = explainDisabledActions({
+    renderExportShareReason: disabledReason,
+    hasEngineDesign,
+    selectedPrinterBlocked,
+    sliceProfileReady,
+    isRendering,
+  });
   const explainAgentSteps = [
     "Plan: prompt and prior turns are sent to the local engine",
     hasEngineDesign
@@ -2359,6 +2372,20 @@ function App() {
               >
                 {explainActionState}
               </div>
+              {disabledActionReasons.length > 0 && (
+                // UIUX-6: the reachable half — why the grayed-out toolbar controls are unavailable,
+                // in always-visible text rather than a hover-only title on a non-focusable button.
+                <div
+                  data-testid="explain-disabled-actions"
+                  className="mt-2 space-y-1"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  <span className="sr-only">Why some controls are unavailable: </span>
+                  {disabledActionReasons.map((reason) => (
+                    <div key={reason}>{reason}</div>
+                  ))}
+                </div>
+              )}
               <div
                 className="mt-3 border-t pt-2"
                 style={{ borderColor: "var(--border-primary)" }}
