@@ -4,7 +4,7 @@ This document describes the architecture of the OpenSCAD code formatter built fo
 
 ## Overview
 
-The formatter is a **tree-sitter based** formatter that uses the [tree-sitter-openscad](https://github.com/bollian/tree-sitter-openscad) grammar to parse OpenSCAD code into an Abstract Syntax Tree (AST), then formats it using a Prettier-inspired document intermediate representation (IR).
+The formatter is a **tree-sitter based** formatter that uses the [@openscad/tree-sitter-openscad](https://github.com/openscad/tree-sitter-openscad) grammar to parse OpenSCAD code into an Abstract Syntax Tree (AST), then formats it using a Prettier-inspired document intermediate representation (IR).
 
 ## Architecture Components
 
@@ -102,8 +102,14 @@ The core tree-sitter runtime.
 **Source**: Copied from the `web-tree-sitter` npm package.
 
 ```bash
-cp node_modules/web-tree-sitter/tree-sitter.wasm apps/ui/public/
+REPO="$(git rev-parse --show-toplevel)"
+cp "$REPO/apps/ui/node_modules/web-tree-sitter/tree-sitter.wasm" "$REPO/apps/ui/public/"
 ```
+
+(The package is a dependency of `apps/ui`, not of the workspace root — under pnpm there is no
+root-level `node_modules/web-tree-sitter`, so the shorter form fails wherever you run it. This
+page previously carried that shorter form alongside a caveat about pnpm layout that did not
+actually cover it.)
 
 ### 2. `tree-sitter-openscad.wasm`
 The OpenSCAD language grammar compiled to WASM.
@@ -121,7 +127,7 @@ The OpenSCAD language grammar compiled to WASM.
 
 2. **Clone the Grammar Repository**:
    ```bash
-   git clone https://github.com/bollian/tree-sitter-openscad.git
+   git clone https://github.com/openscad/tree-sitter-openscad.git
    cd tree-sitter-openscad
    ```
 
@@ -139,13 +145,23 @@ The OpenSCAD language grammar compiled to WASM.
 
 **Alternative Method** (without cloning):
 
-If you have `tree-sitter-openscad` as a dependency:
+The grammar is already a dependency of `apps/ui`, so build it in place:
 
 ```bash
-cd node_modules/tree-sitter-openscad
+REPO="$(git rev-parse --show-toplevel)"
+cd "$REPO/apps/ui/node_modules/@openscad/tree-sitter-openscad"
 tree-sitter build --wasm
-cp tree-sitter-openscad.wasm ../../apps/ui/public/
+cp tree-sitter-openscad.wasm "$REPO/apps/ui/public/"
 ```
+
+Two things this recipe is careful about, both of which bit earlier versions of this page:
+
+- The package is **scoped** — `@openscad/tree-sitter-openscad`, not the bare name. PR #19
+  replaced the unscoped `bollian` grammar; a recipe pointing at `node_modules/tree-sitter-openscad`
+  silently reintroduces the deprecated one.
+- The destination is **absolute**, not a relative hop. pnpm links the package into a
+  content-addressed store, so `cd`-ing into it and then walking back up with `../../../` lands
+  inside the store — not in `apps/ui/public`. Capture the repo root first.
 
 ## Integration with Monaco Editor
 
@@ -423,12 +439,12 @@ Example log output:
 ## Dependencies
 
 - **web-tree-sitter** (v0.25.10): WASM bindings for tree-sitter
-- **tree-sitter-openscad** (v0.5.1): OpenSCAD grammar
+- **@openscad/tree-sitter-openscad** (v0.6.1): OpenSCAD grammar
 - **License**: Both are MIT licensed, compatible with this project
 
 ## References
 
 - [Tree-sitter Documentation](https://tree-sitter.github.io/tree-sitter/)
-- [tree-sitter-openscad Grammar](https://github.com/bollian/tree-sitter-openscad)
+- [@openscad/tree-sitter-openscad Grammar](https://github.com/openscad/tree-sitter-openscad)
 - [Prettier's Doc Format](https://prettier.io/docs/en/printer.html)
 - [Monaco Editor API](https://microsoft.github.io/monaco-editor/api/index.html)

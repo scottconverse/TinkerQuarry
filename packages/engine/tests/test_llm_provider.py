@@ -19,9 +19,14 @@ BAMBU = Printer(
 PLA = Material(
     key="pla", name="PLA", nozzle_temp=210, bed_temp=55, wall_multiplier=2.0, shrinkage=0.002
 )
+# The LOCAL backend fixture. ENGINEERING-1 (v1.5.0 gate): this used to declare
+# provider="openai" and still reach the native /api/chat path, because the old
+# _is_ollama_backend() inferred "Ollama" from loopback-ness and ignored the declared provider
+# entirely -- so the suite's own baseline fixture was silently mislabelled. The provider field is
+# now authoritative, so a fixture that exercises the native transport has to SAY it is Ollama.
 BACKEND = LLMBackend(
     key="test",
-    provider="openai",
+    provider="ollama",
     base_url="http://localhost:0/v1",
     model_name="test-model",
     api_key_env=None,
@@ -102,8 +107,8 @@ def test_generate_design_plan_parses_json_through_fences(monkeypatch):
         "assumptions": [],
         "open_questions": [],
     }
-    # BACKEND is a loopback host -> a local Ollama backend -> the plan goes through the native
-    # /api/chat schema-constrained `format` path. The parser still tolerates stray fences.
+    # BACKEND declares provider: ollama -> the plan goes through the native /api/chat
+    # schema-constrained `format` path. The parser still tolerates stray fences.
     fenced = "```json\n" + json.dumps(plan_json) + "\n```"
     cap: dict = {}
     _mock_native_chat(monkeypatch, fenced, cap)
@@ -187,7 +192,7 @@ def test_generate_design_plan_does_not_wrap_a_connection_error_as_plan_parse_err
 
 
 def test_generate_openscad_strips_fences_and_sends_plan(monkeypatch):
-    # PLAN-004 r2: BACKEND is loopback, so LOCAL codegen rides the native /api/chat with
+    # PLAN-004 r2: BACKEND declares ollama, so LOCAL codegen rides the native /api/chat with
     # thinking OFF and NO grammar constraint — the gate reproduced live that the /v1 path's
     # undisableable thinking left codegen's OpenSCAD comment-only/empty.
     plan = DesignPlan(
@@ -286,8 +291,8 @@ def test_complete_retries_then_succeeds_on_connection_error(monkeypatch):
 
     monkeypatch.setattr(LLMProvider, "_server_reachable", lambda self, timeout_s=2.0: True)
     client = FlakyClient(fail_n=2)
-    # PLAN-004 r2: a loopback backend now routes _complete through the native /api/chat,
-    # so the /v1 client retry policy under test here only applies to CLOUD backends.
+    # PLAN-004 r2: an ollama backend routes _complete through the native /api/chat, so the
+    # /v1 client retry policy under test here applies to CLOUD + non-Ollama local backends.
     provider = LLMProvider(
         _cloud_backend("https://openrouter.ai/api/v1"), client=client, retry_wait_s=0
     )

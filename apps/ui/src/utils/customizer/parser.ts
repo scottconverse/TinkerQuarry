@@ -5,7 +5,7 @@
  * Supports the official OpenSCAD customizer syntax.
  */
 
-import { parse } from '../formatter/parser';
+import { parse } from "../formatter/parser";
 import type {
   CustomizerParam,
   CustomizerTab,
@@ -14,8 +14,8 @@ import type {
   ParameterProminence,
   CustomizerParamSource,
   CustomizerStringInput,
-} from './types';
-import type * as TreeSitter from 'web-tree-sitter';
+} from "./types";
+import type * as TreeSitter from "web-tree-sitter";
 
 interface StudioMetadata {
   label?: string;
@@ -28,8 +28,8 @@ interface StudioMetadata {
 }
 
 const isDev =
-  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ===
-  'development';
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env
+    ?.NODE_ENV === "development";
 
 /**
  * Parse comment text to extract customizer configuration
@@ -53,44 +53,50 @@ function parseCommentConfig(comment: string): {
   const content = match[1].trim();
 
   const booleanOptions = content
-    .split(',')
+    .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   if (
     booleanOptions.length === 2 &&
-    booleanOptions.every((option) => option === 'true' || option === 'false')
+    booleanOptions.every((option) => option === "true" || option === "false")
   ) {
-    return { type: 'boolean' };
+    return { type: "boolean" };
   }
 
   // Check for labeled dropdown: "10:Small, 20:Medium"
-  if (content.includes(':') && content.includes(',')) {
-    const parts = content.split(',').map((s) => s.trim());
-    if (parts.every((p) => p.includes(':'))) {
-      const labeledBooleanOptions = parts.map((part) => part.split(':')[0]?.trim().toLowerCase());
+  if (content.includes(":") && content.includes(",")) {
+    const parts = content.split(",").map((s) => s.trim());
+    if (parts.every((p) => p.includes(":"))) {
+      const labeledBooleanOptions = parts.map((part) =>
+        part.split(":")[0]?.trim().toLowerCase(),
+      );
       if (
         labeledBooleanOptions.length === 2 &&
-        labeledBooleanOptions.every((option) => option === 'true' || option === 'false')
+        labeledBooleanOptions.every(
+          (option) => option === "true" || option === "false",
+        )
       ) {
-        return { type: 'boolean' };
+        return { type: "boolean" };
       }
 
       const options = parts.map((part) => {
-        const [val, label] = part.split(':').map((s) => s.trim());
+        const [val, label] = part.split(":").map((s) => s.trim());
         return {
           value: isNaN(Number(val)) ? val : Number(val),
           label: label || val,
         };
       });
-      return { type: 'dropdown', options };
+      return { type: "dropdown", options };
     }
   }
 
   // Check for range with step: "0:5:100"
-  const rangeStepMatch = content.match(/^(-?\d+\.?\d*):(-?\d+\.?\d*):(-?\d+\.?\d*)$/);
+  const rangeStepMatch = content.match(
+    /^(-?\d+\.?\d*):(-?\d+\.?\d*):(-?\d+\.?\d*)$/,
+  );
   if (rangeStepMatch) {
     return {
-      type: 'slider',
+      type: "slider",
       min: Number(rangeStepMatch[1]),
       step: Number(rangeStepMatch[2]),
       max: Number(rangeStepMatch[3]),
@@ -101,7 +107,7 @@ function parseCommentConfig(comment: string): {
   const rangeMatch = content.match(/^(-?\d+\.?\d*):(-?\d+\.?\d*)$/);
   if (rangeMatch) {
     return {
-      type: 'slider',
+      type: "slider",
       min: Number(rangeMatch[1]),
       max: Number(rangeMatch[2]),
     };
@@ -110,22 +116,22 @@ function parseCommentConfig(comment: string): {
   // Check for simple max value (slider from 0 to max): "100"
   if (/^-?\d+\.?\d*$/.test(content)) {
     return {
-      type: 'slider',
+      type: "slider",
       min: 0,
       max: Number(content),
     };
   }
 
   // Check for string dropdown: "foo, bar, baz"
-  if (content.includes(',')) {
+  if (content.includes(",")) {
     const options = content
-      .split(',')
+      .split(",")
       .map((s) => s.trim())
       .map((val) => ({
         value: val,
         label: val,
       }));
-    return { type: 'dropdown', options };
+    return { type: "dropdown", options };
   }
 
   return null;
@@ -139,22 +145,23 @@ function parseStudioMetadata(commentText: string): StudioMetadata | null {
     const parsed = JSON.parse(match[1]) as Record<string, unknown>;
     const metadata: StudioMetadata = {};
 
-    if (typeof parsed.label === 'string') metadata.label = parsed.label;
-    if (typeof parsed.description === 'string') metadata.description = parsed.description;
-    if (typeof parsed.unit === 'string') metadata.unit = parsed.unit;
-    if (typeof parsed.group === 'string') metadata.group = parsed.group;
+    if (typeof parsed.label === "string") metadata.label = parsed.label;
+    if (typeof parsed.description === "string")
+      metadata.description = parsed.description;
+    if (typeof parsed.unit === "string") metadata.unit = parsed.unit;
+    if (typeof parsed.group === "string") metadata.group = parsed.group;
     if (
-      parsed.prominence === 'primary' ||
-      parsed.prominence === 'secondary' ||
-      parsed.prominence === 'advanced'
+      parsed.prominence === "primary" ||
+      parsed.prominence === "secondary" ||
+      parsed.prominence === "advanced"
     ) {
       metadata.prominence = parsed.prominence;
     }
-    if (parsed.input === 'text' || parsed.input === 'textarea') {
+    if (parsed.input === "text" || parsed.input === "textarea") {
       metadata.input = parsed.input;
     }
     if (
-      typeof parsed.rows === 'number' &&
+      typeof parsed.rows === "number" &&
       Number.isFinite(parsed.rows) &&
       Number.isInteger(parsed.rows) &&
       parsed.rows > 0
@@ -165,7 +172,7 @@ function parseStudioMetadata(commentText: string): StudioMetadata | null {
     return Object.keys(metadata).length > 0 ? metadata : null;
   } catch (error) {
     if (isDev) {
-      console.warn('[Customizer] Ignoring invalid @studio metadata:', error);
+      console.warn("[Customizer] Ignoring invalid @studio metadata:", error);
     }
     return null;
   }
@@ -182,44 +189,44 @@ function decodeStringLiteral(text: string): string {
   }
 
   const inner = text.slice(1, -1);
-  let decoded = '';
+  let decoded = "";
 
   for (let index = 0; index < inner.length; index += 1) {
     const char = inner[index];
-    if (char !== '\\') {
+    if (char !== "\\") {
       decoded += char;
       continue;
     }
 
     const nextChar = inner[index + 1];
     if (!nextChar) {
-      decoded += '\\';
+      decoded += "\\";
       break;
     }
 
     switch (nextChar) {
-      case 'b':
-        decoded += '\b';
+      case "b":
+        decoded += "\b";
         index += 1;
         break;
-      case 't':
-        decoded += '\t';
+      case "t":
+        decoded += "\t";
         index += 1;
         break;
-      case 'n':
-        decoded += '\n';
+      case "n":
+        decoded += "\n";
         index += 1;
         break;
-      case 'r':
-        decoded += '\r';
+      case "r":
+        decoded += "\r";
         index += 1;
         break;
-      case 'f':
-        decoded += '\f';
+      case "f":
+        decoded += "\f";
         index += 1;
         break;
-      case '\\':
-        decoded += '\\';
+      case "\\":
+        decoded += "\\";
         index += 1;
         break;
       case '"':
@@ -230,10 +237,10 @@ function decodeStringLiteral(text: string): string {
         decoded += "'";
         index += 1;
         break;
-      case 'x': {
+      case "x": {
         const hexMatch = inner.slice(index + 2).match(/^[0-9A-Fa-f]{1,2}/);
         if (!hexMatch) {
-          decoded += 'x';
+          decoded += "x";
           index += 1;
           break;
         }
@@ -241,10 +248,10 @@ function decodeStringLiteral(text: string): string {
         index += 1 + hexMatch[0].length;
         break;
       }
-      case 'u': {
+      case "u": {
         const hex = inner.slice(index + 2, index + 6);
         if (!/^[0-9A-Fa-f]{4}$/.test(hex)) {
-          decoded += 'u';
+          decoded += "u";
           index += 1;
           break;
         }
@@ -264,13 +271,17 @@ function decodeStringLiteral(text: string): string {
 
 function isValidSliderConfig(
   value: string | number | boolean | number[],
-  config: { min?: number; max?: number; step?: number }
+  config: { min?: number; max?: number; step?: number },
 ): value is number {
-  if (typeof value !== 'number') return false;
+  if (typeof value !== "number") return false;
   if (config.min === undefined || config.max === undefined) return false;
-  if (!Number.isFinite(config.min) || !Number.isFinite(config.max)) return false;
+  if (!Number.isFinite(config.min) || !Number.isFinite(config.max))
+    return false;
   if (config.min >= config.max) return false;
-  if (config.step !== undefined && (!Number.isFinite(config.step) || config.step <= 0))
+  if (
+    config.step !== undefined &&
+    (!Number.isFinite(config.step) || config.step <= 0)
+  )
     return false;
   if (value < config.min || value > config.max) return false;
   return true;
@@ -279,9 +290,12 @@ function isValidSliderConfig(
 /**
  * Get trailing comment for a node (if it exists on the same line)
  */
-function getTrailingComment(node: TreeSitter.Node, sourceCode: string): string | null {
+function getTrailingComment(
+  node: TreeSitter.Node,
+  sourceCode: string,
+): string | null {
   const line = node.endPosition.row;
-  const lineEnd = sourceCode.split('\n')[line];
+  const lineEnd = sourceCode.split("\n")[line];
   if (!lineEnd) return null;
 
   const commentMatch = lineEnd.match(/\/\/(.*)$/);
@@ -294,7 +308,7 @@ function getTrailingComment(node: TreeSitter.Node, sourceCode: string): string |
  */
 function extractValue(
   valueNode: TreeSitter.Node,
-  sourceCode: string
+  sourceCode: string,
 ): {
   value: string | number | boolean | number[];
   rawValue: string;
@@ -305,41 +319,41 @@ function extractValue(
 
   // Skip expressions (binary operations, function calls, etc.)
   if (
-    valueNode.type === 'binary_expression' ||
-    valueNode.type === 'unary_expression' ||
-    valueNode.type === 'call_expression' ||
-    valueNode.type === 'function_call' ||
-    valueNode.type === 'ternary_expression' ||
-    valueNode.type === 'index_expression'
+    valueNode.type === "binary_expression" ||
+    valueNode.type === "unary_expression" ||
+    valueNode.type === "call_expression" ||
+    valueNode.type === "function_call" ||
+    valueNode.type === "ternary_expression" ||
+    valueNode.type === "index_expression"
   ) {
     return null; // Not a simple literal
   }
 
   // Boolean
-  if (valueNode.type === 'boolean' || text === 'true' || text === 'false') {
+  if (valueNode.type === "boolean" || text === "true" || text === "false") {
     return {
-      value: text === 'true',
+      value: text === "true",
       rawValue,
-      inferredType: 'boolean',
+      inferredType: "boolean",
     };
   }
 
   // Vector/Array - only accept simple lists with literal values
-  if (valueNode.type === 'list' || valueNode.type === 'vector') {
+  if (valueNode.type === "list" || valueNode.type === "vector") {
     // Check if all children are literals (no expressions)
     for (let i = 0; i < valueNode.childCount; i++) {
       const child = valueNode.child(i);
       if (
         child &&
-        child.type !== '[' &&
-        child.type !== ']' &&
-        child.type !== ',' &&
-        child.type !== 'number' &&
-        child.type !== 'decimal' &&
-        child.type !== 'integer' &&
-        child.type !== 'float' &&
-        child.type !== 'whitespace' &&
-        child.type !== '\n'
+        child.type !== "[" &&
+        child.type !== "]" &&
+        child.type !== "," &&
+        child.type !== "number" &&
+        child.type !== "decimal" &&
+        child.type !== "integer" &&
+        child.type !== "float" &&
+        child.type !== "whitespace" &&
+        child.type !== "\n"
       ) {
         return null; // Contains non-literal
       }
@@ -350,30 +364,34 @@ function extractValue(
     return {
       value: numbers,
       rawValue,
-      inferredType: 'vector',
+      inferredType: "vector",
     };
   }
 
   // String
-  if (valueNode.type === 'string' || text.startsWith('"') || text.startsWith("'")) {
+  if (
+    valueNode.type === "string" ||
+    text.startsWith('"') ||
+    text.startsWith("'")
+  ) {
     return {
       value: decodeStringLiteral(text),
       rawValue,
-      inferredType: 'string',
+      inferredType: "string",
     };
   }
 
   // Number (simple literal only)
   if (
-    valueNode.type === 'number' ||
-    valueNode.type === 'decimal' ||
-    valueNode.type === 'integer' ||
-    valueNode.type === 'float'
+    valueNode.type === "number" ||
+    valueNode.type === "decimal" ||
+    valueNode.type === "integer" ||
+    valueNode.type === "float"
   ) {
     return {
       value: Number(text),
       rawValue,
-      inferredType: 'number',
+      inferredType: "number",
     };
   }
 
@@ -387,12 +405,12 @@ function extractValue(
 export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
   const tree = parse(sourceCode);
   if (!tree) {
-    console.warn('[Customizer] Failed to parse code');
+    console.warn("[Customizer] Failed to parse code");
     return [];
   }
 
   const params: CustomizerParam[] = [];
-  let currentTab = 'Parameters'; // Default tab name
+  let currentTab = "Parameters"; // Default tab name
   let pendingStudioMetadata: StudioMetadata | null = null;
 
   try {
@@ -400,181 +418,227 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
     const cursor = tree.walk();
     const rootNode = tree.rootNode;
 
-    // Look for top-level assignments before first module/function
-    for (let i = 0; i < rootNode.childCount; i++) {
-      const child = rootNode.child(i);
-      if (!child) continue;
-
-      // Stop at first module or function declaration
-      // (predecessor grammar: module_declaration/function_declaration; org grammar: module_item/function_item)
-      if (
-        child.type === 'module_declaration' ||
-        child.type === 'function_declaration' ||
-        child.type === 'module_item' ||
-        child.type === 'function_item'
-      ) {
-        break;
-      }
-
-      // Check for block (contains '{') - stop here as params must be before blocks
-      if (child.type === 'block' || child.type === 'union_block') {
-        break;
-      }
-
-      // Look for tab/group comments: /* [Tab Name] */
-      // (predecessor grammar: comment; org grammar: line_comment/block_comment)
-      if (
-        child.type === 'comment' ||
-        child.type === 'line_comment' ||
-        child.type === 'block_comment'
-      ) {
-        const commentText = sourceCode.substring(child.startIndex, child.endIndex);
-        const studioMetadata = parseStudioMetadata(commentText);
-        if (studioMetadata !== null) {
-          pendingStudioMetadata = studioMetadata;
-          continue;
-        }
-
-        const tabMatch = commentText.match(/\/\*\s*\[([^\]]+)\]\s*\*\//);
-        if (tabMatch) {
-          const tabName = tabMatch[1].trim();
-          // Skip [Hidden] tab
-          if (tabName.toLowerCase() !== 'hidden') {
-            currentTab = tabName;
-          } else {
-            // Skip subsequent params until next tab
-            currentTab = '__hidden__';
-          }
-          pendingStudioMetadata = null;
-          continue;
-        }
-
-        // Ignore unrelated comments without clearing pending metadata.
-        continue;
-      }
-
-      // Look for assignments: variable = value;
-      // (the org grammar wraps a top-level `x = 1;` in a var_declaration containing the
-      //  assignment; the predecessor grammar exposed the assignment directly — accept both)
-      let assignmentNode: TreeSitter.Node | null = null;
-      if (child.type === 'assignment') {
-        assignmentNode = child;
-      } else if (child.type === 'var_declaration') {
-        for (let j = 0; j < child.childCount; j++) {
-          const c = child.child(j);
-          if (c && c.type === 'assignment') {
-            assignmentNode = c;
-            break;
-          }
-        }
-      }
-      if (assignmentNode) {
-        // Skip if in hidden tab
-        if (currentTab === '__hidden__') {
-          pendingStudioMetadata = null;
-          continue;
-        }
-
-        // Find identifier and value
-        let identifier: TreeSitter.Node | null = null;
-        let valueNode: TreeSitter.Node | null = null;
-
-        for (let j = 0; j < assignmentNode.childCount; j++) {
-          const subChild = assignmentNode.child(j);
-          if (!subChild) continue;
-
-          if (subChild.type === 'identifier' && !identifier) {
-            identifier = subChild;
-          } else if (
-            subChild.type !== 'identifier' &&
-            subChild.type !== '=' &&
-            subChild.type !== ';'
-          ) {
-            valueNode = subChild;
-          }
-        }
-
-        if (!identifier || !valueNode) continue;
-
-        const name = sourceCode.substring(identifier.startIndex, identifier.endIndex);
-        const extractedValue = extractValue(valueNode, sourceCode);
-
-        // Skip if value is not a simple literal
-        if (!extractedValue) continue;
-
-        const { value, rawValue, inferredType } = extractedValue;
-
-        // Check for trailing comment with config
-        const trailingComment = getTrailingComment(child, sourceCode);
-        const commentConfig = trailingComment ? parseCommentConfig(trailingComment) : null;
-
-        const param: CustomizerParam = {
-          name,
-          value,
-          rawValue,
-          type: commentConfig?.type || inferredType,
-          line: child.startPosition.row + 1, // 1-indexed
-          tab: currentTab,
-          valueStartIndex: valueNode.startIndex,
-          valueEndIndex: valueNode.endIndex,
-        };
-
-        // Add range/options from comment if present
-        if (commentConfig) {
-          if (commentConfig.type === 'slider') {
-            if (isValidSliderConfig(value, commentConfig)) {
-              param.type = 'slider';
-              param.min = commentConfig.min;
-              param.max = commentConfig.max;
-              if (commentConfig.step !== undefined) param.step = commentConfig.step;
-            } else {
-              param.type = inferredType;
-            }
-          } else if (commentConfig.type === 'boolean' && typeof value === 'boolean') {
-            param.type = 'boolean';
-          } else if (
-            commentConfig.type === 'dropdown' &&
-            (typeof value === 'string' || typeof value === 'number')
-          ) {
-            param.type = 'dropdown';
-            if (commentConfig.options) param.options = commentConfig.options;
-          }
-        }
-
-        if (pendingStudioMetadata) {
-          if (pendingStudioMetadata.label) param.label = pendingStudioMetadata.label;
-          if (pendingStudioMetadata.description) {
-            param.description = pendingStudioMetadata.description;
-          }
-          if (pendingStudioMetadata.unit) param.unit = pendingStudioMetadata.unit;
-          if (pendingStudioMetadata.group) param.group = pendingStudioMetadata.group;
-          if (pendingStudioMetadata.prominence) {
-            param.prominence = pendingStudioMetadata.prominence;
-          }
-          if (param.type === 'string' && pendingStudioMetadata.input) {
-            param.input = pendingStudioMetadata.input;
-          }
-          if (param.type === 'string' && pendingStudioMetadata.rows !== undefined) {
-            param.rows = pendingStudioMetadata.rows;
-          }
-        }
-
-        const source: CustomizerParamSource | undefined = pendingStudioMetadata
-          ? 'hybrid'
-          : commentConfig
-            ? 'standard'
-            : undefined;
-        if (source) {
-          param.source = source;
-        }
-
-        params.push(param);
-        pendingStudioMetadata = null;
-        continue;
-      }
-
-      // Any non-comment, non-assignment top-level node breaks metadata association.
+    // E2E-A: two passes, and the second one only ever runs when the first found nothing.
+    //
+    // The OpenSCAD Customizer convention is that parameters precede the first module, and
+    // stopping there is what keeps a module's own top-level constants out of the panel. That
+    // convention holds for hand-written .scad and MUST NOT change — pass 1 is byte-for-byte the
+    // old behaviour.
+    //
+    // But the engine serves its SCAD with `library/` INLINED, so `module snap_box(...)` lands
+    // ahead of the `width = 80; // [10:1:170]` block. Pass 1 therefore stops before reaching a
+    // single parameter, and the Customizer showed "No custom controls yet" for every part the
+    // product itself generates — while templates.py's whole reason to exist is that deterministic
+    // emit "lets named live sliders re-render instantly".
+    //
+    // Pass 2 scans every top-level node instead of stopping. It is strictly a fallback: if pass 1
+    // produced any parameter at all, pass 2 never runs, so no file that works today can change.
+    for (const stopAtFirstModule of [true, false]) {
+      if (params.length > 0) break;
+      // Each pass starts clean; a half-consumed tab or metadata comment must not leak across.
+      currentTab = "Parameters";
       pendingStudioMetadata = null;
+
+      for (let i = 0; i < rootNode.childCount; i++) {
+        const child = rootNode.child(i);
+        if (!child) continue;
+
+        // Stop at first module or function declaration
+        // (predecessor grammar: module_declaration/function_declaration; org grammar: module_item/function_item)
+        if (
+          child.type === "module_declaration" ||
+          child.type === "function_declaration" ||
+          child.type === "module_item" ||
+          child.type === "function_item"
+        ) {
+          if (stopAtFirstModule) break;
+          // Pass 2: step over the declaration. Its body is a child of this node, not a sibling,
+          // so nothing inside it is reachable from this loop — only true top-level siblings are.
+          pendingStudioMetadata = null;
+          continue;
+        }
+
+        // Check for block (contains '{') - stop here as params must be before blocks
+        if (child.type === "block" || child.type === "union_block") {
+          if (stopAtFirstModule) break;
+          pendingStudioMetadata = null;
+          continue;
+        }
+
+        // Look for tab/group comments: /* [Tab Name] */
+        // (predecessor grammar: comment; org grammar: line_comment/block_comment)
+        if (
+          child.type === "comment" ||
+          child.type === "line_comment" ||
+          child.type === "block_comment"
+        ) {
+          const commentText = sourceCode.substring(
+            child.startIndex,
+            child.endIndex,
+          );
+          const studioMetadata = parseStudioMetadata(commentText);
+          if (studioMetadata !== null) {
+            pendingStudioMetadata = studioMetadata;
+            continue;
+          }
+
+          const tabMatch = commentText.match(/\/\*\s*\[([^\]]+)\]\s*\*\//);
+          if (tabMatch) {
+            const tabName = tabMatch[1].trim();
+            // Skip [Hidden] tab
+            if (tabName.toLowerCase() !== "hidden") {
+              currentTab = tabName;
+            } else {
+              // Skip subsequent params until next tab
+              currentTab = "__hidden__";
+            }
+            pendingStudioMetadata = null;
+            continue;
+          }
+
+          // Ignore unrelated comments without clearing pending metadata.
+          continue;
+        }
+
+        // Look for assignments: variable = value;
+        // (the org grammar wraps a top-level `x = 1;` in a var_declaration containing the
+        //  assignment; the predecessor grammar exposed the assignment directly — accept both)
+        let assignmentNode: TreeSitter.Node | null = null;
+        if (child.type === "assignment") {
+          assignmentNode = child;
+        } else if (child.type === "var_declaration") {
+          for (let j = 0; j < child.childCount; j++) {
+            const c = child.child(j);
+            if (c && c.type === "assignment") {
+              assignmentNode = c;
+              break;
+            }
+          }
+        }
+        if (assignmentNode) {
+          // Skip if in hidden tab
+          if (currentTab === "__hidden__") {
+            pendingStudioMetadata = null;
+            continue;
+          }
+
+          // Find identifier and value
+          let identifier: TreeSitter.Node | null = null;
+          let valueNode: TreeSitter.Node | null = null;
+
+          for (let j = 0; j < assignmentNode.childCount; j++) {
+            const subChild = assignmentNode.child(j);
+            if (!subChild) continue;
+
+            if (subChild.type === "identifier" && !identifier) {
+              identifier = subChild;
+            } else if (
+              subChild.type !== "identifier" &&
+              subChild.type !== "=" &&
+              subChild.type !== ";"
+            ) {
+              valueNode = subChild;
+            }
+          }
+
+          if (!identifier || !valueNode) continue;
+
+          const name = sourceCode.substring(
+            identifier.startIndex,
+            identifier.endIndex,
+          );
+          const extractedValue = extractValue(valueNode, sourceCode);
+
+          // Skip if value is not a simple literal
+          if (!extractedValue) continue;
+
+          const { value, rawValue, inferredType } = extractedValue;
+
+          // Check for trailing comment with config
+          const trailingComment = getTrailingComment(child, sourceCode);
+          const commentConfig = trailingComment
+            ? parseCommentConfig(trailingComment)
+            : null;
+
+          const param: CustomizerParam = {
+            name,
+            value,
+            rawValue,
+            type: commentConfig?.type || inferredType,
+            line: child.startPosition.row + 1, // 1-indexed
+            tab: currentTab,
+            valueStartIndex: valueNode.startIndex,
+            valueEndIndex: valueNode.endIndex,
+          };
+
+          // Add range/options from comment if present
+          if (commentConfig) {
+            if (commentConfig.type === "slider") {
+              if (isValidSliderConfig(value, commentConfig)) {
+                param.type = "slider";
+                param.min = commentConfig.min;
+                param.max = commentConfig.max;
+                if (commentConfig.step !== undefined)
+                  param.step = commentConfig.step;
+              } else {
+                param.type = inferredType;
+              }
+            } else if (
+              commentConfig.type === "boolean" &&
+              typeof value === "boolean"
+            ) {
+              param.type = "boolean";
+            } else if (
+              commentConfig.type === "dropdown" &&
+              (typeof value === "string" || typeof value === "number")
+            ) {
+              param.type = "dropdown";
+              if (commentConfig.options) param.options = commentConfig.options;
+            }
+          }
+
+          if (pendingStudioMetadata) {
+            if (pendingStudioMetadata.label)
+              param.label = pendingStudioMetadata.label;
+            if (pendingStudioMetadata.description) {
+              param.description = pendingStudioMetadata.description;
+            }
+            if (pendingStudioMetadata.unit)
+              param.unit = pendingStudioMetadata.unit;
+            if (pendingStudioMetadata.group)
+              param.group = pendingStudioMetadata.group;
+            if (pendingStudioMetadata.prominence) {
+              param.prominence = pendingStudioMetadata.prominence;
+            }
+            if (param.type === "string" && pendingStudioMetadata.input) {
+              param.input = pendingStudioMetadata.input;
+            }
+            if (
+              param.type === "string" &&
+              pendingStudioMetadata.rows !== undefined
+            ) {
+              param.rows = pendingStudioMetadata.rows;
+            }
+          }
+
+          const source: CustomizerParamSource | undefined =
+            pendingStudioMetadata
+              ? "hybrid"
+              : commentConfig
+                ? "standard"
+                : undefined;
+          if (source) {
+            param.source = source;
+          }
+
+          params.push(param);
+          pendingStudioMetadata = null;
+          continue;
+        }
+
+        // Any non-comment, non-assignment top-level node breaks metadata association.
+        pendingStudioMetadata = null;
+      }
     }
 
     cursor.delete();
@@ -585,7 +649,7 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
   // Group parameters by tab
   const tabMap = new Map<string, CustomizerParam[]>();
   for (const param of params) {
-    const tabName = param.tab || 'Parameters';
+    const tabName = param.tab || "Parameters";
     if (!tabMap.has(tabName)) {
       tabMap.set(tabName, []);
     }

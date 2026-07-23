@@ -12,6 +12,9 @@ node_modules/
 dist/
 .jest-cache/
 **/.jest-cache/
+# jest.formatter.config.cjs writes its own cache dir, which the pattern above does not match.
+.jest-cache-formatter/
+**/.jest-cache-formatter/
 coverage/
 **/coverage/
 
@@ -39,6 +42,10 @@ gate-tinkerquarry-*/artifacts/
 .vite/
 .wrangler-functions-build/
 **/.wrangler-functions-build/
+# `pnpm share:dev` persists local KV/R2/Durable Object state here — real share records,
+# including their delete-token hashes. Never commit it. (The pattern above does not match it.)
+.wrangler/
+**/.wrangler/
 playwright-report/
 test-results/
 .fablize/

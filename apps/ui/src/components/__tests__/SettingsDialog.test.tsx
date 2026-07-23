@@ -135,6 +135,7 @@ describe('SettingsDialog', () => {
       status: 'running',
       endpoint: 'http://127.0.0.1:32123/mcp',
       message: null,
+      sessionToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
     });
     mockSyncDesktopMcpConfig.mockResolvedValue({
       enabled: true,
@@ -142,6 +143,7 @@ describe('SettingsDialog', () => {
       status: 'running',
       endpoint: 'http://127.0.0.1:32123/mcp',
       message: null,
+      sessionToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
     });
 
     Object.defineProperty(window, 'matchMedia', {
@@ -278,6 +280,35 @@ describe('SettingsDialog', () => {
     expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:32123\/mcp/i).length).toBeGreaterThan(0);
     expect(mockGetDesktopMcpStatus).toHaveBeenCalled();
+  });
+
+  it('shows the per-boot MCP session token so an external agent can authenticate', async () => {
+    const writeText = jest.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    // The server rejects every request that does not carry this token, so if it
+    // is never shown the whole External Agents feature is dead on arrival.
+    expect(await screen.findByText('a1b2c3d4e5f60718293a4b5c6d7e8f90')).toBeTruthy();
+
+    // Knowing the token is not enough — the client has to know which header it goes in.
+    expect(screen.getByText(/Authorization: Bearer/i)).toBeTruthy();
+
+    // And that a saved config goes stale on the next launch.
+    expect(screen.getByText(/every time TinkerQuarry restarts/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /copy token/i }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('a1b2c3d4e5f60718293a4b5c6d7e8f90');
+    });
   });
 
   it('orders hosted API key cards before the OpenAI-compatible provider', async () => {

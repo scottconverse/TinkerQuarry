@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Button, IconButton, Text } from './ui';
+import { Button, Dialog, IconButton, Text } from './ui';
 import { TbX, TbAlertTriangle } from 'react-icons/tb';
 
 interface FirstRealPrintDialogProps {
@@ -21,32 +21,19 @@ export function FirstRealPrintDialog({ onConfirm, onClose }: FirstRealPrintDialo
     window.requestAnimationFrame(() => confirmRef.current?.focus());
   }, []);
 
-  useEffect(() => {
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [onClose]);
+  // Escape is handled by the shared <Dialog> (UIUX-2), which also traps focus.
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+    <Dialog
+      onClose={onClose}
+      testId="first-real-print-dialog"
+      labelledBy="first-real-print-title"
+      panelClassName="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
+      panelStyle={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-primary)',
       }}
     >
-      <div
-        data-testid="first-real-print-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="first-real-print-title"
-        className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
-        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
         <div
           className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--border-primary)' }}
@@ -89,7 +76,6 @@ export function FirstRealPrintDialog({ onConfirm, onClose }: FirstRealPrintDialo
             Make it real
           </Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

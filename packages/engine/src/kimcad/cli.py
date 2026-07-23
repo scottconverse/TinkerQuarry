@@ -5,7 +5,7 @@ Five subcommands:
     kimcad "a wall bracket for a 25mm pipe"     # design a part (default verb)
     kimcad design "..." [--printer ... --material ...] [--slice]
     kimcad bench [--prompts bench/prompts.yaml] [--min-success-rate 0.7] [--slice]
-    kimcad web [--host ... --port ... --demo]   # local browser UI (Phase 2)
+    kimcad web [--host ... --port ... --demo]   # local engine server (/api/ only — no UI)
     kimcad models                               # advise a model for this machine (Stage 6)
     kimcad bakeoff [--backends a,b]             # compare models on the benchmark (Stage 6)
 
@@ -31,6 +31,24 @@ from kimcad.config import Config
 
 _SUBCOMMANDS = {"design", "bench", "web", "shell", "models", "bakeoff"}
 _RESERVED_COMMAND_WORDS = {"serve"}
+
+
+def _design_prompt(value: str) -> str:
+    """QA-3 (v1.5.0 gate): reject an empty/whitespace-only prompt BEFORE any model call.
+
+    The web layer has always done this deterministically (webapp.py ``_handle_design``:
+    ``if not prompt: 400 "Please describe the part you want."``). The CLI did not, so
+    ``kimcad design ""`` reached a real model — and the gate observed it return a full
+    "successful" fabricated design ("Pegboard Hook...") with a PASSING printability gate and
+    **exit 0**. For scripted/CI use that is the worst outcome available: an ungrounded design
+    reported as a good build, on a wasted model call the web layer refuses for free.
+
+    Used as argparse's ``type=`` so the failure is a standard usage error (exit 2, message on
+    stderr) raised during parsing — i.e. before config load, pipeline construction, or dispatch.
+    """
+    if not value.strip():
+        raise argparse.ArgumentTypeError("Please describe the part you want.")
+    return value
 
 
 def _force_utf8_output(stream: Any) -> None:
@@ -62,7 +80,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     d = sub.add_parser("design", help="Generate a printable part from a prompt.")
-    d.add_argument("prompt", help="What to build, in plain English.")
+    # QA-3: the empty/whitespace guard runs here, at parse time — see _design_prompt.
+    d.add_argument("prompt", type=_design_prompt, help="What to build, in plain English.")
     d.add_argument("--printer", default=None, help="Printer key (default from config).")
     d.add_argument("--material", default=None, help="Material key (default from config).")
     d.add_argument("--backend", default=None, help="LLM backend key (default from config).")
@@ -90,7 +109,16 @@ def build_parser() -> argparse.ArgumentParser:
         "out in config until you enable one. This is the explicit per-send confirmation.",
     )
 
-    w = sub.add_parser("web", help="Launch the local web UI (Phase 2).")
+    # WALK-3: `web` starts the engine's HTTP API. It no longer serves a bundled interface —
+    # the committed SPA build that used to live in src/kimcad/web/ went eight PRs stale and
+    # was deleted; `/` now serves a static page explaining where the real UI comes from.
+    w = sub.add_parser(
+        "web",
+        help="Start the local engine server (the /api/ HTTP layer). It does NOT serve the "
+        "TinkerQuarry interface: use the installed desktop app, or pair this with "
+        "`pnpm dev` in apps/ui and open http://localhost:1420. Opening this port in a "
+        "browser gives you a page saying exactly that.",
+    )
     w.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1).")
     w.add_argument(
         "--allow-remote",
@@ -114,10 +142,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Serve a fixed sample part with no LLM call (fast UI demo).",
     )
 
+    # WALK-3: the "what the installer's shortcut runs" claim stopped being true at the Tauri
+    # migration — the installed shortcut runs tinkerquarry.exe, which ships its own freshly
+    # built frontend and only calls this engine's /api/ routes. This subcommand is now a
+    # developer convenience that windows the same server `kimcad web` starts.
     sh = sub.add_parser(
         "shell",
-        help="Launch KimCad as a windowed app (WebView2) — what the installer's shortcut runs. "
-        "Same app as `kimcad web`, in its own window on a private ephemeral port; closing the "
+        help="Open the local engine server in a WebView2 window on a private ephemeral port "
+        "(developer convenience — the installed app's shortcut runs tinkerquarry.exe, not "
+        "this). Shows the same no-interface-bundled page as `kimcad web`; closing the "
         "window exits cleanly.",
     )
     sh.add_argument("--backend", default=None, help="LLM backend key (default from config).")

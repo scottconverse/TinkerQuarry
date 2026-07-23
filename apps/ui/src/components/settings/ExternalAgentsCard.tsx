@@ -1,68 +1,74 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Button, Input, Text, Toggle } from '../ui';
-import type { Settings } from '../../stores/settingsStore';
-import { updateSetting } from '../../stores/settingsStore';
+import { useCallback, useEffect, useState } from "react";
+import { Button, Input, Text, Toggle } from "../ui";
+import type { Settings } from "../../stores/settingsStore";
+import { updateSetting } from "../../stores/settingsStore";
 import {
   getDesktopMcpStatus,
   syncDesktopMcpConfig,
   type McpServerStatus,
-} from '../../services/desktopMcp';
-import { notifyError, notifySuccess } from '../../utils/notifications';
-import { AgentSetupTabs } from '../mcp/AgentSetupTabs';
+} from "../../services/desktopMcp";
+import { notifyError, notifySuccess } from "../../utils/notifications";
+import { AgentSetupTabs } from "../mcp/AgentSetupTabs";
 import {
   SettingsCard,
   SettingsCardHeader,
   SettingsCardSection,
   SettingsControlRow,
   SettingsSupportBlock,
-} from './SettingsPrimitives';
+} from "./SettingsPrimitives";
 
 interface ExternalAgentsCardProps {
   settings: Settings;
   isOpen: boolean;
 }
 
-const STATUS_LABELS: Record<McpServerStatus['status'], string> = {
-  starting: 'Starting',
-  running: 'Running',
-  disabled: 'Disabled',
-  port_conflict: 'Port conflict',
-  error: 'Error',
+const STATUS_LABELS: Record<McpServerStatus["status"], string> = {
+  starting: "Starting",
+  running: "Running",
+  disabled: "Disabled",
+  port_conflict: "Port conflict",
+  error: "Error",
 };
 
-function getStatusPillStyle(status: McpServerStatus['status']) {
+function getStatusPillStyle(status: McpServerStatus["status"]) {
   switch (status) {
-    case 'running':
+    case "running":
       return {
-        backgroundColor: 'rgba(133, 153, 0, 0.15)',
-        color: 'var(--color-success)',
+        backgroundColor: "rgba(133, 153, 0, 0.15)",
+        color: "var(--color-success)",
       };
-    case 'starting':
+    case "starting":
       return {
-        backgroundColor: 'rgba(181, 137, 0, 0.14)',
-        color: 'var(--color-warning)',
+        backgroundColor: "rgba(181, 137, 0, 0.14)",
+        color: "var(--color-warning)",
       };
-    case 'port_conflict':
-    case 'error':
+    case "port_conflict":
+    case "error":
       return {
-        backgroundColor: 'rgba(220, 50, 47, 0.14)',
-        color: 'var(--color-error)',
+        backgroundColor: "rgba(220, 50, 47, 0.14)",
+        color: "var(--color-error)",
       };
     default:
       return {
-        backgroundColor: 'rgba(128, 128, 128, 0.1)',
-        color: 'var(--text-tertiary)',
+        backgroundColor: "rgba(128, 128, 128, 0.1)",
+        color: "var(--text-tertiary)",
       };
   }
 }
 
-export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps) {
+export function ExternalAgentsCard({
+  settings,
+  isOpen,
+}: ExternalAgentsCardProps) {
   const [status, setStatus] = useState<McpServerStatus>({
     enabled: settings.mcp.enabled,
     port: settings.mcp.port,
-    status: settings.mcp.enabled ? 'starting' : 'disabled',
-    endpoint: settings.mcp.enabled ? `http://127.0.0.1:${settings.mcp.port}/mcp` : null,
+    status: settings.mcp.enabled ? "starting" : "disabled",
+    endpoint: settings.mcp.enabled
+      ? `http://127.0.0.1:${settings.mcp.port}/mcp`
+      : null,
     message: null,
+    sessionToken: null,
   });
   const [draftPort, setDraftPort] = useState(String(settings.mcp.port));
   const [isSyncing, setIsSyncing] = useState(false);
@@ -79,8 +85,10 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
         ...prev,
         enabled: settings.mcp.enabled,
         port: settings.mcp.port,
-        endpoint: settings.mcp.enabled ? `http://127.0.0.1:${settings.mcp.port}/mcp` : null,
-        status: 'error',
+        endpoint: settings.mcp.enabled
+          ? `http://127.0.0.1:${settings.mcp.port}/mcp`
+          : null,
+        status: "error",
         message: error instanceof Error ? error.message : String(error),
       }));
     }
@@ -92,16 +100,17 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
   }, [isOpen, refreshStatus]);
 
   const endpoint = status.endpoint ?? `http://127.0.0.1:${status.port}/mcp`;
+  const sessionToken = status.sessionToken ?? null;
 
   const copyText = useCallback(async (label: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
       notifySuccess(`${label} copied`, {
-        toastId: `copy-${label.toLowerCase().replace(/\s+/g, '-')}`,
+        toastId: `copy-${label.toLowerCase().replace(/\s+/g, "-")}`,
       });
     } catch (error) {
       notifyError({
-        operation: 'copy-external-agent-command',
+        operation: "copy-external-agent-command",
         error,
         fallbackMessage: `Failed to copy ${label.toLowerCase()}`,
       });
@@ -110,60 +119,67 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
 
   const handleEnabledChange = useCallback(
     async (enabled: boolean) => {
-      updateSetting('mcp', { enabled });
+      updateSetting("mcp", { enabled });
       setIsSyncing(true);
       setStatus((prev) => ({
         ...prev,
         enabled,
-        status: enabled ? 'starting' : 'disabled',
+        status: enabled ? "starting" : "disabled",
         endpoint: enabled ? `http://127.0.0.1:${prev.port}/mcp` : null,
         message: null,
       }));
 
       try {
-        setStatus(await syncDesktopMcpConfig({ enabled, port: settings.mcp.port }));
+        setStatus(
+          await syncDesktopMcpConfig({ enabled, port: settings.mcp.port }),
+        );
       } catch (error) {
         setStatus((prev) => ({
           ...prev,
           enabled,
-          status: 'error',
+          status: "error",
           message: error instanceof Error ? error.message : String(error),
         }));
       } finally {
         setIsSyncing(false);
       }
     },
-    [settings.mcp.port]
+    [settings.mcp.port],
   );
 
   const handleApplyPort = useCallback(async () => {
     const parsed = Number.parseInt(draftPort, 10);
     if (!Number.isFinite(parsed) || parsed < 1 || parsed > 65535) {
       notifyError({
-        operation: 'update-mcp-port',
+        operation: "update-mcp-port",
         error: new Error(`Invalid MCP port: ${draftPort}`),
-        fallbackMessage: 'Enter a port between 1 and 65535.',
+        fallbackMessage: "Enter a port between 1 and 65535.",
       });
       return;
     }
 
-    updateSetting('mcp', { port: parsed });
+    updateSetting("mcp", { port: parsed });
     setIsSyncing(true);
     setStatus((prev) => ({
       ...prev,
       port: parsed,
       endpoint: prev.enabled ? `http://127.0.0.1:${parsed}/mcp` : null,
-      status: prev.enabled ? 'starting' : 'disabled',
+      status: prev.enabled ? "starting" : "disabled",
       message: null,
     }));
 
     try {
-      setStatus(await syncDesktopMcpConfig({ enabled: settings.mcp.enabled, port: parsed }));
+      setStatus(
+        await syncDesktopMcpConfig({
+          enabled: settings.mcp.enabled,
+          port: parsed,
+        }),
+      );
     } catch (error) {
       setStatus((prev) => ({
         ...prev,
         port: parsed,
-        status: 'error',
+        status: "error",
         message: error instanceof Error ? error.message : String(error),
       }));
     } finally {
@@ -204,7 +220,10 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
         label="MCP port"
         description="Default endpoint: http://127.0.0.1:32123/mcp"
         control={
-          <div className="flex items-center" style={{ gap: 'var(--space-control-gap)' }}>
+          <div
+            className="flex items-center"
+            style={{ gap: "var(--space-control-gap)" }}
+          >
             <Input
               type="number"
               value={draftPort}
@@ -229,25 +248,29 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
       <SettingsCardSection
         divided
         className="flex flex-col"
-        style={{ gap: 'var(--space-field-gap)' }}
+        style={{ gap: "var(--space-field-gap)" }}
       >
         <Text variant="caption" color="tertiary">
-          External agents should keep reading and editing files directly in your repo. OpenSCAD
-          Studio MCP is for render-oriented tasks only, and each agent session should call
+          External agents should keep reading and editing files directly in your
+          repo. OpenSCAD Studio MCP is for render-oriented tasks only, and each
+          agent session should call
           <Text as="code" variant="caption" className="font-mono">
-            {' '}
+            {" "}
             get_or_create_workspace
-          </Text>{' '}
+          </Text>{" "}
           before using render tools.
         </Text>
 
-        <SettingsSupportBlock className="flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
+        <SettingsSupportBlock
+          className="flex flex-col"
+          style={{ gap: "var(--space-helper-gap)" }}
+        >
           <Text variant="caption" weight="semibold">
             Endpoint
           </Text>
           <div
             className="flex items-center justify-between"
-            style={{ gap: 'var(--space-control-gap)' }}
+            style={{ gap: "var(--space-control-gap)" }}
           >
             <Text as="code" variant="caption" className="font-mono break-all">
               {endpoint}
@@ -256,22 +279,65 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => void copyText('Endpoint', endpoint)}
+              onClick={() => void copyText("Endpoint", endpoint)}
             >
               Copy
             </Button>
           </div>
         </SettingsSupportBlock>
 
-        <AgentSetupTabs port={status.port} surface="settings" />
+        {sessionToken ? (
+          <SettingsSupportBlock
+            className="flex flex-col"
+            style={{ gap: "var(--space-helper-gap)" }}
+          >
+            <Text variant="caption" weight="semibold">
+              Session token
+            </Text>
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: "var(--space-control-gap)" }}
+            >
+              <Text as="code" variant="caption" className="font-mono break-all">
+                {sessionToken}
+              </Text>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => void copyText("Session token", sessionToken)}
+              >
+                Copy token
+              </Button>
+            </div>
+            <Text variant="caption" color="tertiary">
+              Every request must carry this token in an{" "}
+              <Text as="code" variant="caption" className="font-mono">
+                {"Authorization: Bearer <token>"}
+              </Text>{" "}
+              header, or the server answers 401 Unauthorized.
+            </Text>
+            <Text variant="caption" color="tertiary">
+              The token is regenerated every time TinkerQuarry restarts, so a
+              saved agent config stops working after a restart until you paste
+              the new one.
+            </Text>
+          </SettingsSupportBlock>
+        ) : null}
+
+        <AgentSetupTabs
+          port={status.port}
+          sessionToken={sessionToken}
+          surface="settings"
+        />
 
         {status.message ? (
           <SettingsSupportBlock
             className="text-sm"
             style={{
-              backgroundColor: 'rgba(220, 50, 47, 0.1)',
-              border: '1px solid rgba(220, 50, 47, 0.3)',
-              color: 'var(--color-error)',
+              backgroundColor: "rgba(220, 50, 47, 0.1)",
+              border: "1px solid rgba(220, 50, 47, 0.3)",
+              color: "var(--color-error)",
             }}
           >
             {status.message}

@@ -23,6 +23,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import uuid
 from pathlib import Path
 
 
@@ -31,19 +32,17 @@ def fail(msg: str) -> int:
     return 1
 
 
-def _session_headers(shell_html: str) -> dict[str, str]:
+def _session_headers(session_token: str) -> dict[str, str]:
     """Headers for a state-changing POST to the installed server. The session-token guard
     (#31 / KC-26) requires the per-boot token on every POST when the server mints one — and
-    ``kimcad web`` does, even in ``--demo`` — so an out-of-band client like this verifier must read
-    the token the server injected into the page shell and echo it as ``X-KimCad-Session``, exactly
-    like the SPA. Without it ``/api/design`` 403s and the verifier can never reach ALL GREEN
-    (clean-machine finding, 2026-06-15). An empty/un-substituted token means the guard is off, so
-    no header is sent (the open-by-default embedding/test case)."""
-    headers = {"Content-Type": "application/json"}
-    m = re.search(r'name="kimcad-session-token"\s+content="([^"]*)"', shell_html)
-    if m and m.group(1) and m.group(1) != "__KIMCAD_SESSION_TOKEN__":
-        headers["X-KimCad-Session"] = m.group(1)
-    return headers
+    ``kimcad web`` does, even in ``--demo``. Without it ``/api/design`` 403s and the verifier can
+    never reach ALL GREEN (clean-machine finding, 2026-06-15).
+
+    WALK-3 (2026-07-20): the token used to be scraped out of the served page's meta tag. The page
+    no longer carries it, so we now supply the token we handed the child in TINKERQUARRY_DEV_TOKEN
+    — the same mechanism the shipped desktop app uses, which makes this check faithful to the real
+    product path instead of to the deleted SPA's."""
+    return {"Content-Type": "application/json", "X-KimCad-Session": session_token}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -77,9 +76,16 @@ def main(argv: list[str] | None = None) -> int:
     before = {str(p.relative_to(app)) for p in app.rglob("*")}
 
     # 2-4. The server on the installed payload (demo: no model needed).
+    # WALK-3 (2026-07-20): this verifier used to scrape the per-boot token out of the served
+    # page's meta tag. The page no longer carries it — see shell.py — so authenticate the way
+    # the SHIPPED app does instead: the desktop shell mints a token and passes it to the engine
+    # in TINKERQUARRY_DEV_TOKEN (apps/ui/src-tauri/src/cmd/engine.rs:132-153). Doing the same
+    # here keeps this check faithful to the real product path rather than to a dead one.
+    session_token = "verify-install-" + uuid.uuid4().hex
+    child_env = {**os.environ, "TINKERQUARRY_DEV_TOKEN": session_token}
     proc = subprocess.Popen(
         [str(py), str(launcher), "web", "--demo", "--port", str(args.port)],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=child_env,
     )
     base = f"http://127.0.0.1:{args.port}"
     try:
@@ -103,33 +109,37 @@ def main(argv: list[str] | None = None) -> int:
             return fail(f"bundled tools not seen by the app: {health}")
         print("ok: bundled OpenSCAD + OrcaSlicer present")
 
-        # BG-U001 (the beta-gate Blocker this check answers forever): the SPA must
-        # actually SERVE — the shell, and a real asset it references. Every earlier gate
-        # passed on a hollow artifact because nothing fetched '/'.
+        # BG-U001 originally required the engine to serve a full SPA here, because at the time
+        # `kimcad web` WAS the user interface. It no longer is: the desktop app ships its own
+        # frontend in the Tauri bundle and only ever calls the engine's /api/*. WALK-3 deleted
+        # the stale committed bundle, so what must serve at '/' now is the placeholder.
+        #
+        # Being explicit about the limit of this check, because the original comment overclaimed
+        # and that is how a hollow artifact passed before: this proves the ENGINE serves. It does
+        # NOT prove the installed window renders a real app — that is the Tauri frontend, and it
+        # is not reachable from here. The clean-machine gauntlet is what covers that.
         with urllib.request.urlopen(f"{base}/", timeout=10) as r:
             shell_html = r.read().decode("utf-8", errors="replace")
         if r.status != 200 or "kimcad" not in shell_html.lower():
-            return fail("the SPA shell did not serve (the installed app would be a blank window)")
-
-        asset = re.search(r'/assets/[^"\']+\.js', shell_html)
-        if not asset:
-            return fail("the SPA shell references no JS asset")
-        with urllib.request.urlopen(base + asset.group(0), timeout=10) as r:
-            if r.status != 200 or len(r.read()) < 10_000:
-                return fail(f"the SPA asset {asset.group(0)} did not serve")
-        print("ok: the SPA shell + its JS asset serve (the window has a real app in it)")
+            return fail("the engine did not serve its landing page at /")
+        if re.search(r'/assets/[^"\']+\.js', shell_html):
+            return fail("a committed SPA bundle is being served again — WALK-3 regression")
+        if session_token in shell_html:
+            return fail("the engine served its per-boot session token to an unauthenticated GET /")
+        print("ok: the engine serves its placeholder at / (no bundle, no token leak)")
         # And the prompt templates (the REAL design path needs them; demo doesn't).
         prompts = app / "site-packages" / "kimcad" / "prompts"
         if not prompts.exists() or not any(prompts.iterdir()):
             return fail("kimcad/prompts is missing from the install - real designs would fail")
         print("ok: prompt templates shipped")
 
-        # The session-token guard (#31 / KC-26) requires the per-boot token on this POST; read it
-        # from the shell the server just gave us and echo it like the SPA does (clean-machine
-        # finding 2026-06-15 — without it /api/design 403s and the verifier never reaches GREEN).
+        # The session-token guard (#31 / KC-26) requires the per-boot token on this POST. We echo
+        # the token we handed the child in TINKERQUARRY_DEV_TOKEN, exactly as the desktop app does
+        # (clean-machine finding 2026-06-15 — without it /api/design 403s and this never reaches
+        # GREEN; that finding stays closed because the token now comes from the env, not the page).
         req = urllib.request.Request(
             f"{base}/api/design", data=json.dumps({"prompt": "a 40 mm desk cable clip"}).encode(),
-            headers=_session_headers(shell_html),
+            headers=_session_headers(session_token),
         )
         with urllib.request.urlopen(req, timeout=300) as r:
             design = json.load(r)

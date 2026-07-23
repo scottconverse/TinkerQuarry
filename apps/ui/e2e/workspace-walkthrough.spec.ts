@@ -22,16 +22,8 @@ function collectPageErrors(page: Page) {
   return { consoleErrors, responseErrors };
 }
 
-async function skipSetupIfPresent(page: Page) {
-  const skipSetup = page.getByRole("button", { name: /skip setup/i });
-  if (await skipSetup.isVisible().catch(() => false)) {
-    await skipSetup.click();
-  }
-}
-
 async function buildDemoDesign(page: Page) {
   await page.goto("/");
-  await skipSetupIfPresent(page);
   await page
     .locator('textarea[placeholder="Describe what you want to build..."]')
     .fill("a 70 mm round drink coaster, 4 mm tall");
@@ -207,7 +199,6 @@ test.describe("mobile viewport", () => {
     const { responseErrors } = collectPageErrors(page);
 
     await page.goto("/");
-    await skipSetupIfPresent(page);
     await expect(page.getByTestId("welcome-screen")).toBeVisible();
     await expect(
       page.locator(

@@ -11,10 +11,16 @@ const initialShareContext = parseShareContext(window.location.pathname, window.l
 if (initialShareContext) {
   window.__SHARE_CONTEXT = initialShareContext;
 }
-window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || '';
-window.__SHARE_ENABLED =
-  Boolean(window.__SHARE_API_BASE) &&
-  (import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true');
+// WEB-6: enablement is its own flag, no longer inferred from "is an API URL set?".
+// That conflation meant the only share-enabled build recipe was also the one that
+// hardcoded http://localhost:8788 into ./dist — wrangler.toml's Pages output dir.
+// With no explicit URL the share API is same-origin (the Pages Functions in
+// ./functions), so resolve the base to the page's own origin.
+const explicitShareApiBase = import.meta.env.VITE_SHARE_API_URL || '';
+const shareEnabled = import.meta.env.VITE_SHARE_ENABLED === 'true';
+window.__SHARE_API_BASE =
+  explicitShareApiBase || (shareEnabled ? window.location.origin : '');
+window.__SHARE_ENABLED = shareEnabled;
 
 // Prevent accidental tab close when there are unsaved changes.
 // We import the store module at the top level (it's a singleton) and read

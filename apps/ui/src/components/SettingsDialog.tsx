@@ -6,7 +6,7 @@ import {
   type LayoutSelectionSource,
   type ViewerPreferenceKey,
 } from '../localAnalytics';
-import { Button, IconButton, Text } from './ui';
+import { Button, Dialog, IconButton, Text } from './ui';
 import {
   TbPalette,
   TbBox,
@@ -210,14 +210,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     onClose();
   }, [localVimConfig, settings, onClose]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') handleClose();
-    };
-    document.addEventListener('keydown', onEscape);
-    return () => document.removeEventListener('keydown', onEscape);
-  }, [handleClose, isOpen]);
+  // Escape is handled by the shared <Dialog> (UIUX-2), which also traps focus.
 
   if (!isOpen) return null;
 
@@ -246,25 +239,16 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   };
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={handleClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') handleClose();
+    // UIUX-2: routed through the shared Dialog so focus is trapped here like everywhere else.
+    <Dialog
+      onClose={handleClose}
+      labelledBy="settings-dialog-title"
+      panelClassName="rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex h-[600px] overflow-hidden"
+      panelStyle={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-primary)',
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-dialog-title"
-        className="rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex h-[600px] overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-primary)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Left Sidebar */}
         <div
           className="w-52 flex flex-col"
@@ -412,7 +396,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

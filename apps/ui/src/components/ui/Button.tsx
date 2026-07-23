@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, CSSProperties, forwardRef } from "react";
+import { ButtonHTMLAttributes, CSSProperties, forwardRef, useId } from "react";
 import { CONTROL_RADIUS_CLASS, CONTROL_SIZE_CLASSES } from "./controlStyles";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -27,12 +27,23 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       className = "",
       disabled,
       style,
+      title,
+      "aria-describedby": userDescribedBy,
       onMouseEnter: userMouseEnter,
       onMouseLeave: userMouseLeave,
       ...props
     },
     ref,
   ) => {
+    // UIUX-6 (gate 2026-07-19): `disabled` takes a control out of the tab order, so a reason
+    // carried only in `title` was reachable by sighted mouse hover and by nothing else. When a
+    // disabled button explains itself, that explanation is published as a real description too.
+    const reasonId = useId();
+    const disabledReason =
+      disabled && typeof title === "string" && title.trim() ? title.trim() : null;
+    const describedBy =
+      [userDescribedBy, disabledReason ? reasonId : null].filter(Boolean).join(" ") ||
+      undefined;
     const getBaseStyle = (): CSSProperties => {
       if (disabled) return DISABLED_STYLE;
       switch (variant) {
@@ -118,15 +129,27 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const baseClasses = `inline-flex items-center justify-center ${CONTROL_RADIUS_CLASS} font-medium transition-colors focus:outline-none focus:ring-2`;
 
     return (
-      <button
-        ref={ref}
-        className={`${baseClasses} ${CONTROL_SIZE_CLASSES[size]} ${className}`}
-        style={{ ...getBaseStyle(), ...style }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        disabled={disabled}
-        {...props}
-      />
+      <>
+        <button
+          ref={ref}
+          className={`${baseClasses} ${CONTROL_SIZE_CLASSES[size]} ${className}`}
+          style={{ ...getBaseStyle(), ...style }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          disabled={disabled}
+          title={title}
+          aria-describedby={describedBy}
+          {...props}
+        />
+        {/* Rendered as a sibling, not a child: inside the button it would become part of the
+            control's accessible NAME instead of its description. `sr-only` is absolutely
+            positioned, so it adds no layout box to the toolbar. */}
+        {disabledReason && (
+          <span id={reasonId} className="sr-only">
+            {disabledReason}
+          </span>
+        )}
+      </>
     );
   },
 );

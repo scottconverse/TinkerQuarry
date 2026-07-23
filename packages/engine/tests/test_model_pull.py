@@ -12,7 +12,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 import kimcad.model_pull as mp
-from kimcad.config import Config
+from kimcad.config import DEFAULT_VISION_MODEL, Config
 from kimcad.model_pull import (
     _ENGINE_EST_GB,
     _ENGINE_ROW,
@@ -579,7 +579,10 @@ def test_pull_ignores_an_attacker_named_model_in_the_body(tmp_path, monkeypatch)
             conn.close()
     assert resp.status == 200 and data["status"] == "ok"
     # The model names come from CONFIG (chat + vision), never the request body.
-    assert started["chat"] == "gemma4:e4b" and started["vision"] == "qwen2.5vl:7b"
+    # ENGINEERING-3: _cfg() declares no vision_model, so this exercises the fallback constant.
+    # Bound to the CONSTANT, not to a literal — the literal here was "qwen2.5vl:7b" and went
+    # stale the moment the shipped config moved to 3b, which is the defect ENGINEERING-3 fixed.
+    assert started["chat"] == "gemma4:e4b" and started["vision"] == DEFAULT_VISION_MODEL
     assert "evil" not in started["chat"] and "evil" not in started["vision"]
 
 
@@ -655,4 +658,6 @@ def test_pull_setup_uses_native_root_and_config_models(tmp_path, monkeypatch):
         status, data = _jreq(host, port, "POST", "/api/model-pull")
     assert status == 200 and data["status"] == "ok"
     assert started["base"] == "http://127.0.0.1:11434"  # native root, not the /v1 base
-    assert started["chat"] == "gemma4:e4b" and started["vision"] == "qwen2.5vl:7b"
+    # ENGINEERING-3: bound to the constant, not a literal copy of it — see the note in
+    # test_pull_ignores_an_attacker_named_model_in_the_body.
+    assert started["chat"] == "gemma4:e4b" and started["vision"] == DEFAULT_VISION_MODEL

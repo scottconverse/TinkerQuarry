@@ -1,5 +1,29 @@
 name: CI
 
+# ============================================================================================
+# THIS IS THE MERGE GATE, NOT THE RELEASE PROOF. Read .github/workflows/release-gate.yml
+# for the other half — it explains why the difference matters and what happened when nobody
+# wrote it down (gate finding TEST-2: the full release proof had run zero times in Actions).
+#
+# A green run of this workflow means: the UI and web suites pass, the engine's fast Python
+# lane passes, licences are clean, and changed engine lines are covered. It does NOT mean the
+# app builds, that the Rust/Tauri side works, that Playwright passes, or that the installer
+# installs. Those live in release-gate.yml and are listed there by name.
+#
+# Below is the other side of that ledger: the parts of the full `pnpm test:release` proof
+# that this workflow really does cover. Each entry points at the job and step that covers it,
+# and scripts/check_release_gate_wiring.py (run in the release-wiring job) fails if that step
+# is renamed or deleted — a coverage claim has to stay true, or it is worse than no claim.
+#
+# BEGIN RELEASE-PROOF-MAP: covered-in-ci
+#   lint                      -> frontend / UI lint  (apps/ui only; the release lane's `pnpm -r lint` also covers apps/web and packages/*)
+#   type-check                -> frontend / UI type check  (apps/ui only; same gap as lint)
+#   jest.js                   -> frontend / Full UI unit tests (non-live lane)  (engineLive.integration is deselected via TQ_CI_NO_LIVE — hosted runners have no engine venv to spawn)
+#   test:web:unit             -> frontend / Full web tests  (full parity with the release lane)
+#   run-engine-pytest.mjs     -> engine / Engine non-live test lane (with coverage)  (marker-filtered and without --strict-no-skips; the live/real_tool/needs_cadquery classes — including the Ollama-backed vocabulary tests whose failures produced PRs #26/#27/#30 — run only in release-gate.yml)
+# END RELEASE-PROOF-MAP
+# ============================================================================================
+
 on:
   pull_request:
   push:
@@ -7,6 +31,33 @@ on:
       - main
 
 jobs:
+  release-wiring:
+    name: Release-gate wiring
+    # Cheap (seconds, no toolchain) and deliberately first: it is the check that keeps the
+    # CI-vs-release-proof distinction honest as both workflows change.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install PyYAML
+        run: python -m pip install --upgrade "pyyaml>=6.0"
+      - name: Release-gate wiring (automatic trigger, coverage map, signing gate)
+        run: python scripts/check_release_gate_wiring.py
+      - name: No committed SPA bundle under the engine package
+        # WALK-3: a pre-built copy of the UI used to be committed at
+        # packages/engine/src/kimcad/web/ and served by `kimcad web`. Nothing checked its
+        # freshness, so it drifted eight PRs behind apps/ui/src and served a UI that no longer
+        # existed. It was deleted; this keeps it deleted.
+        run: python scripts/check_no_committed_spa_bundle.py
+      - name: No public doc presents the withdrawn v1.5.0 as current
+        # v1.5.1 re-gate (2026-07-22): the v1.5.0 withdrawal was corrected in STATUS.md but not
+        # propagated to the README headline or the landing page, which still branded v1.5.0 as
+        # current while the Download button resolved to v1.4.0. This keeps the public docs honest.
+        run: python scripts/check_no_withdrawn_version_claims.py
+
+
   frontend:
     name: Frontend and web
     runs-on: windows-latest
@@ -94,7 +145,7 @@ jobs:
         run: >
           python -m pytest
           tests
-          -m "not live and not real_tool and not needs_cadquery and not needs_browser"
+          -m "not live and not real_tool and not needs_cadquery"
           -q -rs
           --cov=kimcad --cov-report=xml
 

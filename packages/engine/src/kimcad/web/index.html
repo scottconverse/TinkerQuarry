@@ -3,16 +3,197 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- #31 (KC-26): TinkerQuarry's local server replaces this placeholder with a per-boot session
-         token at serve time; api.ts reads it and sends it on state-changing requests. Under the
-         vite dev server (no backend) it stays the placeholder, which api.ts treats as "no token". -->
-    <meta name="kimcad-session-token" content="__KIMCAD_SESSION_TOKEN__" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <title>TinkerQuarry</title>
-    <script type="module" crossorigin src="/assets/kimcad.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index.css">
+    <title>TinkerQuarry engine - no UI on this port</title>
+    <!--
+      WALK-3 (gate 2026-07-19): this file used to be a Vite build output committed alongside
+      the engine, and `kimcad web` served it as the product UI. It was last regenerated at
+      commit 3d61bc5 (PR #23); apps/ui/src took eight more PRs before the v1.5.0 tag, and
+      nothing checked its freshness -- so this port served a modal onboarding wizard and
+      landing copy that no longer existed anywhere in apps/ui/src. (The exact strings are
+      quoted in the gate finding, not here: repeating them in this file would make any
+      future grep for stale copy match the very page that replaced it.)
+
+      The bundle was deleted rather than regenerated in CI: the installed app builds the
+      frontend fresh through Tauri, and the documented dev workflow already pairs
+      `kimcad web` with `pnpm dev`. Nobody was relying on the committed copy for anything
+      except accidentally, which is exactly what made it dangerous.
+
+      Keep this page static and self-contained: no /assets/ references, no session token
+      (a page with no script needs no bearer secret), no build step. scripts/
+      check_no_committed_spa_bundle.py enforces that.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #faf7f2;
+        --panel: #fffdfa;
+        --ink: #201b14;
+        --muted: #6b6055;
+        --rule: #e3dad0;
+        --accent: #cf7a3f;
+        --code-bg: #f2ece4;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d0b07;
+          --panel: #16130e;
+          --ink: #f0e9df;
+          --muted: #a2988b;
+          --rule: #2e281f;
+          --accent: #e0a667;
+          --code-bg: #1f1a13;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 2.5rem 1.25rem 4rem;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+      }
+      .tag {
+        display: inline-block;
+        margin-bottom: 0.75rem;
+        padding: 0.15rem 0.55rem;
+        border: 1px solid var(--accent);
+        border-radius: 999px;
+        color: var(--accent);
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.75rem;
+        line-height: 1.25;
+      }
+      h2 {
+        margin: 2.25rem 0 0.75rem;
+        font-size: 1.05rem;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+      ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      li {
+        margin-bottom: 1rem;
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        background: var(--panel);
+      }
+      li > strong {
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      li > p:last-child {
+        margin-bottom: 0;
+      }
+      pre,
+      code {
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.875rem;
+      }
+      pre {
+        overflow-x: auto;
+        margin: 0.6rem 0 0;
+        padding: 0.7rem 0.85rem;
+        border-radius: 7px;
+        background: var(--code-bg);
+        color: var(--ink);
+      }
+      code:not(pre code) {
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        background: var(--code-bg);
+      }
+      a {
+        color: var(--accent);
+      }
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <main>
+      <span class="tag">Engine running</span>
+      <h1>TinkerQuarry's engine is running here. The user interface is not.</h1>
+      <p class="lede">
+        This port serves the engine's HTTP API (everything under <code>/api/</code>). The app you
+        design parts in is built and shipped separately, so there is no interface to show you on
+        this page. Here is how to get one.
+      </p>
+
+      <h2>Pick whichever fits</h2>
+      <ol>
+        <li>
+          <strong>You just want to use TinkerQuarry</strong>
+          <p>
+            Close this tab and open the installed <em>TinkerQuarry</em> app from the Start menu. It
+            starts its own copy of this engine and talks to it directly - you do not need to run
+            <code>kimcad web</code> at all.
+          </p>
+        </li>
+        <li>
+          <strong>You are developing the interface</strong>
+          <p>
+            Leave this engine running and start the dev interface in a second terminal. It proxies
+            its API calls to this engine, and it is always built from the current source:
+          </p>
+          <pre>cd path\to\TinkerQuarry\apps\ui
+pnpm install
+pnpm dev</pre>
+          <p>
+            Then open <a href="http://localhost:1420">http://localhost:1420</a> - the dev interface,
+            not this page. If the engine rejects your requests, restart it with
+            <code>$env:TINKERQUARRY_DEV_TOKEN = "tq-dev-token"</code> set, which is what the dev
+            interface sends.
+          </p>
+        </li>
+        <li>
+          <strong>You only wanted to check the engine is alive</strong>
+          <p>
+            It is - you are reading a page it served. For a machine-readable answer, request
+            <a href="/api/health"><code>/api/health</code></a>.
+          </p>
+        </li>
+      </ol>
+
+      <h2>Why there is no interface bundled here</h2>
+      <p>
+        There used to be. A pre-built copy of the app was committed next to the engine and served
+        from this address, but nothing rebuilt it or checked it, so it silently fell eight pull
+        requests behind the real source and started showing a setup wizard that no longer existed in
+        the product. A page that is confidently wrong is worse than a page that tells you where to
+        go, so the stale copy was deleted rather than patched.
+      </p>
+
+      <footer>
+        TinkerQuarry engine &middot; API docs live in the repository under
+        <code>packages/engine/docs/</code> &middot; the dev workflow above is the one documented in
+        <code>docs/USER-MANUAL.md</code>.
+      </footer>
+    </main>
   </body>
 </html>

@@ -109,8 +109,14 @@ def test_lock_bundles_both_connector_extras_symmetrically():
 def test_verify_install_sends_the_session_token_on_the_design_post():
     """Clean-machine finding (2026-06-15): scripts/verify_install.py POSTed /api/design with no
     X-KimCad-Session header, so the per-boot session-token guard (#31/KC-26) 403'd it and the
-    verifier could never reach ALL GREEN against a real `kimcad web` server. It must read the token
-    the server injects into the page shell and echo it (un-substituted placeholder / absent → none)."""
+    verifier could never reach ALL GREEN against a real `kimcad web` server.
+
+    WALK-3 (2026-07-20) changed WHERE the token comes from, not whether it is sent. It used to be
+    scraped out of the served page's meta tag; the page no longer carries the token (it runs no
+    JavaScript, so serving it a live bearer credential would give the secret away for nothing).
+    The verifier now hands the token to the child in TINKERQUARRY_DEV_TOKEN and echoes that —
+    the same mechanism the shipped desktop app uses (src-tauri/src/cmd/engine.rs:132-153). The
+    2026-06-15 finding therefore stays closed, by a path that matches the real product."""
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
@@ -119,16 +125,16 @@ def test_verify_install_sends_the_session_token_on_the_design_post():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    h = mod._session_headers('<meta name="kimcad-session-token" content="abc123tok" />')
+    h = mod._session_headers("abc123tok")
     assert h["X-KimCad-Session"] == "abc123tok"
     assert h["Content-Type"] == "application/json"
 
-    # Guard off (un-substituted placeholder) or no meta at all → no token header (open-by-default).
-    for shell in ('<meta name="kimcad-session-token" content="__KIMCAD_SESSION_TOKEN__" />',
-                  "<html>no token meta</html>"):
-        h2 = mod._session_headers(shell)
-        assert "X-KimCad-Session" not in h2
-        assert h2["Content-Type"] == "application/json"
+    # The token must reach the child process, and must NOT be scraped from the page any more.
+    text = (ROOT / "scripts" / "verify_install.py").read_text(encoding="utf-8")
+    assert "TINKERQUARRY_DEV_TOKEN" in text, "verify_install must hand the engine a known token"
+    assert "kimcad-session-token" not in text, (
+        "verify_install is scraping the token out of the page again; the page no longer carries it"
+    )
 
 
 def test_verify_install_covers_the_five_contracts():

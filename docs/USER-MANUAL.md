@@ -1,8 +1,8 @@
 # TinkerQuarry User Manual
 
-**Product:** TinkerQuarry v1.5.0 Windows beta
+**Product:** TinkerQuarry v1.5.1 Windows beta (unreleased)
 **Engine:** KimCad 0.9.4
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-21
 **License:** GPL-2.0-only
 
 This manual has three sections:
@@ -53,13 +53,25 @@ By default:
   imported-file checks;
 - cloud models are off.
 
-If you enable cloud acceleration in Settings, your prompt can be sent to the provider you configure.
-That is an opt-in setting. The app should be read as private by default, not cloud by default.
+**Two things can send your work off this machine, and both are things you choose to do:**
+
+- **Cloud acceleration.** If you enable it in Settings, your prompt can be sent to the provider
+  you configure. Off by default.
+- **Sharing a design.** Pressing Share uploads a copy of that design to TinkerQuarry's share
+  service so the link you hand out can open it. The copy is stored for one year and then deleted
+  automatically. Only the design you shared is uploaded — nothing else about your project goes
+  with it, and nothing is uploaded unless you press Share.
+
+Apart from those two, the app should be read as private by default, not cloud by default.
 
 ## Installing On Windows
 
-1. Download `TinkerQuarry_1.5.0_x64-setup.exe` from the
-   [v1.5.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0).
+1. Download the `_x64-setup.exe` installer from the
+   [latest GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/latest).
+
+   > **Do not install v1.5.0.** It was published, then failed a full review and was moved back
+   > to pre-release; v1.4.0 is the current release. The link above always resolves to whatever
+   > is current, which is why it is not pinned to a version here.
 2. Double-click the installer.
 3. Launch **TinkerQuarry**.
 4. Choose your default printer and material.
@@ -72,7 +84,7 @@ Only install from the official
 matters, verify the checksum before installing:
 
 ```powershell
-Get-FileHash .\TinkerQuarry_1.5.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\<the-installer-you-downloaded>.exe -Algorithm SHA256
 ```
 
 Compare the output against `SHA256SUMS.txt` on the release page. A match proves the file is
@@ -252,18 +264,19 @@ twins.
 
 | Surface | Version | Notes |
 | --- | ---: | --- |
-| Product release | v1.5.0 | Desktop product, README, docs, installer filename |
-| `apps/ui` | 1.5.0 | React/Tauri Studio package |
-| Tauri config | 1.5.0 | Native Windows app metadata |
-| Tauri Rust package | 1.5.0 | Native shell crate metadata |
+| Product release | v1.5.1 (unreleased; v1.4.0 is the current release) | Desktop product, README, docs, installer filename |
+| `apps/ui` | 1.5.1 | React/Tauri Studio package |
+| Tauri config | 1.5.1 | Native Windows app metadata |
+| Tauri Rust package | 1.5.1 | Native shell crate metadata |
 | KimCad engine | 0.9.4 | Internal Python engine and `/api/health` version |
 | `apps/web` | 0.6.0 | Optional share web surface |
 | `packages/shared` | 0.4.0 | Shared TypeScript helpers |
 | OpenSCAD | 2026.03.16 | Bundled Windows snapshot, Manifold default |
 | PrintProof3D | 0.6.2 | Arm's-length printability tool |
 
-These numbers are intentionally not collapsed into one version. The product line is v1.5.0; the
-engine reports 0.9.4.
+These numbers are intentionally not collapsed into one version. The current release is **v1.4.0**;
+the in-progress version is **v1.5.1** (v1.5.0 was published, failed its gate, and was moved back to
+pre-release). The engine reports 0.9.4.
 
 ## Repository Layout
 
@@ -419,21 +432,67 @@ Controls in the current product:
 - secrets masked and never returned in full;
 - cloud/provider keys stored through the OS credential store when available, with disclosed fallback.
 
+## Model Context Protocol (MCP) Server
+
+TinkerQuarry ships an optional MCP server for integration with external AI agents and tools. The
+server is **disabled by default** and runs only when explicitly enabled by the user.
+
+**What it is:**
+The MCP server exposes the following seven tools over a local HTTP interface:
+
+- `get_or_create_workspace` — open or create a workspace folder in the app
+- `get_project_context` — retrieve the current project's state and structure
+- `set_render_target` — configure which rendering output to target
+- `get_diagnostics` — fetch current design validation and readiness state
+- `trigger_render` — initiate a design render and wait for completion
+- `get_preview_screenshot` — capture a screenshot of the rendered preview
+- `export_file` — export the current design to a file path on desktop
+
+**Security posture:**
+The server binds to `127.0.0.1:32123` — loopback only, not reachable from your network. It is
+**off by default**, and you turn it on in Settings under **External agents**.
+
+Three controls apply once it is running:
+
+- **Origin checking.** A request carrying a browser origin that is not the app's own is refused,
+  so a web page you happen to be visiting cannot reach the server.
+- **A per-boot token.** Every request must carry `Authorization: Bearer <token>`. The token is
+  shown next to the toggle in Settings with a copy button, and the setup snippets for Claude
+  Code, Cursor, Codex and OpenCode include it already. It changes each time TinkerQuarry
+  restarts, so a saved agent config stops working until you paste the new one — that is
+  deliberate.
+- **Export confinement.** `export_file` writes only inside the workspace folder the session is
+  bound to. Absolute paths, paths climbing out with `..`, and Windows device names such as `CON`
+  are refused.
+
+**Two limits worth knowing before you turn it on:**
+
+- Binding a workspace is not confirmed with you. A client holding the token can call
+  `get_or_create_workspace` on any folder it names and then work inside it. The token is what
+  stands between an agent and your files — treat it like a password, and turn the server off
+  when you are not deliberately using it.
+- The confinement check is textual, because an export target does not exist yet when it is
+  checked. If a shortcut or junction already inside your workspace points somewhere else, a
+  write can still follow it out.
+
+Enable it when you intend to let an agent drive TinkerQuarry, and leave it off the rest of the
+time.
+
 ## Release Evidence
 
 Current-tree gate evidence:
 
 - `pnpm test:gate`: passed.
-- UI Jest: 94 suites / 670 tests in the final gate run.
-- Web Jest: 4 suites / 20 tests in the final gate run.
-- Engine pytest: 1755 passed, 0 skipped, in the final gate run.
+- UI Jest: 111 suites / 813 tests at branch HEAD 84f0a97 (v1.5.1 gate pending).
+- Web Jest: 5 suites / 60 tests at branch HEAD 84f0a97 (v1.5.1 gate pending).
+- Engine pytest: 1796 passed, 0 skipped, in the final gate run.
 - Playwright browser e2e: 7 passed in the final gate run.
 - `scripts\native-release.cmd`: passed.
 - `pnpm test:e2e:tauri`: passed against the release executable.
 - `pnpm test:e2e:tauri:installed`: passed against the installed NSIS copy.
 
 The **only** source of truth for the published installer's checksum is `SHA256SUMS.txt` on the
-[v1.5.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0) —
+[release page you downloaded from](https://github.com/scottconverse/TinkerQuarry/releases) —
 compare your `Get-FileHash` output against that file (the release's `release-manifest.json`
 pins the exact source commit the artifacts were built from). This manual deliberately does not
 repeat the hash: a locally rebuilt installer produces a different, equally valid hash, and a
@@ -552,5 +611,4 @@ Roadmap:
 - broader known-family reverse import;
 - STEP/STP reverse-to-parametric import;
 - expanded printer hardware certification;
-- signed Windows installer;
 - additional platform packages after Windows beta stabilizes.

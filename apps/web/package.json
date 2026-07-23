@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "share:build": "set \"VITE_ENABLE_PROD_SHARE_DEV=true\" && set \"VITE_SHARE_API_URL=http://localhost:8788\" && pnpm build",
-    "share:dev": "pnpm share:build && npx -y wrangler@3 pages dev dist --port 8788 --kv SHARE_KV --r2 SHARE_R2 --do SHARE_RATE_LIMITER=ShareRateLimiter@tinkerquarry-share-rate-limiter --persist-to .wrangler/state/share-dev",
+    "share:build": "tsc --noEmit && vite build --mode share",
+    "share:build:dev": "tsc --noEmit && vite build --mode share-dev --outDir dist-share-dev",
+    "share:dev": "pnpm share:build:dev && npx -y wrangler@3 pages dev dist-share-dev --port 8788 --kv SHARE_KV --r2 SHARE_R2 --do SHARE_RATE_LIMITER=ShareRateLimiter@tinkerquarry-share-rate-limiter --binding SHARE_DEV_FALLBACK_IP=local-dev --persist-to .wrangler/state/share-dev",
     "share:functions:build": "node scripts/build-pages-functions.mjs",
     "share:rate-limiter:check": "npx -y wrangler@3 deploy --dry-run --config rate-limiter-worker/wrangler.toml",
     "share:rate-limiter:deploy": "npx -y wrangler@3 deploy --config rate-limiter-worker/wrangler.toml",

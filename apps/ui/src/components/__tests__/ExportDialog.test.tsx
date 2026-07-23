@@ -71,6 +71,46 @@ describe('ExportDialog default format', () => {
     expect(seriousOrCritical).toEqual([]);
   });
 
+  // UIUX-2 (Critical, gate 2026-07-19): no dialog in the app trapped focus. jsdom does not move
+  // focus on Tab by itself, so this asserts the wrap the trap is responsible for: Tab on the last
+  // focusable inside the dialog must land back on the first, and Shift+Tab on the first must land
+  // on the last. Without a trap nothing intercepts the key and focus never moves.
+  it('traps Tab inside the dialog instead of letting it walk into the page behind', async () => {
+    renderWithProviders(<ExportDialog isOpen onClose={() => {}} source="cube(10);" />);
+    const dialog = await screen.findByTestId('export-dialog');
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      )
+    );
+    expect(focusable.length).toBeGreaterThan(1);
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    act(() => {
+      last.focus();
+    });
+    expect(document.activeElement).toBe(last);
+    act(() => {
+      last.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+      );
+    });
+    expect(document.activeElement).toBe(first);
+
+    act(() => {
+      first.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(last);
+  });
+
   it('defaults to SVG for 2D designs', () => {
     renderWithProviders(<ExportDialog isOpen onClose={() => {}} source="" previewKind="svg" />);
     const trigger = screen.getByTestId('export-format-select');

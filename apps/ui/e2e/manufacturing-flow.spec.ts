@@ -33,11 +33,6 @@ test("demo engine flow reaches ready-to-print and records mock printer outcome",
 
   await page.goto("/");
 
-  const skipSetup = page.getByRole("button", { name: /skip setup/i });
-  if (await skipSetup.isVisible().catch(() => false)) {
-    await skipSetup.click();
-  }
-
   await page
     .locator('textarea[placeholder="Describe what you want to build..."]')
     .fill("a small test gear");
@@ -155,10 +150,6 @@ test.describe("mobile manufacturing flow", () => {
     });
 
     await page.goto("/");
-    const skipSetup = page.getByRole("button", { name: /skip setup/i });
-    if (await skipSetup.isVisible().catch(() => false)) {
-      await skipSetup.click();
-    }
 
     await page
       .locator('textarea[placeholder="Describe what you want to build..."]')
@@ -244,10 +235,6 @@ test.describe("tablet manufacturing flow", () => {
     });
 
     await page.goto("/");
-    const skipSetup = page.getByRole("button", { name: /skip setup/i });
-    if (await skipSetup.isVisible().catch(() => false)) {
-      await skipSetup.click();
-    }
 
     await page
       .locator('textarea[placeholder="Describe what you want to build..."]')

@@ -12,6 +12,8 @@ jest.unstable_mockModule("@/platform", () => ({
   getPlatform: () => mockGetPlatform(),
 }));
 
+import { modelStatusBorderColor } from "../modelStatusSeverity";
+
 let WelcomeScreen: typeof import("../WelcomeScreen").WelcomeScreen;
 
 function createJsonResponse(body: unknown, status = 200) {
@@ -380,11 +382,129 @@ describe("WelcomeScreen", () => {
     await screen.findByText(/Local AI setup needed/i);
     expect(screen.getByRole("button", { name: "Build" })).toBeDisabled();
     const example = screen.getByRole("button", {
-      name: "Create a 3D printable mini lamp",
+      name: /^Create a 3D printable mini lamp shade/,
     });
     expect(example).toBeDisabled();
     fireEvent.click(example);
     expect(onStartWithDraft).not.toHaveBeenCalled();
+  });
+
+  // UIUX-4 (gate 2026-07-19): the shipped example chips ("Make a custom gear with 20 teeth",
+  // "Create a simple mounting bracket") carried no dimension at all, contradicting the manual's
+  // own good-prompt guidance and making the clarification_needed dead-end more likely on a new
+  // user's very first click.
+  it("gives every example prompt a real dimension, as the manual's own guidance requires", async () => {
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: "", attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onOpenRecent={async () => "opened"}
+        showRecentFiles={false}
+      />,
+    );
+
+    await screen.findByText("Try an example:");
+    const chips = screen
+      .getByText("Try an example:")
+      .parentElement!.querySelectorAll("button");
+    expect(chips.length).toBeGreaterThan(0);
+    const withoutDimension = Array.from(chips)
+      .map((chip) => chip.textContent ?? "")
+      .filter((text) => !/\d+(\.\d+)?\s*mm\b/.test(text));
+    expect(withoutDimension).toEqual([]);
+  });
+
+  // UIUX-5 (gate 2026-07-19): "Local AI needs setup" (a benign first-run step) and "can't reach
+  // the engine at all" (a real failure) both rendered the same amber border.
+  it("uses the error colour for a real engine failure and amber only for benign setup", async () => {
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      value: jest.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/model-status")) {
+          return createJsonResponse({ error: "Could not reach the local engine." }, 503);
+        }
+        return createJsonResponse({ designs: [] });
+      }),
+    });
+
+    const { unmount } = renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: "", attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onOpenRecent={async () => "opened"}
+        showRecentFiles={false}
+      />,
+    );
+
+    // jsdom's CSS parser drops `var(...)` values, so the colour itself is asserted through the
+    // pure mapping the component uses; the DOM assertion pins which branch each state takes.
+    expect(modelStatusBorderColor("error")).toBe("var(--color-error)");
+    expect(modelStatusBorderColor("setup")).toBe("var(--color-warning)");
+    expect(modelStatusBorderColor("ready")).toBe("var(--border-secondary)");
+
+    await screen.findByText(/Could not reach the local engine/i);
+    expect(screen.getByTestId("welcome-model-status")).toHaveAttribute(
+      "data-severity",
+      "error",
+    );
+    unmount();
+
+    // ...and the benign "setup needed" case keeps the softer warning colour.
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      value: jest.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/model-status")) {
+          return createJsonResponse({
+            model: "gemma4:e4b",
+            backend: "local",
+            running: true,
+            model_present: false,
+          });
+        }
+        return createJsonResponse({ designs: [] });
+      }),
+    });
+
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: "", attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onOpenRecent={async () => "opened"}
+        showRecentFiles={false}
+      />,
+    );
+
+    await screen.findByText(/Local AI setup needed/i);
+    expect(screen.getByTestId("welcome-model-status")).toHaveAttribute(
+      "data-severity",
+      "setup",
+    );
   });
 
   it("offers engine retry instead of model setup when local status cannot be reached", async () => {

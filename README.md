@@ -6,11 +6,11 @@ TinkerQuarry turns a plain-English part idea into editable CAD, checks the resul
 manufacturing constraints, slices it, and prepares the output for download or printer handoff. It is
 private by default: no account, no telemetry, no cloud model unless you explicitly configure one.
 
-[![Release](https://img.shields.io/badge/release-v1.5.0-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0)
+[![Release](https://img.shields.io/badge/release-latest-2563eb)](https://github.com/scottconverse/TinkerQuarry/releases/latest)
 [![Engine](https://img.shields.io/badge/engine-0.9.4-16a34a)](packages/engine/pyproject.toml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-1d7a4e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20beta-0078D6)](docs/USER-MANUAL.md)
-[![Gate](https://img.shields.io/badge/gate-current%20tree%20clean-15803d)](docs/STATUS.md)
+[![Gate](https://img.shields.io/badge/gate-v1.4.0%20current-15803d)](docs/STATUS.md)
 
 ## The Short Version
 
@@ -28,11 +28,12 @@ Typical parts:
 TinkerQuarry is not a certified engineering system. It does not replace human review, professional
 CAD for formal drawings, or safety-critical design validation.
 
-## What Is In v1.5.0
+## What Is In TinkerQuarry
 
-The current product line is **TinkerQuarry v1.5.0** with **KimCad engine 0.9.4**. The package
-versions intentionally differ because the desktop product, internal engine, share web surface, and
-shared helpers are separately versioned surfaces.
+The current release is **TinkerQuarry v1.4.0** with **KimCad engine 0.9.4**. v1.5.1 is in
+progress; v1.5.0 was published, failed its gate, and was moved back to pre-release (see
+[docs/STATUS.md](docs/STATUS.md)). The package versions intentionally differ because the desktop
+product, internal engine, share web surface, and shared helpers are separately versioned surfaces.
 
 Implemented and documented:
 
@@ -58,18 +59,21 @@ See the full [User Manual](docs/USER-MANUAL.md), [Architecture](docs/ARCHITECTUR
 
 The supported beta platform is Windows.
 
-1. Download `TinkerQuarry_1.5.0_x64-setup.exe` from the
-   [v1.5.0 GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0).
-2. Double-click the installer. The installer is now digitally signed (verified publisher Scott
-   Converse) — SmartScreen may still warn while the certificate builds reputation, but the
-   signature itself is present and verifiable.
+1. Download the `_x64-setup.exe` installer from the
+   [latest GitHub Release](https://github.com/scottconverse/TinkerQuarry/releases/latest).
+
+   > **Not v1.5.0** — it was published, then failed review and was moved back to pre-release.
+   > The link above always resolves to whatever is current.
+2. Double-click the installer. The current release (v1.4.0) is an unsigned beta, so SmartScreen
+   will warn — choose **More info**, then **Run anyway**. Code signing (Azure Trusted Signing,
+   verified publisher Scott Converse) landed in v1.5.0, which is currently withdrawn to pre-release.
 3. Launch **TinkerQuarry**.
 4. Confirm printer/material settings.
 5. Build a small first part, such as `a 70 mm round coaster, 4 mm tall`.
 
 Only install from the official GitHub Release, and verify the checksum against the release's
 `SHA256SUMS.txt` when provenance matters
-(`Get-FileHash .\TinkerQuarry_1.5.0_x64-setup.exe -Algorithm SHA256`). The
+(`Get-FileHash .\<the-installer-you-downloaded>.exe -Algorithm SHA256`). The
 [User Manual](docs/USER-MANUAL.md) covers verification step by step.
 
 ## First Workflow
@@ -150,8 +154,10 @@ Important native-build note: Windows NSIS packaging can fail from very deep work
 of path-length limits in bundled slicer/profile assets. The verified workaround is to build from a
 short path such as `C:\tqbuild\TinkerQuarry`.
 
-The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The public v1.5.0 release is
-[github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0).
+The evidence-backed status matrix is [docs/STATUS.md](docs/STATUS.md). The current release is
+v1.4.0 — see the
+[releases page](https://github.com/scottconverse/TinkerQuarry/releases/latest) (v1.5.0 is published
+but withdrawn to pre-release).
 
 ## Architecture At A Glance
 
@@ -188,9 +194,6 @@ packages/engine/   KimCad engine, HTTP API, tools, config, printer profiles
 packages/shared/   Shared TypeScript helpers
 docs/              Product docs, landing page, manual, architecture, status, discussions
 scripts/           Native release, smoke, and test helpers (incl. the license gate)
-frontend/          Historical prototype reference, not release evidence
-backend/           Historical pre-fork connector seam lab (mock-level tests only;
-                   superseded by packages/engine — see backend/README.md), not release evidence
 ```
 
 ## Documentation

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { IconType } from 'react-icons';
 import { TbSparkles, TbCode, TbAdjustmentsHorizontal } from 'react-icons/tb';
-import { Button, Text } from './ui';
+import { Button, Text, useFocusTrap } from './ui';
 import type { WorkspacePreset } from '../stores/layoutStore';
 
 interface NuxLayoutPickerProps {
@@ -41,6 +41,11 @@ function RadioIndicator({ selected }: { selected: boolean }) {
 
 export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
   const [selected, setSelected] = useState<LayoutPreset>('ai-first');
+  const panelRef = useRef<HTMLDivElement>(null);
+  // UIUX-2: this is a modal too — the first one a new user meets — but it deliberately does not
+  // go through <Dialog>, because the choice is mandatory and there is no close semantic to give
+  // it. It takes the focus trap directly instead.
+  useFocusTrap(panelRef, isOpen);
 
   if (!isOpen) return null;
 
@@ -77,6 +82,11 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nux-layout-picker-title"
+        tabIndex={-1}
         className="rounded-xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-secondary)',
@@ -85,7 +95,7 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
         }}
       >
         <div className="px-8 pt-8 pb-2 text-center">
-          <Text variant="panel-title" className="mb-1 text-xl">
+          <Text id="nux-layout-picker-title" variant="panel-title" className="mb-1 text-xl">
             Choose your workspace layout
           </Text>
           <Text variant="body" color="tertiary">

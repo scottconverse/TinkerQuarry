@@ -1,9 +1,11 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-07-09
-**Product release:** v1.5.0
+**As of:** 2026-07-21
+**Product release:** v1.5.1 (unreleased). **v1.4.0 is the current release** — v1.5.0 was published,
+failed its gate, and was moved back to pre-release.
 **Engine:** KimCad 0.9.4
-**Current gate:** full `pnpm test:release` (gate + native build + runtime smoke + installed-NSIS smoke) passed on the release tree
+**Current gate:** the v1.5.0 figures below are the historical record of THAT release's gate run.
+They are not a claim about this branch.
 
 ## Plain-English Truth
 
@@ -29,11 +31,11 @@ intended behavior.
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Full repo gate | Passed 2026-07-09 (post-GauntletGate rerun) | `pnpm test:gate` exit 0 on the fixed release tree |
-| GauntletGate v1.4.0 | CLEAR TO ADVANCE at fix-to-zero | [gate report](audits/gate-tinkerquarry-2026-07-09/GATE-REPORT.md): 2 Critical / 11 Major / 7 Minor found, all fixed and re-verified (one refuted with probe evidence) |
-| UI unit coverage | Passed | 94 Jest suites / 670 tests in the gate rerun |
-| Web unit coverage | Passed | 4 Jest suites / 20 tests in the gate rerun |
-| Engine coverage | Passed | 1755 pytest tests, 0 skipped, with the gate's `--strict-no-skips` flag |
+| Full repo gate | Passed 2026-07-16 (v1.5.0 release gate) | `pnpm test:gate` exit 0 on the release tree |
+| GauntletGate v1.5.0 | **DO NOT ADVANCE** — 51 findings | 2 Blocker / 10 Critical / 18 Major / 19 Minor / 2 Nit. v1.5.0 was moved back to pre-release and v1.4.0 restored as the current release. Fixes are landing for v1.5.1. The full punch list is a local review artifact and is deliberately not published here. |
+| UI unit coverage | Passed | 111 Jest suites / 813 tests at branch HEAD 84f0a97 (v1.5.1 gate pending) |
+| Web unit coverage | Passed | 5 Jest suites / 60 tests at branch HEAD 84f0a97 (v1.5.1 gate pending) |
+| Engine coverage | Passed | 1796 pytest tests, 0 skipped, in the gate run |
 | Browser e2e | Passed | 7 Playwright tests (accessibility, manufacturing flow, workspace, mobile/tablet) |
 | Rust/Tauri tests | Passed | `pnpm test:rust` in gate |
 | Rust dependency audit | Passed with scoped upstream exception | `pnpm test:rust:audit` ignores only `RUSTSEC-2026-0194` and `RUSTSEC-2026-0195`, both from the currently latest `plist -> quick-xml` dependency path |
@@ -41,9 +43,13 @@ intended behavior.
 | Tauri runtime smoke | Passed | `pnpm test:e2e:tauri` against a fresh isolated profile: engine health `0.9.4`, OpenSCAD + OrcaSlicer present |
 | Installed NSIS smoke | Passed | `pnpm test:e2e:tauri:installed`: installs the built setup.exe into a temp dir and drives the native build/slice/send workflow; engine health `0.9.4` |
 
-The published installer, its SHA-256 (`SHA256SUMS.txt`), and the release manifest live on the
-[v1.5.0 release page](https://github.com/scottconverse/TinkerQuarry/releases/tag/v1.5.0); the
-manifest pins the exact commit the artifacts were built from.
+Each release's installer, its SHA-256 (`SHA256SUMS.txt`), and its release manifest live on that
+release's own page; the manifest pins the exact commit the artifacts were built from. Start from
+the [releases page](https://github.com/scottconverse/TinkerQuarry/releases).
+
+**Do not install v1.5.0.** It is published but was moved back to pre-release after failing its
+gate; **v1.4.0 is the current release**. This document previously linked v1.5.0 as the place to
+get the installer, which was a live instruction to download a build we had already withdrawn.
 
 ## Product Surfaces
 
@@ -82,11 +88,11 @@ Known limits:
 
 | Surface | Version |
 | --- | ---: |
-| Product / desktop release | v1.5.0 |
-| `package.json` | 1.5.0 |
-| `apps/ui/package.json` | 1.5.0 |
-| `apps/ui/src-tauri/tauri.conf.json` | 1.5.0 |
-| `apps/ui/src-tauri/Cargo.toml` | 1.5.0 |
+| Product / desktop release | v1.5.1 (unreleased; v1.4.0 is the current release) |
+| `package.json` | 1.5.1 |
+| `apps/ui/package.json` | 1.5.1 |
+| `apps/ui/src-tauri/tauri.conf.json` | 1.5.1 |
+| `apps/ui/src-tauri/Cargo.toml` | 1.5.1 |
 | KimCad engine | 0.9.4 |
 | `apps/web` | 0.6.0 |
 | `packages/shared` | 0.4.0 |

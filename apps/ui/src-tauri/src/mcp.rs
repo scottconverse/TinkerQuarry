@@ -40,6 +40,10 @@ pub struct McpServerStatus {
     status: McpServerStateKind,
     endpoint: Option<String>,
     message: Option<String>,
+    /// Per-boot bearer secret an MCP client must send as
+    /// `Authorization: Bearer <token>`. Only populated while the server is
+    /// actually running, so a disabled server never hands out a live secret.
+    session_token: Option<String>,
 }
 
 // ── IPC payloads ─────────────────────────────────────────────────────────────
@@ -208,6 +212,10 @@ struct McpStateInner {
 #[derive(Clone)]
 pub struct McpServerState {
     inner: Arc<Mutex<McpStateInner>>,
+    /// Generated once per app boot and reused across enable/disable toggles, so
+    /// a user who has already configured their MCP client does not have to
+    /// re-copy the secret every time the server is turned off and on again.
+    session_token: Arc<str>,
 }
 
 impl Default for McpServerState {
@@ -223,11 +231,13 @@ impl Default for McpServerState {
                     status: McpServerStateKind::Disabled,
                     endpoint: None,
                     message: None,
+                    session_token: None,
                 },
                 workspaces: HashMap::new(),
                 sessions: HashMap::new(),
                 next_focus_order: 0,
             })),
+            session_token: generate_session_token(),
         }
     }
 }
@@ -254,7 +264,181 @@ fn build_status(
         },
         status,
         message,
+        session_token: None,
     }
+}
+
+// ── MCP listener security (MCP-1) ─────────────────────────────────────────────
+
+/// Origins the TinkerQuarry desktop shell itself can present: the Tauri custom
+/// protocol on each platform, plus the Vite dev server.
+///
+/// The list being NON-EMPTY is the whole point — rmcp short-circuits
+/// `validate_origin_header` to a no-op while `allowed_origins` is empty
+/// (rmcp-1.8.0 `streamable_http_server/tower.rs:428-434`), and its default is
+/// empty. Filling it in arms rmcp's own RFC 6454 `(scheme, host, port)` match.
+const MCP_ALLOWED_ORIGINS: [&str; 4] = [
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "http://localhost:1420",
+];
+
+/// Server config shared by the running listener and the security probes in
+/// `mod tests`, so a probe can never drift away from what actually ships.
+///
+/// Origin allow-listing lives HERE, not in an axum layer, and specifically not
+/// in a `tower_http::cors::CorsLayer`. See `finish_mcp_router` for why that
+/// distinction is load-bearing.
+///
+/// Requests with no `Origin` header still pass — that is rmcp's documented
+/// behaviour and it is what keeps native, non-browser MCP clients working. Those
+/// callers are gated by the bearer token in `finish_mcp_router` instead.
+///
+/// `allowed_hosts` is pinned to the actual bound port (GAP2-N2). rmcp's default
+/// list — `["localhost", "127.0.0.1", "::1"]` — is portless, and its
+/// `host_is_allowed` treats a portless entry as "any port" (rmcp-1.8.0
+/// `tower.rs:301-314`), so a `Host: 127.0.0.1:<other>` header would pass. Naming
+/// the port closes that. Defence-in-depth only — the bearer token is the real
+/// gate — but it costs nothing to make the Host check exact.
+fn build_mcp_config(
+    port: u16,
+    cancellation_token: tokio_util::sync::CancellationToken,
+) -> StreamableHttpServerConfig {
+    StreamableHttpServerConfig::default()
+        .with_allowed_origins(MCP_ALLOWED_ORIGINS)
+        .with_allowed_hosts([format!("127.0.0.1:{port}"), format!("localhost:{port}")])
+        .with_cancellation_token(cancellation_token)
+}
+
+/// TinkerQuarry's own application-layer guards, wrapped around the `/mcp` route.
+///
+/// Shared by the running listener and by `mod tests` so a probe always exercises
+/// the shipping stack.
+///
+/// # Never add a CORS layer here
+///
+/// This listener answers no preflight. `OPTIONS /mcp` falls through to rmcp's
+/// `_ =>` arm and returns 405 with no `Access-Control-Allow-Origin`, so a
+/// browser aborts a cross-origin request before it is ever sent — that refusal
+/// is the only thing standing between a hostile web page and `export_file`.
+/// Adding `tower_http::cors::CorsLayer` (the idiomatic axum way to "allow-list
+/// origins", and very tempting the first time someone debugs a browser-based
+/// MCP client) makes the server answer preflights with
+/// `Access-Control-Allow-Origin`, which OPENS that drive-by rather than closing
+/// it. Origin allow-listing belongs in `build_mcp_config`, which validates
+/// without emitting any CORS response header.
+/// `mcp_preflight_never_grants_a_browser_cross_origin_access` guards this.
+fn finish_mcp_router(router: axum::Router, session_token: Arc<str>) -> axum::Router {
+    router.layer(axum::middleware::from_fn_with_state(
+        session_token,
+        require_mcp_session_token,
+    ))
+}
+
+/// Outcome of checking an inbound `Authorization` header against the per-boot
+/// secret.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum McpAuth {
+    Ok,
+    Missing,
+    Mismatch,
+}
+
+/// Length-independent comparison, so a caller cannot recover the secret one byte
+/// at a time by timing responses.
+fn secret_eq(presented: &str, expected: &str) -> bool {
+    let (presented, expected) = (presented.as_bytes(), expected.as_bytes());
+    if presented.len() != expected.len() {
+        return false;
+    }
+    let mut difference = 0_u8;
+    for (a, b) in presented.iter().zip(expected) {
+        difference |= a ^ b;
+    }
+    difference == 0
+}
+
+fn classify_mcp_auth(authorization: Option<&str>, expected: &str) -> McpAuth {
+    let Some(header) = authorization.map(str::trim) else {
+        return McpAuth::Missing;
+    };
+    let Some((scheme, presented)) = header.split_once(' ') else {
+        return McpAuth::Missing;
+    };
+    if !scheme.eq_ignore_ascii_case("bearer") {
+        return McpAuth::Missing;
+    }
+    // An empty credential is never a match, even against an empty expectation —
+    // otherwise a bug that blanked the secret would silently disable auth.
+    if presented.trim().is_empty() {
+        return McpAuth::Missing;
+    }
+    if secret_eq(presented.trim(), expected) {
+        McpAuth::Ok
+    } else {
+        McpAuth::Mismatch
+    }
+}
+
+/// Rejects every request that does not carry this boot's bearer secret.
+///
+/// Origin validation cannot cover this case: a non-browser caller — a script, or
+/// any other program running as the user — simply omits the header. Without a
+/// shared secret, anything on the machine could drive `export_file` and
+/// `get_or_create_workspace`. This mirrors the engine's own per-boot bearer
+/// token (`packages/engine/src/kimcad/webapp.py:1500-1521`).
+async fn require_mcp_session_token(
+    axum::extract::State(expected): axum::extract::State<Arc<str>>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let presented = request
+        .headers()
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+
+    match classify_mcp_auth(presented, &expected) {
+        McpAuth::Ok => next.run(request).await,
+        McpAuth::Missing => unauthorized_response(
+            "Unauthorized: send this TinkerQuarry session's token as `Authorization: Bearer <token>`. Find it in Settings under External agents.",
+        ),
+        McpAuth::Mismatch => unauthorized_response(
+            "Unauthorized: that token does not match this TinkerQuarry session. The token is regenerated every time TinkerQuarry starts.",
+        ),
+    }
+}
+
+/// A bare 401. Deliberately carries no `Access-Control-*` header of any kind.
+fn unauthorized_response(message: &'static str) -> axum::response::Response {
+    use axum::response::IntoResponse;
+
+    (
+        axum::http::StatusCode::UNAUTHORIZED,
+        [
+            (
+                axum::http::header::WWW_AUTHENTICATE,
+                "Bearer realm=\"TinkerQuarry MCP\"",
+            ),
+            (
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; charset=utf-8",
+            ),
+        ],
+        message,
+    )
+        .into_response()
+}
+
+/// Per-boot bearer secret for the MCP listener, mirroring the engine's
+/// `TINKERQUARRY_DEV_TOKEN` (`webapp.py:1500-1521`). Two v4 UUIDs = 256 bits of
+/// `getrandom` entropy, so no new dependency is needed.
+fn generate_session_token() -> Arc<str> {
+    Arc::from(format!(
+        "{}{}",
+        Uuid::new_v4().simple(),
+        Uuid::new_v4().simple()
+    ))
 }
 
 fn text_tool_response(message: impl Into<String>, is_error: bool) -> McpToolResponse {
@@ -866,6 +1050,239 @@ pub struct ExportFileParams {
     pub file_path: String,
 }
 
+/// Workspace root of the window this MCP session is bound to, if any.
+fn bound_workspace_root(inner: &Arc<Mutex<McpStateInner>>, session_id: &str) -> Option<String> {
+    let locked = inner.lock().unwrap();
+    let window_id = locked
+        .sessions
+        .get(session_id)
+        .and_then(|session| session.bound_window_id.clone())?;
+    locked
+        .workspaces
+        .get(&window_id)
+        .and_then(|workspace| workspace.descriptor.workspace_root.clone())
+}
+
+/// A path split into a comparable anchor plus its `.`/`..`-resolved components.
+///
+/// Deliberately lexical: an export target does not exist yet, so
+/// `fs::canonicalize` cannot be used on it. Both `/` and `\` are treated as
+/// separators and Windows verbatim prefixes are stripped, because
+/// `normalize_workspace_root` canonicalizes the workspace root into `\\?\C:\...`
+/// while a caller will spell the same location `C:\...`.
+///
+/// Returns `None` when the path climbs above its own anchor, which no
+/// confinement check should ever accept.
+fn lexical_path_parts(path: &str) -> Option<(String, Vec<String>)> {
+    let mut normalized = path.trim().replace('/', "\\");
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if let Some(rest) = normalized.strip_prefix("\\\\?\\UNC\\") {
+        normalized = format!("\\\\{rest}");
+    } else if let Some(rest) = normalized.strip_prefix("\\\\?\\") {
+        normalized = rest.to_string();
+    } else if let Some(rest) = normalized.strip_prefix("\\\\.\\") {
+        normalized = rest.to_string();
+    }
+
+    let bytes = normalized.as_bytes();
+    let (anchor, rest) = if let Some(body) = normalized.strip_prefix("\\\\") {
+        let mut segments = body.splitn(3, '\\');
+        let server = segments.next().unwrap_or_default();
+        let share = segments.next().unwrap_or_default();
+        if server.is_empty() || share.is_empty() {
+            return None;
+        }
+        (
+            format!("\\\\{server}\\{share}"),
+            segments.next().unwrap_or_default().to_string(),
+        )
+    } else if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+        (
+            normalized[..2].to_string(),
+            normalized[2..].trim_start_matches('\\').to_string(),
+        )
+    } else if let Some(body) = normalized.strip_prefix('\\') {
+        ("\\".to_string(), body.to_string())
+    } else {
+        (String::new(), normalized.clone())
+    };
+
+    let mut components: Vec<String> = Vec::new();
+    for segment in rest.split('\\') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                components.pop()?;
+            }
+            other => components.push(other.to_string()),
+        }
+    }
+    Some((anchor, components))
+}
+
+/// Win32 resolves these names to devices in *every* directory, so a file
+/// "written" to one silently goes nowhere (or blocks) instead of producing an
+/// export. Extensions and trailing dots/spaces do not disarm them: `CON.stl`
+/// and `aux.` are the device too.
+const RESERVED_WINDOWS_DEVICE_NAMES: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+fn is_reserved_windows_device_name(component: &str) -> bool {
+    let stem = component
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches([' ', '.']);
+    RESERVED_WINDOWS_DEVICE_NAMES
+        .iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+}
+
+/// Byte-for-byte the desktop side's own `isAbsolutePath`
+/// (`desktopMcp.ts`: `path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)`).
+///
+/// This has to be an exact mirror, not merely a "reasonable" absolute-path
+/// test. `resolveExportDestination` forwards an absolute path verbatim to
+/// `writeFile` and joins a relative one onto the project root, so whenever this
+/// guard and that function classify a string differently, the guard is reasoning
+/// about a destination the app will not actually write to. That divergence is
+/// exactly how the first version of this check failed open.
+fn desktop_treats_path_as_absolute(path: &str) -> bool {
+    if path.starts_with('/') {
+        return true;
+    }
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/')
+}
+
+/// Why an export destination was refused, so the caller gets a message that
+/// names the real problem.
+#[derive(Debug, PartialEq, Eq)]
+enum ExportPathVerdict {
+    Confined,
+    OutsideWorkspace,
+    ReservedDeviceName(String),
+}
+
+/// Where does `requested` actually land, and is that inside `workspace_root`?
+///
+/// Comparison is whole-component and case-insensitive, matching Windows path
+/// semantics — a raw `starts_with` would accept `…\widget-evil\` for the root
+/// `…\widget`.
+///
+/// Every unresolvable case is a REFUSAL. `lexical_path_parts` returns `None`
+/// for any path that climbs above its own anchor (`C:\..\…`), and the previous
+/// version of this check read that `None` as "not an absolute path", joined the
+/// string onto the workspace root, and let the `..` cancel the drive component
+/// the join had just injected — so `C:\..\Users\me\AppData\…\Startup\p.stl`
+/// was judged "inside" and then written to the real autostart folder.
+fn classify_export_path(workspace_root: &str, requested: &str) -> ExportPathVerdict {
+    let Some((root_anchor, root_components)) = lexical_path_parts(workspace_root) else {
+        return ExportPathVerdict::OutsideWorkspace;
+    };
+
+    let requested = requested.trim();
+
+    // `\\?\…`, `\\.\…` and UNC `\\server\share\…` carry no drive letter and no
+    // leading `/`, so `desktopMcp.ts` calls them RELATIVE and joins them onto
+    // the project root — landing somewhere this guard's reading of the path
+    // does not predict. Never guess about a write path: refuse.
+    if requested.starts_with("\\\\") || requested.starts_with("//") {
+        return ExportPathVerdict::OutsideWorkspace;
+    }
+
+    let combined = if desktop_treats_path_as_absolute(requested) {
+        requested.to_string()
+    } else {
+        // Matches Tauri's `join`, which normalizes without absolute-replacement
+        // (`tauri::path::plugin::normalize_path_no_absolute`), so a root-relative
+        // `\out\w.stl` really does land inside the workspace.
+        format!("{}\\{}", workspace_root.trim(), requested)
+    };
+
+    let Some((anchor, components)) = lexical_path_parts(&combined) else {
+        return ExportPathVerdict::OutsideWorkspace;
+    };
+
+    if !anchor.eq_ignore_ascii_case(&root_anchor) {
+        return ExportPathVerdict::OutsideWorkspace;
+    }
+    // Strictly inside: the root directory itself is not a file destination.
+    if components.len() <= root_components.len() {
+        return ExportPathVerdict::OutsideWorkspace;
+    }
+    let confined = root_components
+        .iter()
+        .zip(&components)
+        .all(|(root_component, component)| component.eq_ignore_ascii_case(root_component));
+    if !confined {
+        return ExportPathVerdict::OutsideWorkspace;
+    }
+
+    if let Some(device) = components
+        .iter()
+        .find(|component| is_reserved_windows_device_name(component))
+    {
+        return ExportPathVerdict::ReservedDeviceName(device.clone());
+    }
+
+    ExportPathVerdict::Confined
+}
+
+/// Arguments forwarded to the desktop side for `export_file`, refused unless the
+/// destination is confined to the workspace this MCP session is bound to.
+///
+/// `export_file` lets the caller choose the write path, so without this check an
+/// MCP client can drive a file write anywhere the user can write. The caller's
+/// original path string is forwarded verbatim once accepted, so nothing about a
+/// legitimate export changes.
+fn export_file_arguments(
+    workspace_root: Option<&str>,
+    params: &ExportFileParams,
+) -> Result<Value, String> {
+    let requested = params.file_path.trim();
+    if requested.is_empty() {
+        return Err("`export_file` requires a non-empty `file_path`.".to_string());
+    }
+
+    let Some(workspace_root) = workspace_root
+        .map(str::trim)
+        .filter(|root| !root.is_empty())
+    else {
+        return Err(
+            "❌ `export_file` needs an open workspace to write into. Call `get_or_create_workspace(folder_path)` first, then export to a path inside that folder."
+                .to_string(),
+        );
+    };
+
+    match classify_export_path(workspace_root, requested) {
+        ExportPathVerdict::Confined => {}
+        ExportPathVerdict::ReservedDeviceName(device) => {
+            return Err(format!(
+                "❌ `export_file` refused to write to the reserved Windows device name `{device}`.\n\nRequested: {requested}\n\nWindows resolves that name to a device in every directory, so the export would silently go nowhere instead of producing a file. Choose an ordinary filename."
+            ));
+        }
+        ExportPathVerdict::OutsideWorkspace => {
+            return Err(format!(
+                "❌ `export_file` refused to write outside the workspace.\n\nRequested: {requested}\nWorkspace root: {workspace_root}\n\nExports over MCP are confined to the workspace this session is bound to. Choose a destination inside that folder, or export from the TinkerQuarry window where you can approve the destination yourself."
+            ));
+        }
+    }
+
+    Ok(serde_json::json!({
+        "format": params.format,
+        "file_path": params.file_path,
+    }))
+}
+
 // ── rmcp handler ──────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -1012,10 +1429,15 @@ impl OpenScadMcpHandler {
         &self,
         Parameters(params): Parameters<ExportFileParams>,
     ) -> Result<CallToolResult, McpError> {
-        let args = serde_json::json!({
-            "format": params.format,
-            "file_path": params.file_path,
-        });
+        let workspace_root = bound_workspace_root(&self.shared_state, &self.session_id);
+        let args = match export_file_arguments(workspace_root.as_deref(), &params) {
+            Ok(args) => args,
+            Err(message) => {
+                return Ok(mcp_response_to_call_tool_result(text_tool_response(
+                    message, true,
+                )))
+            }
+        };
         self.call_frontend("export_file", args).await
     }
 }
@@ -1141,6 +1563,7 @@ pub async fn configure_mcp_server(
 
     let shared_state = state.inner.clone();
     let app_handle = app.clone();
+    let session_token = state.session_token.clone();
     let ct = tokio_util::sync::CancellationToken::new();
     let ct_child = ct.child_token();
 
@@ -1151,10 +1574,13 @@ pub async fn configure_mcp_server(
                 Ok(handler)
             },
             std::sync::Arc::new(LocalSessionManager::default()),
-            StreamableHttpServerConfig::default().with_cancellation_token(ct_child.clone()),
+            build_mcp_config(port, ct_child.clone()),
         );
 
-        let router = axum::Router::new().nest_service("/mcp", service);
+        let router = finish_mcp_router(
+            axum::Router::new().nest_service("/mcp", service),
+            session_token,
+        );
         let _ = axum::serve(tcp_listener, router)
             .with_graceful_shutdown(async move {
                 ct_child.cancelled().await;
@@ -1168,6 +1594,7 @@ pub async fn configure_mcp_server(
         join_handle,
     });
     inner.status = build_status(enabled, port, McpServerStateKind::Running, None);
+    inner.status.session_token = Some(state.session_token.to_string());
     Ok(inner.status.clone())
 }
 
@@ -1588,5 +2015,688 @@ mod tests {
         let result = wait_for_window_tool_ready(&inner, "main", Duration::from_millis(100));
 
         assert!(result.is_ok());
+    }
+
+    // ── MCP-1: listener security ─────────────────────────────────────────────
+    //
+    // These drive the real axum + rmcp stack over a real loopback socket with
+    // hand-written HTTP/1.1, so what is asserted is what the wire actually
+    // carries — including the ABSENCE of `access-control-allow-origin`. The
+    // router and config come from `finish_mcp_router` / `build_mcp_config`,
+    // the same two functions `configure_mcp_server` uses, so a probe cannot
+    // drift away from what ships.
+
+    #[derive(Clone)]
+    struct ProbeHandler;
+
+    impl ServerHandler for ProbeHandler {}
+
+    const PROBE_TOKEN: &str = "probe-token-0123456789abcdef";
+
+    struct ProbeServer {
+        addr: String,
+        cancel: tokio_util::sync::CancellationToken,
+        runtime: Option<tokio::runtime::Runtime>,
+    }
+
+    impl Drop for ProbeServer {
+        fn drop(&mut self) {
+            self.cancel.cancel();
+            if let Some(runtime) = self.runtime.take() {
+                runtime.shutdown_timeout(Duration::from_secs(2));
+            }
+        }
+    }
+
+    fn start_probe_server() -> ProbeServer {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .expect("probe runtime");
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let ct_child = cancel.child_token();
+        let listener = runtime
+            .block_on(async { tokio::net::TcpListener::bind("127.0.0.1:0").await })
+            .expect("probe listener");
+        let socket_addr = listener.local_addr().expect("probe addr");
+        let addr = socket_addr.to_string();
+        let port = socket_addr.port();
+
+        let serve_token = ct_child.clone();
+        runtime.spawn(async move {
+            let service = StreamableHttpService::new(
+                || Ok(ProbeHandler),
+                std::sync::Arc::new(LocalSessionManager::default()),
+                build_mcp_config(port, ct_child.clone()),
+            );
+            let router = finish_mcp_router(
+                axum::Router::new().nest_service("/mcp", service),
+                Arc::from(PROBE_TOKEN),
+            );
+            let _ = axum::serve(listener, router)
+                .with_graceful_shutdown(async move { serve_token.cancelled().await })
+                .await;
+        });
+
+        ProbeServer {
+            addr,
+            cancel,
+            runtime: Some(runtime),
+        }
+    }
+
+    /// Write a raw HTTP/1.1 request and read whatever comes back. A short read
+    /// timeout is what terminates the read for an SSE response, which by design
+    /// never closes the connection.
+    fn probe(addr: &str, request: &str) -> String {
+        use std::io::{Read, Write};
+
+        let mut stream = std::net::TcpStream::connect(addr).expect("probe connect");
+        stream
+            .set_read_timeout(Some(Duration::from_millis(1500)))
+            .expect("probe read timeout");
+        stream
+            .write_all(request.as_bytes())
+            .expect("probe write request");
+        stream.flush().ok();
+
+        let mut received = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        loop {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => received.extend_from_slice(&chunk[..n]),
+                Err(_) => break,
+            }
+        }
+        String::from_utf8_lossy(&received).into_owned()
+    }
+
+    const INITIALIZE_BODY: &str = concat!(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"#,
+        r#""protocolVersion":"2025-06-18","capabilities":{},"#,
+        r#""clientInfo":{"name":"probe","version":"1.0.0"}}}"#
+    );
+
+    fn post_probe(addr: &str, content_type: &str, extra_headers: &[&str], body: &str) -> String {
+        let mut request = format!(
+            "POST /mcp HTTP/1.1\r\nHost: {addr}\r\n\
+             Accept: application/json, text/event-stream\r\n\
+             Content-Type: {content_type}\r\n\
+             Content-Length: {}\r\nConnection: close\r\n",
+            body.len()
+        );
+        for header in extra_headers {
+            request.push_str(header);
+            request.push_str("\r\n");
+        }
+        request.push_str("\r\n");
+        request.push_str(body);
+        request
+    }
+
+    fn bearer(token: &str) -> String {
+        format!("Authorization: Bearer {token}")
+    }
+
+    fn status_line(response: &str) -> String {
+        response.lines().next().unwrap_or("<no response>").into()
+    }
+
+    fn header_present(response: &str, name: &str) -> bool {
+        let head = response.split("\r\n\r\n").next().unwrap_or("");
+        let needle = format!("{}:", name.to_ascii_lowercase());
+        head.lines()
+            .skip(1)
+            .any(|line| line.to_ascii_lowercase().starts_with(&needle))
+    }
+
+    #[test]
+    fn mcp_auth_accepts_only_an_exact_bearer_match() {
+        assert_eq!(
+            classify_mcp_auth(Some("Bearer abc123"), "abc123"),
+            McpAuth::Ok
+        );
+        // Scheme name is case-insensitive per RFC 7235; the secret is not.
+        assert_eq!(
+            classify_mcp_auth(Some("bearer abc123"), "abc123"),
+            McpAuth::Ok
+        );
+        assert_eq!(
+            classify_mcp_auth(Some("Bearer ABC123"), "abc123"),
+            McpAuth::Mismatch
+        );
+        assert_eq!(
+            classify_mcp_auth(Some("Bearer abc123x"), "abc123"),
+            McpAuth::Mismatch
+        );
+        assert_eq!(classify_mcp_auth(None, "abc123"), McpAuth::Missing);
+        assert_eq!(
+            classify_mcp_auth(Some("abc123"), "abc123"),
+            McpAuth::Missing
+        );
+        assert_eq!(
+            classify_mcp_auth(Some("Basic abc123"), "abc123"),
+            McpAuth::Missing
+        );
+        assert_eq!(
+            classify_mcp_auth(Some("Bearer "), "abc123"),
+            McpAuth::Missing
+        );
+        assert_eq!(classify_mcp_auth(Some("Bearer "), ""), McpAuth::Missing);
+    }
+
+    #[test]
+    fn mcp_rejects_a_request_with_no_token() {
+        let server = start_probe_server();
+        let response = probe(
+            &server.addr,
+            &post_probe(&server.addr, "application/json", &[], INITIALIZE_BODY),
+        );
+
+        assert!(
+            status_line(&response).contains(" 401"),
+            "an unauthenticated local process reached the MCP tools; status was: {}",
+            status_line(&response)
+        );
+    }
+
+    #[test]
+    fn mcp_rejects_a_request_with_an_incorrect_token() {
+        let server = start_probe_server();
+        let response = probe(
+            &server.addr,
+            &post_probe(
+                &server.addr,
+                "application/json",
+                &[&bearer("not-the-real-token")],
+                INITIALIZE_BODY,
+            ),
+        );
+
+        assert!(
+            status_line(&response).contains(" 401"),
+            "a wrong bearer token was accepted; status was: {}",
+            status_line(&response)
+        );
+    }
+
+    #[test]
+    fn mcp_rejects_a_request_carrying_a_foreign_origin() {
+        let server = start_probe_server();
+        let response = probe(
+            &server.addr,
+            &post_probe(
+                &server.addr,
+                "application/json",
+                &[&bearer(PROBE_TOKEN), "Origin: https://evil.example"],
+                INITIALIZE_BODY,
+            ),
+        );
+
+        assert!(
+            status_line(&response).contains(" 403"),
+            "a foreign Origin was accepted; status was: {}",
+            status_line(&response)
+        );
+    }
+
+    #[test]
+    fn mcp_accepts_the_desktop_apps_own_origin() {
+        let server = start_probe_server();
+        let response = probe(
+            &server.addr,
+            &post_probe(
+                &server.addr,
+                "application/json",
+                &[&bearer(PROBE_TOKEN), "Origin: http://tauri.localhost"],
+                INITIALIZE_BODY,
+            ),
+        );
+
+        let status = status_line(&response);
+        assert!(
+            !status.contains(" 403") && !status.contains(" 401"),
+            "the app's own origin was locked out; status was: {status}"
+        );
+    }
+
+    #[test]
+    fn mcp_accepts_a_missing_origin_so_native_clients_keep_working() {
+        // rmcp lets missing-`Origin` requests through by design; that is what
+        // keeps non-browser MCP clients working. The bearer token, not the
+        // Origin check, is what gates those callers.
+        let server = start_probe_server();
+        let response = probe(
+            &server.addr,
+            &post_probe(
+                &server.addr,
+                "application/json",
+                &[&bearer(PROBE_TOKEN)],
+                INITIALIZE_BODY,
+            ),
+        );
+
+        let status = status_line(&response);
+        assert!(
+            !status.contains(" 403") && !status.contains(" 401"),
+            "a native MCP client with a valid token was refused; status was: {status}"
+        );
+    }
+
+    #[test]
+    fn mcp_rejects_a_host_header_naming_a_foreign_port() {
+        // GAP2-N2 REGRESSION GUARD — do not delete.
+        //
+        // rmcp's default `allowed_hosts` is portless (`["localhost", "127.0.0.1",
+        // "::1"]`), and `host_is_allowed` treats a portless entry as "any port",
+        // so `Host: 127.0.0.1:<other>` would pass. `build_mcp_config` pins the
+        // bound port. A valid bearer and a valid Origin are supplied here so the
+        // ONLY thing that can reject the request is the Host-port check.
+        let server = start_probe_server();
+        let body = INITIALIZE_BODY;
+        let mut request = format!(
+            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:1\r\n\
+             Accept: application/json, text/event-stream\r\n\
+             Content-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n",
+            body.len()
+        );
+        request.push_str(&bearer(PROBE_TOKEN));
+        request.push_str("\r\nOrigin: http://tauri.localhost\r\n\r\n");
+        request.push_str(body);
+
+        let response = probe(&server.addr, &request);
+        assert!(
+            status_line(&response).contains(" 403"),
+            "a Host header naming a foreign port was accepted; status was: {}",
+            status_line(&response)
+        );
+    }
+
+    #[test]
+    fn mcp_preflight_never_grants_a_browser_cross_origin_access() {
+        // REGRESSION GUARD — do not delete.
+        //
+        // The only reason a hostile web page cannot reach `export_file` today is
+        // that this preflight is refused: OPTIONS returns 405 with no
+        // `Access-Control-Allow-Origin`, so the browser aborts before it ever
+        // sends the POST. Bolting a `tower_http::cors::CorsLayer` onto this
+        // router — the idiomatic axum way to "allow-list origins", and very
+        // tempting the first time someone debugs a browser-based MCP client —
+        // makes the server ANSWER preflights, which opens the exact drive-by
+        // this fix exists to keep shut. Origin allow-listing belongs in
+        // `build_mcp_config`, which validates without emitting CORS headers.
+        let server = start_probe_server();
+
+        for extra in [vec![], vec![bearer(PROBE_TOKEN)]] {
+            let mut request = format!(
+                "OPTIONS /mcp HTTP/1.1\r\nHost: {}\r\n\
+                 Origin: https://evil.example\r\n\
+                 Access-Control-Request-Method: POST\r\n\
+                 Access-Control-Request-Headers: content-type\r\n\
+                 Connection: close\r\n",
+                server.addr
+            );
+            for header in &extra {
+                request.push_str(header);
+                request.push_str("\r\n");
+            }
+            request.push_str("\r\n");
+
+            let response = probe(&server.addr, &request);
+            assert!(
+                !header_present(&response, "access-control-allow-origin"),
+                "the preflight granted cross-origin access, which reopens the browser drive-by:\n{response}"
+            );
+            assert!(
+                !status_line(&response).contains(" 200"),
+                "the preflight succeeded; status was: {}",
+                status_line(&response)
+            );
+        }
+    }
+
+    #[test]
+    fn mcp_refuses_a_cors_safelisted_content_type() {
+        // The other half of the browser barrier: `application/json` is not a
+        // CORS-safelisted `Content-Type`, so a page cannot dodge the preflight
+        // by downgrading to `text/plain` — rmcp answers 415.
+        let server = start_probe_server();
+        let response = probe(
+            &server.addr,
+            &post_probe(
+                &server.addr,
+                "text/plain",
+                &[&bearer(PROBE_TOKEN)],
+                INITIALIZE_BODY,
+            ),
+        );
+
+        assert!(
+            status_line(&response).contains(" 415"),
+            "a CORS-safelisted content type was accepted; status was: {}",
+            status_line(&response)
+        );
+    }
+
+    // ── MCP-1: export_file path confinement ──────────────────────────────────
+
+    fn export_params(file_path: &str) -> ExportFileParams {
+        ExportFileParams {
+            format: "stl".into(),
+            file_path: file_path.into(),
+        }
+    }
+
+    #[test]
+    fn export_file_allows_a_path_inside_the_workspace() {
+        let args = export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("C:\\Users\\me\\projects\\widget\\out\\widget.stl"),
+        )
+        .expect("an in-workspace export must be allowed");
+
+        assert_eq!(
+            args.get("file_path").and_then(Value::as_str),
+            Some("C:\\Users\\me\\projects\\widget\\out\\widget.stl"),
+            "the client's own path string must reach the desktop side unchanged"
+        );
+    }
+
+    #[test]
+    fn export_file_allows_a_workspace_relative_path() {
+        let args = export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("out/widget.stl"),
+        )
+        .expect("a workspace-relative export must be allowed");
+
+        assert_eq!(
+            args.get("file_path").and_then(Value::as_str),
+            Some("out/widget.stl")
+        );
+    }
+
+    #[test]
+    fn export_file_refuses_an_absolute_path_outside_the_workspace() {
+        let error = export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("C:\\Windows\\System32\\drivers\\etc\\hosts"),
+        )
+        .expect_err("an arbitrary absolute write path must be refused");
+
+        assert!(
+            error.contains("outside the workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    #[test]
+    fn export_file_refuses_a_relative_path_that_climbs_out_of_the_workspace() {
+        let error = export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("..\\..\\..\\Startup\\payload.stl"),
+        )
+        .expect_err("a climbing relative path must be refused");
+
+        assert!(
+            error.contains("outside the workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    #[test]
+    fn export_file_refuses_a_sibling_directory_sharing_the_root_prefix() {
+        // A naive `starts_with` on the raw string accepts this. The check has to
+        // compare whole path components.
+        let error = export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("C:\\Users\\me\\projects\\widget-evil\\payload.stl"),
+        )
+        .expect_err("a sibling directory sharing the root's prefix must be refused");
+
+        assert!(
+            error.contains("outside the workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    #[test]
+    fn export_file_refuses_an_escape_hidden_behind_a_verbatim_prefix() {
+        let error = export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("\\\\?\\C:\\Users\\me\\projects\\widget\\..\\..\\payload.stl"),
+        )
+        .expect_err("a verbatim-prefixed escape must be refused");
+
+        assert!(
+            error.contains("outside the workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    #[test]
+    fn export_file_matches_a_canonicalized_verbatim_workspace_root() {
+        // `normalize_workspace_root` goes through `fs::canonicalize`, which on
+        // Windows returns `\\?\C:\...`. Both sides must normalize to the same
+        // shape or every legitimate export would be refused.
+        export_file_arguments(
+            Some("\\\\?\\C:\\Users\\me\\projects\\widget"),
+            &export_params("C:/Users/Me/Projects/Widget/out/widget.stl"),
+        )
+        .expect("a canonicalized root must still match the user's own path spelling");
+    }
+
+    #[test]
+    fn export_file_refuses_when_no_workspace_is_bound() {
+        let error = export_file_arguments(None, &export_params("C:\\tmp\\widget.stl"))
+            .expect_err("with no workspace root there is nothing to confine the write to");
+
+        assert!(
+            error.contains("workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    #[test]
+    fn bound_workspace_root_finds_the_root_of_the_bound_window() {
+        // If this lookup ever returns None for a properly bound session, every
+        // legitimate export would be refused; if it returned the wrong window's
+        // root, the confinement check would be guarding the wrong directory.
+        let inner = Arc::new(Mutex::new({
+            let mut state = make_inner();
+            state.workspaces.insert(
+                "window-a".into(),
+                workspace("window-a", Some("/tmp/project-a"), "Project A", false),
+            );
+            state.workspaces.insert(
+                "window-b".into(),
+                workspace("window-b", Some("/tmp/project-b"), "Project B", false),
+            );
+            state.sessions.insert(
+                "session-1".into(),
+                McpSessionBinding {
+                    bound_window_id: Some("window-b".into()),
+                },
+            );
+            state
+        }));
+
+        assert_eq!(
+            bound_workspace_root(&inner, "session-1"),
+            Some("/tmp/project-b".to_string())
+        );
+    }
+
+    #[test]
+    fn bound_workspace_root_is_none_for_an_unbound_session() {
+        let inner = Arc::new(Mutex::new({
+            let mut state = make_inner();
+            state
+                .sessions
+                .insert("session-1".into(), McpSessionBinding::default());
+            state
+        }));
+
+        assert_eq!(bound_workspace_root(&inner, "session-1"), None);
+        assert_eq!(bound_workspace_root(&inner, "no-such-session"), None);
+    }
+
+    #[test]
+    fn export_file_refuses_an_empty_path() {
+        export_file_arguments(
+            Some("C:\\Users\\me\\projects\\widget"),
+            &export_params("   "),
+        )
+        .expect_err("an empty path must be refused");
+    }
+
+    const WIDGET_ROOT: &str = "C:\\Users\\me\\projects\\widget";
+
+    /// The exploit the v1.5.1 verifier landed against the first confinement
+    /// guard. `C:\..\…` climbs above its own anchor, so `lexical_path_parts`
+    /// returns `None`; the old guard read that `None` as "not absolute", joined
+    /// the string onto the workspace root, and the `..` then cancelled the
+    /// drive component the join had just injected — so the guard concluded
+    /// "inside" while the desktop side (`desktopMcp.ts` `isAbsolutePath`, which
+    /// only looks at `^[A-Za-z]:[\\/]`) forwarded the string verbatim to the
+    /// real autostart folder.
+    #[test]
+    fn export_file_refuses_a_drive_relative_climb_into_the_startup_folder() {
+        let error = export_file_arguments(
+            Some(WIDGET_ROOT),
+            &export_params(
+                "C:\\..\\Users\\me\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\p.stl",
+            ),
+        )
+        .expect_err("a drive-relative climb out of the workspace must be refused");
+
+        assert!(
+            error.contains("outside the workspace"),
+            "unexpected refusal message: {error}"
+        );
+    }
+
+    /// Same climb, spelled with forward slashes. `lexical_path_parts`
+    /// normalizes `/` to `\`, so a guard that only special-cased backslashes
+    /// would still be open here.
+    #[test]
+    fn export_file_refuses_a_drive_relative_climb_spelled_with_forward_slashes() {
+        export_file_arguments(Some(WIDGET_ROOT), &export_params("C:/../Users/me/evil.stl"))
+            .expect_err("a forward-slash drive-relative climb must be refused");
+    }
+
+    /// A climb that lands back on a path which *textually* re-enters the
+    /// workspace is still an escape, because the caller's original string — not
+    /// the guard's resolved form — is what the desktop side writes.
+    #[test]
+    fn export_file_refuses_a_drive_relative_climb_that_re_enters_the_root_name() {
+        export_file_arguments(
+            Some(WIDGET_ROOT),
+            &export_params("C:\\..\\Users\\me\\projects\\widget\\out\\p.stl"),
+        )
+        .expect_err("a climb above the drive anchor must be refused however it lands");
+    }
+
+    /// `\\?\`, `\\.\` and UNC spellings are classified as *relative* by
+    /// `desktopMcp.ts`, so the two resolvers can never agree on where they land.
+    /// The guard must refuse rather than guess.
+    #[test]
+    fn export_file_refuses_a_device_or_unc_spelling_the_desktop_side_would_rewrite() {
+        for requested in [
+            "\\\\?\\C:\\..\\Users\\me\\evil.stl",
+            "\\\\.\\C:\\..\\Users\\me\\evil.stl",
+            "\\\\server\\share\\..\\..\\evil.stl",
+        ] {
+            export_file_arguments(Some(WIDGET_ROOT), &export_params(requested))
+                .unwrap_err_or_panic(requested);
+        }
+    }
+
+    /// Windows resolves `CON`, `NUL`, `PRN`, `AUX`, `COM1`-`COM9` and
+    /// `LPT1`-`LPT9` to devices no matter which directory they are spelled in,
+    /// so an "export" to one silently goes nowhere instead of producing a file.
+    #[test]
+    fn export_file_refuses_reserved_windows_device_names() {
+        for requested in [
+            "CON",
+            "NUL",
+            "PRN",
+            "AUX",
+            "com1",
+            "LPT9",
+            "out\\CON.stl",
+            "out/nul.stl",
+            "CON.stl",
+            "aux.",
+        ] {
+            export_file_arguments(Some(WIDGET_ROOT), &export_params(requested))
+                .unwrap_err_or_panic(requested);
+        }
+
+        // The verifier's probe verbatim: it read `true` here, and the export
+        // then silently went to a device instead of a file.
+        assert_eq!(
+            classify_export_path(WIDGET_ROOT, "CON"),
+            ExportPathVerdict::ReservedDeviceName("CON".to_string())
+        );
+    }
+
+    /// A name that merely *starts* with a reserved word is an ordinary file.
+    #[test]
+    fn export_file_allows_names_that_only_look_like_device_names() {
+        for requested in [
+            "conduit.stl",
+            "out\\console.stl",
+            "auxiliary.stl",
+            "com10.stl",
+        ] {
+            export_file_arguments(Some(WIDGET_ROOT), &export_params(requested))
+                .unwrap_or_else(|error| panic!("{requested} must be allowed, got: {error}"));
+        }
+    }
+
+    /// Regression for the over-refusal the verifier found. `desktopMcp.ts`
+    /// classifies `\out\w.stl` as RELATIVE (its `isAbsolutePath` requires a
+    /// drive letter or a leading forward slash), and Tauri's `join` normalizes
+    /// without absolute-replacement, so it resolves to
+    /// `C:\Users\me\projects\widget\out\w.stl` — safely inside.
+    #[test]
+    fn export_file_allows_a_root_relative_path_the_desktop_side_resolves_inside() {
+        let args = export_file_arguments(Some(WIDGET_ROOT), &export_params("\\out\\w.stl"))
+            .expect("a root-relative path resolves inside the workspace and must be allowed");
+
+        assert_eq!(
+            args.get("file_path").and_then(Value::as_str),
+            Some("\\out\\w.stl"),
+            "the client's own path string must reach the desktop side unchanged"
+        );
+    }
+
+    /// A leading forward slash IS absolute to `desktopMcp.ts`, which forwards it
+    /// verbatim, so the guard must keep treating it as absolute and refuse it.
+    #[test]
+    fn export_file_refuses_a_leading_forward_slash_absolute_path() {
+        export_file_arguments(
+            Some(WIDGET_ROOT),
+            &export_params("/Windows/System32/drivers/etc/hosts"),
+        )
+        .expect_err("a POSIX-rooted path is absolute to the desktop side and must be refused");
+    }
+
+    /// Small helper so the loop-driven cases name the offending input on
+    /// failure instead of panicking with a bare `unwrap`.
+    trait UnwrapErrOrPanic {
+        fn unwrap_err_or_panic(self, label: &str);
+    }
+
+    impl UnwrapErrOrPanic for Result<Value, String> {
+        fn unwrap_err_or_panic(self, label: &str) {
+            if let Ok(value) = self {
+                panic!("{label} must be refused, but the guard allowed it: {value}");
+            }
+        }
     }
 }

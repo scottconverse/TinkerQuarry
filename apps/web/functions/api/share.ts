@@ -5,11 +5,13 @@ import {
   hashToken,
   json,
   MAX_CODE_BYTES,
+  MAX_PAYLOAD_BYTES,
   MAX_PROJECT_FILES,
   randomShareId,
   randomToken,
   readShare,
   sanitizeTitle,
+  SHARE_TTL_SECONDS,
   type Env,
   type ProjectSharePayload,
   type ShareRecord,
@@ -72,18 +74,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json({ error: "Expected application/json." }, { status: 400 });
   }
 
-  const rateLimitResponse = await enforceShareRateLimit(request, env);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
+  // WEB-3: parse and validate BEFORE charging the limiter. An unhandled
+  // SyntaxError here used to surface as a worker exception (not the documented
+  // JSON error shape) *after* the caller's quota had already been consumed.
+  let body: CreateShareBody;
+  try {
+    body = (await request.json()) as CreateShareBody;
+  } catch {
+    return json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const body = (await request.json()) as CreateShareBody;
   const title = sanitizeTitle(body.title);
   const forkedFrom = validateForkedFrom(body.forkedFrom);
 
   const encoder = new TextEncoder();
-  let compressedCode: string;
+  let storedPayload: string;
   let codeSize: number;
+  let payloadSize: number;
   let format: ShareRecord["format"];
 
   // Multi-file project share
@@ -121,7 +131,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const payload: ProjectSharePayload = { files, renderTarget };
-    compressedCode = await compressSource(JSON.stringify(payload));
+    const serialized = JSON.stringify(payload);
+    // WEB-1: the blob we store is the JSON envelope, not the bare file contents,
+    // so the read-side decompression cap must be the envelope's byte length.
+    payloadSize = encoder.encode(serialized).length;
+    if (payloadSize > MAX_PAYLOAD_BYTES) {
+      return json(
+        { error: "Project is too large (50KB max across all files)." },
+        { status: 413 },
+      );
+    }
+    storedPayload = serialized;
     format = "project";
   }
   // Single-file share (existing behavior)
@@ -138,12 +158,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    compressedCode = await compressSource(body.code);
+    payloadSize = codeSize;
+    storedPayload = body.code;
     format = undefined;
   }
 
+  // WEB-3: the quota is charged only once the request is known to be storable,
+  // so a 400/413 never burns a caller's budget.
+  const rateLimitResponse = await enforceShareRateLimit(request, env);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  const compressedCode = await compressSource(storedPayload);
   const thumbnailUploadToken = randomToken();
   const thumbnailUploadTokenHash = await hashToken(thumbnailUploadToken);
+  // WEB-5: hand the creator a token that can retract the share later.
+  const deleteToken = randomToken();
+  const deleteTokenHash = await hashToken(deleteToken);
 
   let shareId = "";
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -170,7 +202,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     forkedFrom,
     thumbnailKey: null,
     thumbnailUploadTokenHash,
+    deleteTokenHash,
     codeSize,
+    payloadSize,
   };
   if (format) {
     record.format = format;
@@ -182,5 +216,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     id: shareId,
     url: getShareUrl(new URL(request.url).origin, shareId),
     thumbnailUploadToken,
+    deleteToken,
+    expiresInSeconds: SHARE_TTL_SECONDS,
   });
 };

@@ -104,8 +104,31 @@ class Material:
 # 4/4 vs gemma4:e4b 1/4, llama3.1:8b 0/4) stays selectable via the `local_qwen2_5` backend; the
 # grammar-constrained plan path (llm_provider._complete_plan) keeps small-model output parseable
 # regardless of which is active.
-DEFAULT_CHAT_MODEL = "qwen3.5:9b"
-DEFAULT_VISION_MODEL = "qwen2.5vl:7b"
+#
+# ENGINEERING-3 (v1.5.0 gate): these are now DERIVED from the shipped config's active backend
+# rather than hand-copied, exactly the way shipped_cloud_hosts() derives its allow-list. The
+# hand-maintained copies had already drifted once — DEFAULT_VISION_MODEL still read
+# "qwen2.5vl:7b" after config/default.yaml moved to "qwen2.5vl:3b" (the model actually measured
+# for this product), so the one branch that reaches the fallback would have advised downloading a
+# ~7B vision model nobody benchmarked here. Deriving removes the drift class outright: change
+# default.yaml and every fallback follows. The literals below are the last-resort values used
+# only if the shipped config is missing/unreadable (a broken install), so importing kimcad.config
+# can never fail on this. Read from the SHIPPED file, never the merged config — a machine-local
+# config/local.yaml must not redefine a shipped default.
+def _shipped_default_models() -> tuple[str, str]:
+    fallback = ("qwen3.5:9b", "qwen2.5vl:3b")
+    try:
+        data = yaml.safe_load(DEFAULT_CONFIG.read_text(encoding="utf-8")) or {}
+        llm = data.get("llm") or {}
+        backend = (llm.get("backends") or {}).get(llm.get("active")) or {}
+        chat = str(backend.get("model_name") or "").strip()
+        vision = str(backend.get("vision_model") or "").strip()
+    except (OSError, yaml.YAMLError, AttributeError, TypeError):
+        return fallback
+    return (chat or fallback[0], vision or fallback[1])
+
+
+DEFAULT_CHAT_MODEL, DEFAULT_VISION_MODEL = _shipped_default_models()
 
 
 @dataclass(frozen=True)

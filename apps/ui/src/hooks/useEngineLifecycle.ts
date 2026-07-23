@@ -128,6 +128,8 @@ export interface EngineLifecycleTargets {
   activeTabRef: MutableRefObject<WorkspaceTab>;
   draftText: string;
   setDraftText: (text: string) => void;
+  /** E2E-C: record a local-engine describe/refine turn on the AI panel's message surface. */
+  appendEngineTurn: (userText: string, assistantText: string) => void;
 }
 
 export function useEngineLifecycle({
@@ -148,6 +150,7 @@ export function useEngineLifecycle({
   activeTabRef,
   draftText,
   setDraftText,
+  appendEngineTurn,
 }: EngineLifecycleTargets) {
   // TinkerQuarry Phase 4 (B core): describe → engine → Studio document, then render the engine's
   // (self-contained) SCAD directly so the viewer updates immediately (no content-watch timing). This
@@ -265,8 +268,22 @@ export function useEngineLifecycle({
   const commitEngineOutcome = useCallback(
     (
       result: EngineDocOutcome,
-      opts: { pushUndo?: boolean; clearVisual?: boolean } = {},
+      opts: { pushUndo?: boolean; clearVisual?: boolean; readOnly?: boolean } = {},
     ) => {
+      // E2E-D: `readOnly` shows a gate-FAILED design so the user can inspect it and download it,
+      // while committing NONE of the slice-continuity state. Deliberately absent here: hasEngineDesign
+      // (keeps the Make it real / Save buttons disabled), lastEngineRidRef / lastEngineScadRef
+      // (handleMakeItReal slices lastEngineRidRef — leaving it null is the imperative safety net), the
+      // undo push, currentStepUrl, and an iteration-log entry (its Restore button re-activates a rid as
+      // sliceable). We render the part and surface its report + readiness so the user sees WHY it failed.
+      if (opts.readOnly) {
+        if (!result.scad) return;
+        renderCodeDirect(result.scad);
+        setCurrentDesignHeadline(result.headline ?? null);
+        setCurrentDesignResult(result.result ?? currentDesignResult);
+        setLiveReadiness(result.gate || null);
+        return;
+      }
       if (!result.ok || !result.scad) return;
       renderCodeDirect(result.scad);
       if (
@@ -667,6 +684,29 @@ export function useEngineLifecycle({
         setVisualReviewResult(null);
         setVisualReviewImages([]);
         setVisualReviewLog([]);
+        // E2E-D: a gate-FAILED design still has a mesh + source. Show it read-only so the user can
+        // inspect the part and download it (Export gates on a rendered viewer, not on hasEngineDesign),
+        // and see the failing checks in the readiness panel — rather than have it silently discarded.
+        // Slicing and Save stay refused: readOnly never sets hasEngineDesign.
+        if (result.showable && result.scad) {
+          commitEngineOutcome(result, { readOnly: true });
+        }
+        // WALK-1 (gate 2026-07-19): clarification_needed carries the engine's actual QUESTION in
+        // `clarification`. Publish it onto the current design result so the Intent panel can show
+        // it — a toast that scrolls away is not an answerable question. Merge rather than replace,
+        // so a clarifying question about a refine doesn't wipe the plan the user is looking at.
+        const clarification = result.result?.clarification?.trim() || null;
+        if (clarification) {
+          setCurrentDesignResult((prev) =>
+            prev
+              ? { ...prev, clarification }
+              : (result.result ?? {
+                  rid: -1,
+                  status: "clarification_needed",
+                  clarification,
+                }),
+          );
+        }
         // gate_failed / clarification_needed / model_unavailable — show the engine's plain-English
         // reason; this is a designed outcome, not a crash, so don't capture it as an error.
         notifyError({
@@ -679,9 +719,17 @@ export function useEngineLifecycle({
           toastId: "engine-design",
         });
       }
+      // E2E-C: record this local-engine turn on the AI panel's message surface — the user's words and
+      // the engine's plain-English outcome — so the local-first path has a visible conversation history.
+      const assistantText = result.ok
+        ? `${result.headline ? `${result.headline} ` : ""}${result.gate || "Looks printable."}`
+        : result.gate ||
+          result.error ||
+          "I couldn't produce a printable design from that.";
+      appendEngineTurn(prompt, assistantText);
       return result;
     },
-    [commitEngineOutcome, runAutonomousVisualLoop],
+    [appendEngineTurn, commitEngineOutcome, runAutonomousVisualLoop],
   );
   const handleApplyVisualCorrection = useCallback(async () => {
     const prompt = visualCorrectionPrompt?.trim() ?? "";
@@ -1096,13 +1144,19 @@ export function useEngineLifecycle({
       void (async () => {
         setReverseImportStatus({ state: "running", filename: file.name });
         try {
-          notifySuccess("Importing CAD...", { toastId: "reverse-import-started" });
+          notifySuccess("Importing CAD...", {
+            toastId: "reverse-import-started",
+          });
           const bytes = new Uint8Array(await file.arrayBuffer());
           const result = await reverseImportIntoStudio(bytes, file.name);
           if (!result.ok) {
             const message =
               result.error ?? result.gate ?? "Could not import that mesh file.";
-            setReverseImportStatus({ state: "error", filename: file.name, message });
+            setReverseImportStatus({
+              state: "error",
+              filename: file.name,
+              message,
+            });
             notifyError({
               operation: "Reverse import failed",
               error: message,
@@ -1116,14 +1170,24 @@ export function useEngineLifecycle({
             toastId: "reverse-import-ready",
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          setReverseImportStatus({ state: "error", filename: file.name, message });
+          const message =
+            error instanceof Error ? error.message : String(error);
+          setReverseImportStatus({
+            state: "error",
+            filename: file.name,
+            message,
+          });
           notifyError({ operation: "Reverse import failed", error });
         }
       })();
     };
     input.click();
-  }, [commitEngineOutcome, hideWelcomeScreen, ready, reverseImportStatus.state]);
+  }, [
+    commitEngineOutcome,
+    hideWelcomeScreen,
+    ready,
+    reverseImportStatus.state,
+  ]);
 
   const handleReopenDesign = useCallback(
     async (id: string) => {
@@ -1301,6 +1365,18 @@ export function useEngineLifecycle({
       void engine.render(rid, tuned).then((r) => {
         if (r.ok && r.data.status === "completed") {
           lastEngineScadRef.current = renderTargetContent;
+          // E2E-B: this effect used to publish ONLY the readiness. Everything else — the Intent
+          // panel's dimensions, the Properties panel, explain-design-summary — reads
+          // currentDesignResult, so after a tune they all kept showing the ORIGINAL size while
+          // the part that would actually slice was the tuned one. A user tuning 80mm -> 120mm
+          // was shown "Dimensions match: 80.0 x 60.0 x 40.0 mm" for a 120mm part, and that
+          // survived into the slice.
+          //
+          // The slice path (handleMakeItReal, above) already does exactly this after its own
+          // tuned re-render — the correct pattern existed in this file and this effect simply
+          // did not follow it.
+          setCurrentDesignResult(r.data);
+          setCurrentDesignHeadline(r.data.report?.headline ?? null);
           setLiveReadiness(engineGateSummary(r.data));
           setVisualReviewSummary(null);
           setVisualDiffSummary(null);

@@ -31,6 +31,7 @@ import {
 } from '../stores/apiKeyStore';
 import type {
   AiDraft,
+  AssistantMessage,
   AttachmentStore,
   Conversation,
   Message,
@@ -1076,8 +1077,37 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     [analytics, eventBusImpl, historyServiceImpl]
   );
 
+  // E2E-C: the LOCAL ENGINE describe/refine path (useEngineLifecycle) doesn't stream through the cloud
+  // agent, so its turns never reached this message surface — on the local-first default path the AI
+  // panel sat on its empty state forever with no record of the conversation. Append the user's words
+  // and the engine's plain-English outcome here so the panel shows the exchange like the cloud agent's.
+  const appendEngineTurn = useCallback((userText: string, assistantText: string) => {
+    const trimmedUser = userText.trim();
+    if (!trimmedUser) return;
+    const now = Date.now();
+    const userMessage: UserMessage = {
+      type: 'user',
+      id: createRandomId(),
+      timestamp: now,
+      parts: [{ type: 'text', text: trimmedUser }],
+    };
+    const assistantMessage: AssistantMessage = {
+      type: 'assistant',
+      id: createRandomId(),
+      timestamp: now + 1,
+      turnId: createRandomId(),
+      content: assistantText.trim() || 'Done.',
+      state: 'complete',
+    };
+    setState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, userMessage, assistantMessage],
+    }));
+  }, []);
+
   return {
     ...state,
+    appendEngineTurn,
     availableProviders,
     submitPrompt,
     submitDraft,

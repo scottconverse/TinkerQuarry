@@ -1,7 +1,91 @@
 name: Release Gate
 
+# ============================================================================================
+# WHAT THIS IS, AND WHY "CI IS GREEN" DOES NOT MEAN "THIS IS RELEASE-PROVEN"
+#
+# There are two different proofs in this repo, and they are not the same size:
+#
+#   ci.yml         runs on every push and PR. ~10 minutes, hosted runners. It is the
+#                  merge gate. It does NOT build the app, does NOT run the Rust tests,
+#                  does NOT run Playwright, and runs the engine's Python suite with the
+#                  slow/environment-dependent classes filtered out.
+#
+#   release-gate.yml (this file) runs the whole `pnpm test:release`: Rust tests + cargo
+#                  audit, coverage-gated unit lanes, the Cloudflare share-worker deploy
+#                  build, the FULL engine pytest with --strict-no-skips (no marker
+#                  filter), Playwright, the real NSIS installer build, and two native
+#                  smoke tests against the built and the installed binary. Up to 3 hours,
+#                  self-hosted Windows runner.
+#
+# Until 2026-07-21 this workflow had exactly one trigger, `workflow_dispatch`, and
+# `gh run list --workflow=release-gate.yml` returned zero rows for the entire life of the
+# repo. The full proof had never once run in GitHub Actions. Every release, v1.5.0
+# included, shipped on a human remembering to run `pnpm test:release` on their own machine
+# and paste the log into the evidence folder. Nothing on the PR page said so, so a green CI
+# check read as "proven" when it was not. That is gate finding TEST-2, and it is the reason
+# several other v1.5.0 findings reached a signed, published release.
+#
+# Three things now hold it shut, and each fails loudly on its own:
+#
+#   1. This workflow runs AUTOMATICALLY - weekly on a schedule, and on every `v*` tag push
+#      (the triggers below). It no longer depends on anybody remembering.
+#   2. sign-installer.yml will not sign a tag unless a *successful* run of this workflow
+#      exists for that tag's exact commit. An unproven build cannot become a signed
+#      release, even by hand.
+#   3. scripts/check_release_gate_wiring.py (run by ci.yml on every PR) fails if this
+#      workflow loses its automatic trigger, if the signing gate is removed, or if a lane
+#      is added to `test:release` without being classified in one of the two
+#      RELEASE-PROOF-MAP blocks below. The gap stays enumerated instead of invisible.
+#
+# Deliberately NOT done: widening ci.yml into a 40-minute per-PR job. The point is not to
+# run everything everywhere - it is that the full proof runs automatically on a known
+# cadence, and that its absence for a given commit is detectable and blocking.
+#
+# --------------------------------------------------------------------------------------
+# The lanes below run ONLY here. A green ci.yml says nothing about any of them.
+# Keep in sync with the leaf commands of the root package.json `test:release` script;
+# scripts/check_release_gate_wiring.py fails if this list drifts from that script.
+#
+# BEGIN RELEASE-PROOF-MAP: release-only
+#   test:rust                 cargo test for the Tauri shell (engine supervisor, MCP server, render cmds)
+#   test:rust:audit           cargo audit against the RustSec advisory DB
+#   test:ui:coverage          apps/ui coverage lane - CI runs these tests but enforces no coverage threshold
+#   test:web:coverage         apps/web coverage lane - same: tests run in CI, thresholds do not
+#   web:share:build           Cloudflare share-worker production build
+#   share:functions:build     share-worker Pages Functions build
+#   share:rate-limiter:check  share-worker rate-limiter binding check
+#   test:e2e:web              Playwright end-to-end against a real Chrome
+#   native-release.cmd        the actual Tauri/NSIS installer build - nothing in CI builds the app
+#   test:e2e:tauri            smoke test against the freshly built native binary
+#   test:e2e:tauri:installed  smoke test against the NSIS-installed binary on a real machine
+# END RELEASE-PROOF-MAP
+# ============================================================================================
+
 on:
+  # Automatic cadence. Weekly rather than nightly because this lane occupies the single
+  # self-hosted Windows runner for up to three hours; nightly-flakiness.yml already covers
+  # the fast suites every night. Weekly is the floor, not the ceiling - the tag trigger
+  # below is what actually gates a release.
+  schedule:
+    - cron: "0 9 * * 0"
+  # Every release tag proves itself. sign-installer.yml then requires this run to have
+  # succeeded at that exact commit before it will sign anything.
+  push:
+    tags:
+      - "v*"
+  # Kept so a release manager can force the full proof against a specific ref before
+  # tagging, which is the sane order to do it in.
   workflow_dispatch:
+
+# Grouped PER REF, not workflow-wide. GitHub keeps only one pending run per concurrency
+# group, so a single shared group would let a second tag push cancel the first tag's queued
+# proof - and a cancelled proof means that tag can never be signed until someone notices and
+# re-runs it. Per-ref, each tag owns its own slot; the single self-hosted runner still
+# serializes the actual work. cancel-in-progress stays false: an in-flight proof is the
+# thing that unblocks signing, so it is never worth discarding.
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   license-gate:

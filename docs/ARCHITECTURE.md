@@ -2,7 +2,7 @@
 
 **Product:** TinkerQuarry v1.5.0 Windows beta
 **Engine:** KimCad 0.9.4
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-18
 
 TinkerQuarry is a desktop-first, local-first AI CAD system for functional 3D-printed parts. The
 architecture is built around a plain rule: AI can help plan and generate, but deterministic state
@@ -172,6 +172,50 @@ and CadQuery runtime are available.
 | Printer connectors | physical machine action | explicit send confirmation and connector setup |
 | Reverse import | unsafe/untrusted geometry | known-family matching and fail-closed rejection |
 
+## Model Context Protocol (MCP) Interface
+
+The desktop app includes an optional MCP server for integration with external AI agents. The
+server is **disabled by default** and runs on `127.0.0.1:32123` (loopback only) when enabled.
+
+**Exposed capabilities:**
+Seven tools allow callers to manage workspaces, inspect project state, trigger renders, capture
+previews, and export designs. These capabilities include file-write access to arbitrary desktop
+paths via the `export_file` tool.
+
+**Security model (partially landed — do not read this as finished):**
+
+The listener binds `127.0.0.1` only and is disabled by default. Three controls are in the tree,
+at three different levels of done:
+
+- *Origin validation* — landed and tested. Implemented with `rmcp`'s own `with_allowed_origins`
+  rather than a CORS layer: `rmcp` performs RFC 6454 matching internally and emits no CORS
+  response headers. This distinction is load-bearing. The reason a hostile page cannot currently
+  reach the tools is that its preflight is *refused*; adding a `tower_http` `CorsLayer` — the
+  obvious way to "add origin allow-listing" — would make the server answer preflights and open
+  the exact drive-by it was meant to close. A regression test asserts the preflight returns no
+  `Access-Control-Allow-Origin`; do not replace it with a CORS layer.
+- *Per-boot bearer token* — enforced server-side and surfaced in Settings, and carried by all
+  four generated agent configs. Regenerated on every app start, so it cannot outlive the process
+  that issued it.
+- *`export_file` path confinement* — fails CLOSED. The original guard misread any path climbing
+  above its own anchor (`C:\..\...`) as relative, joined it onto the workspace root, and let the
+  `..` cancel the injected drive component — concluding "inside" while the caller's original
+  string was forwarded verbatim. It now refuses anything it cannot positively classify, matches
+  the frontend's absolute-path test exactly so the two resolvers cannot disagree, and rejects
+  Windows device names.
+
+Two residual limits, recorded rather than smoothed over:
+
+- `get_or_create_workspace` binds a session to any caller-supplied folder with no user approval,
+  so "confined to the bound workspace" means confined to a folder the token holder chose. The
+  token is the actual trust boundary here, not the confinement.
+- The confinement check is purely lexical — an export target does not exist yet, so
+  `canonicalize` is unavailable — meaning a junction or symlink already present inside the bound
+  workspace can still redirect a write outside it.
+
+The genuine exposure is local, non-browser callers: origin checks do nothing against a script
+that simply omits the header, which is why the token is the control that matters here.
+
 ## Packaging
 
 The Windows desktop app is packaged by Tauri as an NSIS installer. The package stages the KimCad
@@ -205,5 +249,4 @@ Near-term architecture extensions:
 - expand known-family reverse import coverage;
 - add STEP/STP reverse-to-parametric import after trusted mesh-family matching matures;
 - certify real hardware connector behavior by printer family;
-- sign the Windows installer;
 - package additional platforms after Windows beta stabilizes.

@@ -704,6 +704,14 @@ export class EngineClient {
   health() {
     return this.req<HealthResult>("GET", "/health");
   }
+  /** TQ-N1/TQ-N3: the "check again" button on the Settings → Project → "Editable CAD export
+   * (.STEP)" card. `?recheck=1` makes the engine drop its cached CadQuery probe and rediscover
+   * (webapp.py `_handle_health` / the recheck branch above it), so a user who has just run
+   * `pip install cadquery` sees the new answer without restarting TinkerQuarry. A plain
+   * `health()` read stays cached; only this deliberate query pays the re-probe. */
+  healthRecheck() {
+    return this.req<HealthResult>("GET", "/health?recheck=1");
+  }
   modelStatus() {
     return this.req<ModelStatusResult>("GET", "/model-status");
   }

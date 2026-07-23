@@ -1,6 +1,6 @@
 [package]
 name = "tinkerquarry"
-version = "1.5.0"
+version = "1.5.1"
 description = "Local-first AI CAD workflow for printable parts"
 authors = ["Scott Converse", "TinkerQuarry Contributors"]
 edition = "2021"

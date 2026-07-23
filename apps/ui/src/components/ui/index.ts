@@ -34,5 +34,9 @@ export { RangeSlider } from './RangeSlider';
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './Tooltip';
 export type { TooltipProviderProps } from './Tooltip';
 
+export { Dialog } from './Dialog';
+export type { DialogProps } from './Dialog';
+export { useFocusTrap, focusableWithin } from './useFocusTrap';
+
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './Accordion';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';

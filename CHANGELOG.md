@@ -5,6 +5,57 @@ All notable user-facing changes to TinkerQuarry are documented here.
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses separate version numbers for the product, engine, share web app, and shared helper package.
 
+## [1.5.1] - unreleased
+
+A correctness and honesty release. v1.5.0 was published, then failed a full multi-role review
+and was moved back to pre-release with v1.4.0 restored as the current release. This version
+exists to fix what that review found. **It is not finished — see "Known open" below.**
+
+### Fixed
+
+- **The app showed error codes instead of English.** When the engine replied without a report,
+  the UI rendered the literal text `model_unavailable` or `clarification_needed` instead of the
+  sentence the engine had actually sent — and the engine's clarifying question was read by no
+  component at all. Since an ambiguous prompt is an everyday outcome, this was the normal
+  failure of the product's core feature. Every browser test had missed it for a full release
+  because they all ran the engine in demo mode, which only ever returns "completed"; the fix
+  includes the harness that now drives all six non-completed states through a real browser.
+- **Local model servers other than Ollama were completely broken.** Every loopback backend was
+  sent to an Ollama-only endpoint, so LM Studio — documented as supported — failed every
+  request, spent about 150 seconds retrying, and then reported that your AI was not running
+  while it was running fine.
+- **The offline banner made the toolbar nearly unclickable.** While shown, it covered roughly
+  70% of the click area of every control along the top, including Settings.
+- **Dialogs did not hold keyboard focus.** Tab walked out of an open dialog into the page behind
+  it, so keyboard and screen-reader users could type into a hidden editor believing they were
+  still in the dialog. All five dialogs now share one implementation.
+- **Three API endpoints dropped the connection** with no reply at all when sent a wrong-typed
+  field — indistinguishable, to a caller, from the server being down.
+- `kimcad design ""` could reach a real model and invent a design with a success exit code.
+- Running `kimcad web` on its own served a user interface eight pull requests out of date. It now
+  serves a short page explaining where the real interface is.
+- Documentation corrections: the verification table described a different version, the manual
+  reported test counts from an older run, two roadmaps still listed installer signing as future
+  work after it shipped, the formatter rebuild recipe pointed at a grammar that was replaced,
+  and the license file named the wrong default models.
+
+### Changed
+
+- The full release proof now runs automatically on a schedule and on every version tag, and
+  installer signing refuses to proceed unless that proof succeeded at the exact commit being
+  signed. Previously it had never run once — it was a script someone had to remember.
+
+### Known open
+
+- **External agent (MCP) access has real limits, though it now works.** The listener stays off
+  until you enable it, checks the browser origin, requires a per-boot token, and confines
+  exports to the bound workspace. Two limits remain: binding a workspace is not confirmed with
+  you, so the token is what actually protects your files; and the path check is textual, so a
+  shortcut already inside the workspace can still lead a write outward. Treat the token like a
+  password and leave the server off when you are not using it.
+- Some engine-generated designs still cannot be inspected after they fail the printability
+  check — the report exists but is not shown. Under repair.
+
 ## [1.5.0] - 2026-07-16
 
 Product v1.5.0 ships with KimCad engine 0.9.4 (unchanged from v1.4.0). This is the first release
@@ -67,7 +118,7 @@ with a digitally signed Windows installer.
 
 ### Internal
 
-- `apps/ui/src/App.tsx` was decomposed from roughly 5,070 lines to roughly 2,760 lines across
+- `apps/ui/src/App.tsx` was decomposed from roughly 5,358 lines to roughly 2,760 lines across
   five extraction phases, each pulling a cluster of related state and handlers into its own hook
   (global shortcuts/error reporting; file-tree and tab CRUD; persistence/save plus the
   native-menu event bridge; engine lifecycle; project-directory onboarding and open-file/folder).

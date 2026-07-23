@@ -50,7 +50,7 @@ cadquery_runner.render_cadquery(code)
 
 ## Enabling it
 
-**In the app:** *Settings → Editable CAD export* shows whether the engine is installed and
+**In the app:** *Settings → Project → Editable CAD export* shows whether the engine is installed and
 walks through the one-time setup:
 
 1. Install Python 3.13 (python.org) if you don't have it.

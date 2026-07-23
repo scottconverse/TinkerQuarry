@@ -199,9 +199,22 @@ PLAN_FAILED_MESSAGE = (
 # Shown when the local model server can't be reached mid-session — a recoverable, actionable
 # message, not a raw connection traceback.  Never mentions "Ollama" — the user knows it as
 # "KimCad's AI" and has no Ollama tray icon to consult (ENG-GG-001 / tester-007 Minor-1).
+#
+# WALK-2 (v1.5.0 gate): this used to end "You can restart it from Settings, then try again." —
+# and no such control exists. AiSettings.tsx, the only AI-related Settings panel, holds three
+# cards (Anthropic key, OpenAI key, OpenAI-compatible provider); the bundled local backend is
+# configured only through config/local.yaml and is never exposed there. A user following the
+# instruction to the letter found nothing to click. The wording itself had already been through
+# one gate fix (the "Ollama" removal above) while the destination it pointed at was never
+# checked. It now names the real recovery, matching WelcomeScreen.tsx's own native-app copy
+# ("The engine starts with the app. Wait a few seconds and click Check again; if it keeps
+# failing, restart TinkerQuarry."). Kept plain-text (no markdown) because it is printed raw on
+# the CLI and rendered as a text node in the chat thread. Pinned by
+# tests/test_model_unavailable_message.py.
 MODEL_UNAVAILABLE_MESSAGE = (
     "KimCad couldn't reach your local AI — it isn't running. "
-    "You can restart it from Settings, then try again."
+    "It starts up with TinkerQuarry, so wait a few seconds and try again; "
+    "if it keeps failing, close and reopen TinkerQuarry."
 )
 
 

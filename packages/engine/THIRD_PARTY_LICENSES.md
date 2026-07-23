@@ -33,7 +33,7 @@ their own licenses and source-availability terms.
 | **OpenSCAD 2026.03.16** | GPL-2.0-**or-later** | geometry kernel: KimCad shells out to render `.scad` → mesh | Windows snapshot is fetched from `files.openscad.org/snapshots` and pinned by SHA-256 in `scripts/fetch_tools.py`. Source: <https://github.com/openscad/openscad>. |
 | **OrcaSlicer 2.4.0-alpha** | **AGPL-3.0** | slicer: KimCad shells out to produce G-code | Windows portable build is fetched and pinned by SHA-256 in `scripts/fetch_tools.py`. Source: <https://github.com/SoftFever/OrcaSlicer>. |
 | **PrintProof3D 0.6.2** | MIT | readiness validation engine: KimCad shells out to validate the rendered mesh | Windows binary is fetched from the GitHub release and pinned by SHA-256 in `scripts/build_installer.py`. Source/release: <https://github.com/scottconverse/PrintProof3D/releases/tag/v0.6.2>. |
-| Ollama + models (qwen2.5:7b / qwen2.5vl:7b / qwen3-vl:8b / minicpm-v:8b) | Ollama: MIT · Qwen models: Apache-2.0 · MiniCPM-V model license per upstream distribution | local AI and optional local visual critique, separate process at `:11434` | Not bundled in the installer; managed/setup flows may download or use a user-installed local runtime. |
+| Ollama + models (qwen3.5:9b chat/planner, qwen2.5vl:3b vision, qwen2.5vl:7b / qwen3-vl:8b / minicpm-v:8b optional VCL) | Ollama: MIT · Qwen models: Apache-2.0 · MiniCPM-V model license per upstream distribution | local AI and optional local visual critique, separate process at `:11434` | Not bundled in the installer; managed/setup flows may download or use a user-installed local runtime. qwen2.5:7b (prior default chat model) remains selectable via local_qwen2_5 backend in config. |
 
 ## 4. Bundled SCAD libraries (vendored — all GPLv2-compatible)
 
@@ -77,8 +77,17 @@ made their reappearance a CI failure (`FORBIDDEN` list in the license gate).
 
 ## 6. Front-end dependencies
 
-The SPA (`frontend/`) builds against React, Three.js, and related libraries — predominantly **MIT**
-— installed via `npm` (`package.json`), not redistributed as source here.
+The production front end is **`apps/ui/`** (the TinkerQuarry Studio UI and its Tauri desktop
+shell) — see the repo map in [README.md](../../README.md). It builds against React, Three.js,
+Monaco, Radix and related libraries — predominantly **MIT** — declared in
+`apps/ui/package.json` and resolved through the workspace lockfile `pnpm-lock.yaml`. Those
+packages are installed from the npm registry at build time; their source is **not** redistributed
+in this repository (`node_modules/` is not tracked). The compiled bundle they produce ships inside
+the Windows installer, and is covered by section 1/2 above.
+
+The automated license gate (`scripts/license_scan.py`) checks the engine's Python side only —
+`packages/engine/src/kimcad` imports plus `requirements.lock` — so the `apps/ui/` front-end tree
+is not covered by it; this section is maintained by hand.
 
 ---
 

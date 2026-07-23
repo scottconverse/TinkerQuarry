@@ -162,15 +162,41 @@ def _native_chat_url(base_url: str) -> str:
 
 
 def _is_ollama_backend(backend: LLMBackend) -> bool:
-    """True for a local Ollama-style backend, where the native ``/api/chat`` ``format`` field
-    (token-level JSON-schema constraint) is available: the provider declares ``ollama``, the
-    endpoint is the Ollama port, or it's a loopback host (the local-first default). Cloud backends
-    (OpenRouter/DeepSeek) are False — they keep the standard OpenAI-compatible json-mode call."""
-    base = backend.base_url or ""
-    if getattr(backend, "provider", "") == "ollama" or "11434" in base:
+    """True only when the backend EXPLICITLY identifies itself as Ollama — by declaring
+    ``provider: ollama`` or by sitting on Ollama's registered port — i.e. when the proprietary
+    native ``/api/chat`` (and its token-level JSON-schema ``format`` field) actually exists.
+
+    ENGINEERING-1 (v1.5.0 gate): this used to return True for ANY loopback host, on the
+    assumption that "local == Ollama". It isn't. LM Studio (config/default.yaml's own comment:
+    "Ollama default; LM Studio uses :1234"; README: "LM Studio also works if you prefer to run
+    your own") and llama.cpp's ``llama-server`` are both documented/expected local servers that
+    listen on loopback and implement ONLY the OpenAI-compatible ``/v1/chat/completions``. Routing
+    them to ``/api/chat`` 404'd every attempt, burned the full 6x30 s retry budget, and then
+    reported "your local AI isn't running" while the server was up and healthy.
+
+    So loopback-ness no longer selects anything. Native ``/api/chat`` is chosen by exactly two
+    EXPLICIT signals, never by inference:
+
+    1. ``provider == "ollama"`` — the declaration. Every shipped Ollama backend in
+       ``config/default.yaml`` now says this, pinned by
+       ``tests/test_local_backend_transport.py`` so the default can't drift back onto ``/v1``.
+    2. the URL's port is exactly Ollama's registered ``11434`` — a compatibility path for
+       configs written before (1) existed. ``config/local.yaml`` is per-machine and gitignored,
+       so real installs carry Ollama backends declared ``provider: openai_compatible``; without
+       this clause they would silently lose ``think:false`` and the token-level ``format``
+       schema, which is the exact combination that truncated the plan JSON and emptied codegen
+       in three live release-gate failures (see ``_complete_native``). A silent quality
+       regression on every existing config is not an acceptable price for this fix. This is a
+       PORT equality test on the parsed URL, not the old ``"11434" in base_url`` substring
+       match, so a model name or query string containing those digits can't trigger it.
+
+    Neither signal fires for the servers this defect was about: LM Studio's port is 1234 and
+    llama.cpp's is 8080, and neither declares ``ollama``. (An LM Studio deliberately rebound to
+    :11434 would still be misrouted; declaring ``provider: openai_compatible`` cannot express
+    that today, and it is a far narrower case than breaking every config already on disk.)"""
+    if (getattr(backend, "provider", "") or "").strip().lower() == "ollama":
         return True
-    host = (urlsplit(base).hostname or "").lower()
-    return host in ("localhost", "127.0.0.1", "::1") or host.startswith("127.")
+    return urlsplit(backend.base_url or "").port == 11434
 
 
 def build_constraints_block(printer: Printer, material: Material) -> str:
