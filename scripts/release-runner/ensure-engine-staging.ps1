@@ -100,4 +100,3 @@ if (Test-Path -LiteralPath $link) {
     link = $link
     manifest_sha256 = $expectedManifest
 } | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
-
