@@ -27,7 +27,8 @@ This script enforces six properties. Each one fails loudly and specifically:
   F. The only executable self-hosted job is the release gate, and it cannot be
      triggered by a pull-request event from untrusted fork code. The temporary
      runner bootstrap stays manual-only, isolates its one-hour registration secret
-     to the ephemeral configuration step, and installs an exact-job start hook.
+     to the ephemeral configuration step, queues one exact rerun itself, installs an
+     exact-job start hook, and proves that assignment completed on its named runner.
 
 Run it:  python scripts/check_release_gate_wiring.py
 Exit 0 = wired. Exit 1 = a specific, named property is broken (printed).
@@ -390,6 +391,7 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("release_gate_url", "export the successful release-gate run URL"),
         ("release_gate_run_id", "export the successful release-gate run ID"),
         ("release_gate_run_attempt", "export the successful release-gate run attempt"),
+        ("release_gate_head_sha", "export the selected run's exact head SHA"),
         ("run_json", "derive proof fields from one API response snapshot"),
     ):
         if token not in proof_exe:
@@ -404,6 +406,7 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("PROOF_URL", "consume the successful release-gate run URL"),
         ("PROOF_RUN_ID", "consume the successful release-gate run ID"),
         ("PROOF_RUN_ATTEMPT", "consume the successful release-gate run attempt"),
+        ("PROOF_HEAD_SHA", "consume the selected release-gate run's head SHA"),
         ("gh run download", "obtain the installer from the successful release-gate run"),
         (
             "tinkerquarry-windows-release-artifacts",
@@ -443,6 +446,10 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
             "proof_run_attempt=$(jq",
             "derive the proof run attempt from the selected response object",
         ),
+        (
+            'proof_head_sha="$candidate"',
+            "bind the selected proof to the candidate SHA used in its API query",
+        ),
     ):
         if token not in proof_exe:
             problems.append(
@@ -451,12 +458,15 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
             )
 
     workflow_concurrency = sign.get("concurrency")
-    if not isinstance(workflow_concurrency, dict) or "sign-installer-" not in str(
-        workflow_concurrency.get("group", "")
+    expected_group = "sign-installer-${{ inputs.release-tag || github.run_id }}"
+    if (
+        not isinstance(workflow_concurrency, dict)
+        or workflow_concurrency.get("group") != expected_group
+        or workflow_concurrency.get("cancel-in-progress") is not False
     ):
         problems.append(
-            "E. sign-installer.yml lacks per-tag publication concurrency. Two signing runs "
-            "could race while replacing the same public assets."
+            "E. sign-installer.yml must serialize the exact release-tag group, keep smoke "
+            "runs unique by run ID, and never cancel an in-progress publisher."
         )
 
     exact_hash_check = "$publishedHash -ne $env:EXPECTED_SIGNED_SHA256"
@@ -479,6 +489,11 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         problems.append(
             "E. the selected release-gate run identity must be re-queried before its "
             "artifact is downloaded."
+        )
+    if "$run.head_sha -ne $env:PROOF_HEAD_SHA" not in sign_exe:
+        problems.append(
+            "E. the pre-download run recheck must compare the API head SHA to the exact "
+            "selected proof head, not assume an annotated tag object's SHA equals its commit."
         )
 
     for token, why in (
@@ -507,9 +522,17 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
             "record the signer identity from the verified certificate",
         ),
         (
+            "release_gate_head_sha = $env:PROOF_HEAD_SHA",
+            "record the selected run head SHA in the release manifest",
+        ),
+        (
             "$publishedManifest.signing.signer_subject -ne "
             "$publishedSignature.SignerCertificate.Subject",
             "compare the public signer to the published manifest",
+        ),
+        (
+            "$publishedManifest.signing.release_gate_head_sha -ne $env:PROOF_HEAD_SHA",
+            "compare the public proof record to the selected run head SHA",
         ),
     ):
         if token not in sign_exe:
@@ -557,6 +580,22 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
                 "register a repository runner; found triggers "
                 f"{sorted(bootstrap_triggers) or '<none>'}."
             )
+        bootstrap_permissions = bootstrap_doc.get("permissions") or {}
+        if bootstrap_permissions.get("actions") != "write":
+            problems.append(
+                "F. ephemeral-release-runner.yml needs `actions: write` so it can queue "
+                "the exact audited rerun itself instead of depending on timing by an operator."
+            )
+        bootstrap_concurrency = bootstrap_doc.get("concurrency") or {}
+        if (
+            bootstrap_concurrency.get("group")
+            != "tinkerquarry-v1.5.1-ephemeral-release-runner"
+            or bootstrap_concurrency.get("cancel-in-progress") is not False
+        ):
+            problems.append(
+                "F. ephemeral runner bootstrap must serialize one fixed v1.5.1 recovery "
+                "group without cancelling an in-flight provisioner."
+            )
 
         bootstrap_jobs = bootstrap_doc.get("jobs") or {}
         bootstrap = bootstrap_jobs.get("bootstrap")
@@ -566,6 +605,11 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
                 "`bootstrap` job."
             )
             return
+        if bootstrap.get("runs-on") != "windows-2022":
+            problems.append(
+                "F. temporary release bootstrap must stay pinned to the audited "
+                "`windows-2022` hosted image."
+            )
 
         steps = bootstrap.get("steps") or []
         token_steps = [
@@ -591,6 +635,30 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             (
                 "ACTIONS_RUNNER_HOOK_JOB_STARTED",
                 "install the fail-closed pre-job identity hook",
+            ),
+            (
+                'actions/runs/$runId/rerun',
+                "queue the exact selected Release Gate rerun itself",
+            ),
+            (
+                "EXPECTED_RELEASE_GATE_RUN_ATTEMPT",
+                "bind routing and completion to one exact rerun attempt",
+            ),
+            (
+                '$receiptPath = "C:\\tq-provision\\accepted-release-job.json"',
+                "declare the one exact accepted-assignment receipt path",
+            ),
+            (
+                'Set-Content -LiteralPath "C:\\tq-provision\\accepted-release-job.json"',
+                "write the accepted-assignment receipt from the pre-job hook",
+            ),
+            (
+                "Get-Content -LiteralPath $receiptPath -Raw",
+                "read the accepted-assignment receipt after the listener exits",
+            ),
+            (
+                "$completedWindowsJobs[0].runner_name -ne $env:TQ_EXPECTED_RUNNER_NAME",
+                "prove the exact job completed on the provisioned runner",
             ),
             (
                 "if ($env:RUNNER_TOKEN)",

@@ -46,6 +46,7 @@ jobs:
       release_gate_url: ${{ steps.proof.outputs.release_gate_url }}
       release_gate_run_id: ${{ steps.proof.outputs.release_gate_run_id }}
       release_gate_run_attempt: ${{ steps.proof.outputs.release_gate_run_attempt }}
+      release_gate_head_sha: ${{ steps.proof.outputs.release_gate_head_sha }}
     steps:
       - name: Require a successful release-gate run at the tag's exact commit
         id: proof
@@ -93,6 +94,7 @@ jobs:
           proof_url=""
           proof_run_id=""
           proof_run_attempt=""
+          proof_head_sha=""
           diagnostics=""
           candidates="$sha"
           if [ -n "$tag_obj" ] && [ "$tag_obj" != "$sha" ]; then
@@ -120,6 +122,7 @@ jobs:
               proof_url=$(jq -r '.html_url' <<< "$latest")
               proof_run_id=$(jq -r '.id | tostring' <<< "$latest")
               proof_run_attempt=$(jq -r '.run_attempt | tostring' <<< "$latest")
+              proof_head_sha="$candidate"
             fi
           done
           echo "successful release-gate runs for tag $TAG (either sha): $runs"
@@ -132,8 +135,8 @@ jobs:
             exit 1
           fi
 
-          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ] || [ -z "$proof_run_id" ] || [ "$proof_run_id" = "null" ] || [ -z "$proof_run_attempt" ] || [ "$proof_run_attempt" = "null" ]; then
-            echo "::error::A successful release-gate run was counted but its URL/ID/attempt could not be resolved. Refusing to emit an untraceable proof."
+          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ] || [ -z "$proof_run_id" ] || [ "$proof_run_id" = "null" ] || [ -z "$proof_run_attempt" ] || [ "$proof_run_attempt" = "null" ] || [ -z "$proof_head_sha" ]; then
+            echo "::error::A successful release-gate run was counted but its URL/ID/attempt/head SHA could not be resolved. Refusing to emit an untraceable proof."
             exit 1
           fi
 
@@ -142,8 +145,9 @@ jobs:
             echo "release_gate_url=$proof_url"
             echo "release_gate_run_id=$proof_run_id"
             echo "release_gate_run_attempt=$proof_run_attempt"
+            echo "release_gate_head_sha=$proof_head_sha"
           } >> "$GITHUB_OUTPUT"
-          echo "release-gate proof found for $TAG ($sha): run $proof_run_id attempt $proof_run_attempt, $proof_url"
+          echo "release-gate proof found for $TAG (tag commit $sha, run head $proof_head_sha): run $proof_run_id attempt $proof_run_attempt, $proof_url"
 
   sign:
     needs: release-gate-proof
@@ -192,12 +196,13 @@ jobs:
           PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
           PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
           PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
+          PROOF_HEAD_SHA: ${{ needs.release-gate-proof.outputs.release_gate_head_sha }}
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
           if ($env:TAG) {
-            if (-not $env:PROOF_RUN_ID) {
-              Write-Error "release-gate proof run ID is empty"
+            if (-not $env:PROOF_RUN_ID -or -not $env:PROOF_HEAD_SHA) {
+              Write-Error "release-gate proof run ID or selected head SHA is empty"
               exit 1
             }
             $run = gh api "repos/${{ github.repository }}/actions/runs/$env:PROOF_RUN_ID" | ConvertFrom-Json
@@ -206,7 +211,7 @@ jobs:
               $run.conclusion -ne "success" -or
               "$($run.run_attempt)" -ne $env:PROOF_RUN_ATTEMPT -or
               $run.html_url -ne $env:PROOF_URL -or
-              $run.head_sha -ne $env:PROOF_SHA
+              $run.head_sha -ne $env:PROOF_HEAD_SHA
             ) {
               Write-Error "release-gate run identity changed after proof selection"
               exit 1
@@ -305,6 +310,7 @@ jobs:
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
           PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
           PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
+          PROOF_HEAD_SHA: ${{ needs.release-gate-proof.outputs.release_gate_head_sha }}
           SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
           EXPECTED_SIGNED_SHA256: ${{ steps.signed.outputs.signed_sha256 }}
           EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
@@ -384,6 +390,7 @@ jobs:
             timestamp_verified = $true
             release_gate_run_id = $env:PROOF_RUN_ID
             release_gate_run_attempt = [int]$env:PROOF_RUN_ATTEMPT
+            release_gate_head_sha = $env:PROOF_HEAD_SHA
             release_gate_url = $env:PROOF_URL
             source_unsigned_sha256 = $env:SOURCE_UNSIGNED_SHA256
             signed_sha256 = $hash
@@ -415,6 +422,7 @@ jobs:
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
           PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
           PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
+          PROOF_HEAD_SHA: ${{ needs.release-gate-proof.outputs.release_gate_head_sha }}
           SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
           EXPECTED_SIGNED_SHA256: ${{ steps.signed.outputs.signed_sha256 }}
           EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
@@ -472,6 +480,7 @@ jobs:
           if (
             $publishedManifest.signing.release_gate_run_id -ne $env:PROOF_RUN_ID -or
             "$($publishedManifest.signing.release_gate_run_attempt)" -ne $env:PROOF_RUN_ATTEMPT -or
+            $publishedManifest.signing.release_gate_head_sha -ne $env:PROOF_HEAD_SHA -or
             $publishedManifest.signing.release_gate_url -ne $env:PROOF_URL -or
             $publishedManifest.signing.source_unsigned_sha256 -ne $env:SOURCE_UNSIGNED_SHA256 -or
             $publishedManifest.signing.signed_sha256 -ne $env:EXPECTED_SIGNED_SHA256
