@@ -55,6 +55,41 @@ def test_resolve_falls_back_to_managed_when_no_system(tmp_path: Path, monkeypatc
     assert got == managed
 
 
+def test_default_managed_runtime_path_is_version_scoped(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A legacy unversioned runtime must be ignored after the product pin advances."""
+    monkeypatch.setattr(ort.os, "name", "nt")
+    monkeypatch.setattr(ort, "writable_root", lambda: tmp_path)
+    legacy = tmp_path / "ollama" / "ollama.exe"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("old managed runtime")
+
+    assert ort.managed_dir() == tmp_path / "ollama" / "v0.32.0"
+    assert (
+        ort.resolve_ollama_exe(
+            which=lambda _n: None,
+            localappdata=str(tmp_path / "no-system-install"),
+        )
+        is None
+    )
+
+
+def test_default_managed_runtime_reuses_only_the_current_version(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(ort.os, "name", "nt")
+    monkeypatch.setattr(ort, "writable_root", lambda: tmp_path)
+    current = tmp_path / "ollama" / "v0.32.0" / "ollama.exe"
+    current.parent.mkdir(parents=True)
+    current.write_text("current managed runtime")
+
+    assert ort.resolve_ollama_exe(
+        which=lambda _n: None,
+        localappdata=str(tmp_path / "no-system-install"),
+    ) == current
+
+
 def test_resolve_none_when_nothing_present(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(ort.os, "name", "nt")
     missing = tmp_path / "absent" / "ollama.exe"

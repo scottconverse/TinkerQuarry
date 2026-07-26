@@ -76,9 +76,15 @@ def find_system_ollama(
 
 
 def managed_dir() -> Path:
-    """Where KimCad keeps the portable Ollama it fetched — under the per-user writable data root
-    (never the read-only install tree), alongside the rest of KimCad's app data."""
-    return writable_root() / "ollama"
+    """Where KimCad keeps the *currently pinned* portable Ollama.
+
+    The version component is deliberate: advancing the product pin must never silently reuse
+    an older managed binary from a previous release. System Ollama remains user-owned and is
+    still preferred by :func:`resolve_ollama_exe`.
+    """
+    from kimcad.ollama_fetch import PORTABLE_VERSION
+
+    return writable_root() / "ollama" / PORTABLE_VERSION
 
 
 def managed_ollama_exe() -> Path:
