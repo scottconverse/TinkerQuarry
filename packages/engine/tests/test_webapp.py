@@ -3864,7 +3864,7 @@ def test_transient_keyring_downgrade_is_signalled_in_the_settings_response(tmp_p
     monkeypatch.setattr(settings_store, "_keyring", lambda: _ProbeOkSetFails())
     settings_file = tmp_path / "settings.json"
     monkeypatch.setattr(config_mod.Config, "settings_path", lambda self: settings_file)
-    secret = "sk-or-v1-transient-xyz"
+    secret = "sk-or-v1-transient-xyz"  # gitleaks:allow -- downgrade test fixture
     pipe = _pipeline(FakeProvider(_plan([20, 20, 20])), _box_renderer((20, 20, 20)))
     with _serve(pipe, tmp_path) as (host, port):
         st, resp = _jreq(host, port, "POST", "/api/settings",

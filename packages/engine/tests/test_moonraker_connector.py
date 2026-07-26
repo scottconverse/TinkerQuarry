@@ -177,7 +177,7 @@ def test_offline_job_status_returns_error():
 
 
 def test_api_key_never_appears_in_error(tmp_path):
-    secret = "moonraker-secret-leak-me-7c2b"
+    secret = "moonraker-secret-leak-me-7c2b"  # gitleaks:allow -- redaction test fixture
     g = _write_gcode_3mf(tmp_path / "p.gcode.3mf")
     with serve_mock_moonraker(api_key="the-real-key") as (base, _state):
         c = _connector(base, key=secret)

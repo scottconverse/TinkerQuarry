@@ -5,6 +5,31 @@ All notable user-facing changes to TinkerQuarry are documented here.
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 uses separate version numbers for the product, engine, share web app, and shared helper package.
 
+## [Unreleased]
+
+### Fixed
+
+- The one-click AI setup now fetches integrity-pinned Ollama v0.32.0. The prior
+  v0.30.9 runtime produced malformed or schema-echoed plans from the default
+  Qwen3.5-9B model; an exact A/B of the release-blocking landing examples passed
+  1/3 on v0.30.9 and 3/3 on v0.32.0 with the same model, prompt, and 4096-token
+  context. Managed runtimes now live in version-specific directories, so an
+  existing v0.30.9 copy cannot bypass the upgrade; downloads are verified and
+  fully extracted in staging before the complete runtime tree is promoted.
+
+### Changed
+
+- The complete Windows release proof now provisions its real browser, CAD tools,
+  slicer, local model runtime, and default model directly on the GitHub-hosted
+  Windows 2022 image family. Release-critical Actions and provisioned tools are
+  commit/version pinned, the model tag must resolve to the A/B-proven digest, and
+  each successful installer is accompanied by a public substrate receipt recording
+  the actual runner image, toolchain, model, and unsigned installer hash. The
+  temporary repository self-hosted-runner recovery workflow and its
+  registration-token path were removed.
+- Merge CI now runs checksum-pinned actionlint across every workflow. Failed hosted
+  release proofs also retain and upload Ollama stdout/stderr diagnostics.
+
 ## [1.5.1] - unreleased
 
 A correctness and honesty release. v1.5.0 was published, then failed a full multi-role review

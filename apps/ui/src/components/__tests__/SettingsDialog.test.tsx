@@ -135,7 +135,7 @@ describe('SettingsDialog', () => {
       status: 'running',
       endpoint: 'http://127.0.0.1:32123/mcp',
       message: null,
-      sessionToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      sessionToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', // gitleaks:allow -- test fixture
     });
     mockSyncDesktopMcpConfig.mockResolvedValue({
       enabled: true,
@@ -143,7 +143,7 @@ describe('SettingsDialog', () => {
       status: 'running',
       endpoint: 'http://127.0.0.1:32123/mcp',
       message: null,
-      sessionToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      sessionToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', // gitleaks:allow -- test fixture
     });
 
     Object.defineProperty(window, 'matchMedia', {

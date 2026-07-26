@@ -24,13 +24,13 @@ This script enforces six properties. Each one fails loudly and specifically:
      manifest identity is checked against the proven tag, stale unsigned gate text is
      replaced with the successful run URL, and the uploaded asset is downloaded again
      for independent hash and Authenticode verification.
-  F. The only executable self-hosted job is the release gate, and it cannot be
-     triggered by a pull-request event from untrusted fork code. The temporary
-     runner bootstrap stays manual-only, isolates its one-hour registration secret
-     to the ephemeral configuration step, queues one exact rerun itself, installs an
-     exact-job start hook, withholds its actions:write control token from nested code,
-     injects only a manifest-bound exact-tag engine tree, and proves that assignment
-     completed on its named runner.
+  F. The release proof runs directly on the declared GitHub-hosted Windows 2022 image
+     family and records the exact image version, with no executable self-hosted jobs
+     or runner-registration workflow. It creates
+     and verifies one exact short-path worktree, provisions every full-proof
+     dependency there, starts the product-pinned Ollama without leaking its host
+     override into tests, keeps source mode active, and uploads an installer only
+     after the complete proof succeeds.
 
 Run it:  python scripts/check_release_gate_wiring.py
 Exit 0 = wired. Exit 1 = a specific, named property is broken (printed).
@@ -47,6 +47,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from yaml.nodes import MappingNode
+from yaml.resolver import BaseResolver
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -54,11 +56,29 @@ CI_YML = WORKFLOWS / "ci.yml"
 RELEASE_GATE_YML = WORKFLOWS / "release-gate.yml"
 SIGN_YML = WORKFLOWS / "sign-installer.yml"
 EPHEMERAL_RUNNER_YML = WORKFLOWS / "ephemeral-release-runner.yml"
-RUNNER_SUPPORT_DIR = REPO_ROOT / "scripts" / "release-runner"
-ENGINE_STAGING_HELPER = RUNNER_SUPPORT_DIR / "ensure-engine-staging.ps1"
-CARGO_WRAPPER = RUNNER_SUPPORT_DIR / "cargo.cmd"
-ENGINE_STAGING_FIXTURE = RUNNER_SUPPORT_DIR / "test-engine-staging-injection.ps1"
 PACKAGE_JSON = REPO_ROOT / "package.json"
+
+# Release-critical third-party Actions are commit-pinned. The trailing comments in the
+# workflows carry the human-readable upstream tag; these full commit identities are what
+# GitHub actually executes.
+CHECKOUT_ACTION = "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
+SETUP_NODE_ACTION = "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+PNPM_SETUP_ACTION = "pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1"
+SETUP_PYTHON_ACTION = "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
+UPLOAD_ARTIFACT_ACTION = "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+AZURE_SIGNING_ACTION = "azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82"
+
+ACTIONLINT_VERSION = "1.7.12"
+ACTIONLINT_LINUX_SHA256 = "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+PINNED_NODE = "22.23.1"
+PINNED_PYTHON = "3.13.14"
+PINNED_PIP = "26.1.2"
+PINNED_NODE_GYP = "12.1.0"
+PINNED_CARGO_AUDIT = "0.22.2"
+PINNED_RUST = "1.97.1"
+PINNED_MODEL_DIGEST = (
+    "sha256:6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7"
+)
 
 # The marked comment blocks the two workflows carry. Kept as comments (not YAML keys) so
 # GitHub Actions never sees them, while the explanation lives in the workflow file itself
@@ -74,6 +94,43 @@ PROOF_JOB_ID = "release-gate-proof"
 
 class Failure(Exception):
     """A named wiring property is broken."""
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects the duplicate keys GitHub Actions rejects."""
+
+
+def _construct_unique_mapping(
+    loader: _UniqueKeyLoader, node: MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    loader.flatten_mapping(node)
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            duplicate = key in mapping
+        except TypeError as exc:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                "found an unhashable YAML key",
+                key_node.start_mark,
+            ) from exc
+        if duplicate:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"found duplicate YAML key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueKeyLoader.add_constructor(
+    BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
 
 
 # --------------------------------------------------------------------------------------
@@ -193,9 +250,23 @@ def read_map_block(path: Path, name: str) -> dict[str, str]:
 
 
 def load_workflow(path: Path) -> dict[str, Any]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        data = yaml.load(
+            path.read_text(encoding="utf-8"),
+            Loader=_UniqueKeyLoader,
+        )
+    except yaml.YAMLError as exc:
+        try:
+            display_path = path.relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            display_path = str(path)
+        raise Failure(f"{display_path}: invalid workflow YAML: {exc}") from exc
     if not isinstance(data, dict):
-        raise Failure(f"{path.relative_to(REPO_ROOT).as_posix()} is not a YAML mapping")
+        try:
+            display_path = path.relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            display_path = str(path)
+        raise Failure(f"{display_path} is not a YAML mapping")
     return data
 
 
@@ -214,6 +285,46 @@ def step_names(workflow: dict[str, Any], job_id: str) -> list[str]:
     if not isinstance(job, dict):
         return []
     return [s.get("name", "") for s in (job.get("steps") or []) if isinstance(s, dict)]
+
+
+def _unguarded_native_commands(script: str) -> list[str]:
+    """Return Python provisioning commands whose next executable line is not an exit check.
+
+    PowerShell updates ``$LASTEXITCODE`` after every native command. Checking it only after
+    several installs lets a later success erase an earlier lockfile failure, so the guard must
+    be adjacent to the command it protects.
+    """
+    executable = [
+        line.strip()
+        for line in script.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    unguarded: list[str] = []
+    native = re.compile(r"^(?:python(?:\.exe)?|&\s+\$cqPython)\s", re.IGNORECASE)
+    exit_check = re.compile(
+        r"^if\s*\(\$LASTEXITCODE\s+-ne\s+0\)\s*\{(?P<body>.*)\}\s*$",
+        re.IGNORECASE,
+    )
+    failing_action = re.compile(
+        r"^\s*(?:throw\b|exit\s+(?:1|\$LASTEXITCODE)\b)",
+        re.IGNORECASE,
+    )
+    for index, line in enumerate(executable):
+        if not native.match(line):
+            continue
+        next_line = executable[index + 1] if index + 1 < len(executable) else ""
+        check = exit_check.match(next_line)
+        if not check or not failing_action.match(check.group("body")):
+            unguarded.append(line)
+    return unguarded
+
+
+def _is_single_runner_temp_artifact_root(path_value: object) -> bool:
+    """True only when upload-artifact receives the reviewed single-volume staging root."""
+    if not isinstance(path_value, str):
+        return False
+    normalized = path_value.strip().replace("\\", "/").rstrip("/")
+    return normalized == "${{ runner.temp }}/tinkerquarry-windows-release-artifacts"
 
 
 # --------------------------------------------------------------------------------------
@@ -407,6 +518,16 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
             )
 
     sign_exe = _executable_step_text(signing)
+    signing_actions = [
+        str(step.get("uses"))
+        for step in (signing.get("steps") or [])
+        if isinstance(step, dict) and step.get("uses")
+    ]
+    if signing_actions != [AZURE_SIGNING_ACTION]:
+        problems.append(
+            "E. the Azure signing action must be pinned to the reviewed v2.0.0 commit; "
+            f"found {signing_actions or '<none>'}."
+        )
     required_signing_tokens = (
         ("PROOF_SHA", "consume the exact proven tag commit"),
         ("PROOF_URL", "consume the successful release-gate run URL"),
@@ -431,6 +552,26 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("gh release download", "download the published assets again after upload"),
         ("Get-FileHash", "derive the published installer's hash independently"),
         ("signtool", "verify Authenticode on the published installer"),
+        (
+            "tinkerquarry-release-substrate.json",
+            "consume and publish the full-gate substrate receipt",
+        ),
+        (
+            "substrate_receipt_sha256",
+            "bind the public manifest to the exact substrate receipt bytes",
+        ),
+        (
+            "unsigned_installer.sha256",
+            "compare the gated receipt to the unsigned installer input",
+        ),
+        (
+            "runner.image_version",
+            "carry the actual hosted image version into published provenance",
+        ),
+        (
+            "model.digest",
+            "carry the exact pulled model digest into published provenance",
+        ),
     )
     for token, why in required_signing_tokens:
         if token not in sign_exe:
@@ -545,7 +686,7 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
             problems.append(f"E. signing workflow does not {why}; expected `{token}`.")
 
 
-def check_f_self_hosted_scope(problems: list[str]) -> None:
+def check_f_hosted_release_scope(problems: list[str]) -> None:
     executable_self_hosted: list[tuple[Path, str, set[str]]] = []
     workflow_paths = sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")])
     for path in workflow_paths:
@@ -560,13 +701,13 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             if any(str(label).lower() == "self-hosted" for label in labels):
                 executable_self_hosted.append((path, str(job_id), trigger_names))
 
-    expected = [(RELEASE_GATE_YML, "windows-release-gate")]
+    expected: list[tuple[Path, str]] = []
     actual = [(path, job_id) for path, job_id, _ in executable_self_hosted]
     if actual != expected:
         rendered = ", ".join(f"{p.name}:{j}" for p, j in actual) or "<none>"
         problems.append(
-            "F. executable self-hosted scope drifted. Expected only "
-            f"`release-gate.yml:windows-release-gate`; found {rendered}."
+            "F. executable self-hosted scope drifted. Expected none; "
+            f"found {rendered}."
         )
 
     for path, job_id, trigger_set in executable_self_hosted:
@@ -577,248 +718,354 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
                 f"pull-request trigger(s): {', '.join(sorted(unsafe))}."
             )
 
-    if EPHEMERAL_RUNNER_YML.exists():
-        bootstrap_doc = load_workflow(EPHEMERAL_RUNNER_YML)
-        bootstrap_triggers = set(triggers(bootstrap_doc))
-        if bootstrap_triggers != {"workflow_dispatch"}:
-            problems.append(
-                "F. ephemeral-release-runner.yml must remain manual-only while it can "
-                "register a repository runner; found triggers "
-                f"{sorted(bootstrap_triggers) or '<none>'}."
-            )
-        bootstrap_permissions = bootstrap_doc.get("permissions") or {}
-        if bootstrap_permissions.get("actions") != "write":
-            problems.append(
-                "F. ephemeral-release-runner.yml needs `actions: write` so it can queue "
-                "the exact audited rerun itself instead of depending on timing by an operator."
-            )
-        bootstrap_concurrency = bootstrap_doc.get("concurrency") or {}
-        if (
-            bootstrap_concurrency.get("group")
-            != "tinkerquarry-v1.5.1-ephemeral-release-runner"
-            or bootstrap_concurrency.get("cancel-in-progress") is not False
-        ):
-            problems.append(
-                "F. ephemeral runner bootstrap must serialize one fixed v1.5.1 recovery "
-                "group without cancelling an in-flight provisioner."
-            )
+    release_doc = load_workflow(RELEASE_GATE_YML)
+    release_jobs = release_doc.get("jobs") or {}
+    release_job = release_jobs.get("windows-release-gate")
+    if not isinstance(release_job, dict):
+        problems.append("F. release-gate.yml has no `windows-release-gate` job.")
+        return
+    if release_job.get("runs-on") != "windows-2022":
+        problems.append(
+            "F. the full Windows release proof must run directly on the declared "
+            "`windows-2022` GitHub-hosted image family."
+        )
 
-        bootstrap_jobs = bootstrap_doc.get("jobs") or {}
-        bootstrap = bootstrap_jobs.get("bootstrap")
-        if not isinstance(bootstrap, dict) or len(bootstrap_jobs) != 1:
-            problems.append(
-                "F. ephemeral-release-runner.yml must contain exactly its audited "
-                "`bootstrap` job."
-            )
-            return
-        if bootstrap.get("runs-on") != "windows-2022":
-            problems.append(
-                "F. temporary release bootstrap must stay pinned to the audited "
-                "`windows-2022` hosted image."
-            )
+    release_steps = [
+        step for step in (release_job.get("steps") or []) if isinstance(step, dict)
+    ]
+    checkout_steps = [
+        step
+        for step in release_steps
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    ]
+    if (
+        len(checkout_steps) != 1
+        or checkout_steps[0].get("uses") != CHECKOUT_ACTION
+        or (checkout_steps[0].get("with") or {}).get("persist-credentials") is not False
+    ):
+        problems.append(
+            "F. the hosted release job must have one commit-pinned checkout with "
+            "persisted Actions credentials disabled."
+        )
 
-        steps = bootstrap.get("steps") or []
-        checkout_steps = [
-            (index, step)
-            for index, step in enumerate(steps)
-            if isinstance(step, dict)
-            and str(step.get("uses", "")).startswith("actions/checkout@")
-        ]
-        tag_checkouts = [
-            (index, step)
-            for index, step in checkout_steps
-            if (step.get("with") or {}).get("ref") == "v1.5.1"
-            and not (step.get("with") or {}).get("path")
-            and (step.get("with") or {}).get("persist-credentials") is False
-        ]
-        control_checkouts = [
-            (index, step)
-            for index, step in checkout_steps
-            if (step.get("with") or {}).get("ref") == "${{ github.sha }}"
-            and (step.get("with") or {}).get("path") == ".tq-bootstrap-control"
-            and (step.get("with") or {}).get("sparse-checkout")
-            == "scripts/release-runner"
-            and (step.get("with") or {}).get("persist-credentials") is False
-        ]
-        if (
-            len(tag_checkouts) != 1
-            or len(control_checkouts) != 1
-            or tag_checkouts[0][0] >= control_checkouts[0][0]
-            or any(
-                (step.get("with") or {}).get("persist-credentials") is not False
-                for _, step in checkout_steps
-            )
-        ):
-            problems.append(
-                "F. bootstrap must first check out immutable v1.5.1 as the product "
-                "tree, then sparsely check out runner controls from `${{ github.sha }}` "
-                "under `.tq-bootstrap-control`; every checkout must disable persisted "
-                "credentials."
-            )
-
-        token_steps = [
+    license_job = release_jobs.get("license-gate")
+    for job_id, job, step_name in (
+        ("license-gate", license_job, "Install the shipped bundle set"),
+        (
+            "windows-release-gate",
+            release_job,
+            "Provision full engine and browser dependencies",
+        ),
+    ):
+        steps = (job.get("steps") or []) if isinstance(job, dict) else []
+        install_steps = [
             step
             for step in steps
-            if isinstance(step, dict)
-            and "secrets.TQ_EPHEMERAL_RUNNER_TOKEN" in str(step)
+            if isinstance(step, dict) and step.get("name") == step_name
         ]
-        if len(token_steps) != 1 or "config.cmd --unattended --ephemeral" not in (
-            _executable_step_text({"steps": token_steps}) if token_steps else ""
-        ):
+        if len(install_steps) != 1:
             problems.append(
-                "F. the ephemeral registration secret must appear in exactly one step, "
-                "and that step must only configure an unattended one-job runner."
+                f"F. `{job_id}` must contain exactly one `{step_name}` step."
+            )
+            continue
+        unguarded = _unguarded_native_commands(str(install_steps[0].get("run", "")))
+        if unguarded:
+            problems.append(
+                f"F. `{job_id}` can mask failed Python provisioning commands because these "
+                f"commands lack an immediate `$LASTEXITCODE` check: {unguarded}."
             )
 
-        bootstrap_exe = _executable_step_text(bootstrap)
-        for support_path in (
-            ENGINE_STAGING_HELPER,
-            CARGO_WRAPPER,
-            ENGINE_STAGING_FIXTURE,
-        ):
-            if not support_path.exists():
-                problems.append(
-                    "F. ephemeral runner support file is absent: "
-                    f"`{support_path.relative_to(REPO_ROOT)}`."
-                )
-            else:
-                bootstrap_exe += "\n" + support_path.read_text(encoding="utf-8")
-
-        ci_doc = load_workflow(CI_YML)
-        ci_frontend = (ci_doc.get("jobs") or {}).get("frontend") or {}
-        ci_exe = _executable_step_text(ci_frontend)
-        if (
-            "scripts\\release-runner\\test-engine-staging-injection.ps1"
-            not in ci_exe
-        ):
+    expected_actions = {
+        "license-gate": [CHECKOUT_ACTION, SETUP_PYTHON_ACTION],
+        "windows-release-gate": [
+            CHECKOUT_ACTION,
+            SETUP_NODE_ACTION,
+            PNPM_SETUP_ACTION,
+            SETUP_PYTHON_ACTION,
+            UPLOAD_ARTIFACT_ACTION,
+            UPLOAD_ARTIFACT_ACTION,
+        ],
+    }
+    for job_id, job in (
+        ("license-gate", license_job),
+        ("windows-release-gate", release_job),
+    ):
+        if not isinstance(job, dict):
+            problems.append(f"F. release-gate.yml has no `{job_id}` job.")
+            continue
+        actual_actions = [
+            str(step.get("uses"))
+            for step in (job.get("steps") or [])
+            if isinstance(step, dict) and step.get("uses")
+        ]
+        if actual_actions != expected_actions[job_id]:
             problems.append(
-                "F. Windows CI must execute the exact-tag engine staging injection "
-                "fixture before this temporary bootstrap can be merged."
+                f"F. `{job_id}` release Actions are not the exact reviewed commits; "
+                f"expected {expected_actions[job_id]}, found {actual_actions}."
             )
-        for token, why in (
-            (
-                "EXPECTED_RELEASE_GATE_RUN_ID",
-                "bind startup to an explicitly selected Release Gate run",
-            ),
-            (
-                "ACTIONS_RUNNER_HOOK_JOB_STARTED",
-                "install the fail-closed pre-job identity hook",
-            ),
-            (
-                'actions/runs/$runId/rerun',
-                "queue the exact selected Release Gate rerun itself",
-            ),
-            (
-                "EXPECTED_RELEASE_GATE_RUN_ATTEMPT",
-                "bind routing and completion to one exact rerun attempt",
-            ),
-            (
-                '$receiptPath = "C:\\tq-provision\\accepted-release-job.json"',
-                "declare the one exact accepted-assignment receipt path",
-            ),
-            (
-                'Set-Content -LiteralPath "C:\\tq-provision\\accepted-release-job.json"',
-                "write the accepted-assignment receipt from the pre-job hook",
-            ),
-            (
-                "Get-Content -LiteralPath $receiptPath -Raw",
-                "read the accepted-assignment receipt after the listener exits",
-            ),
-            (
-                "$completedWindowsJobs[0].runner_name -ne $env:TQ_EXPECTED_RUNNER_NAME",
-                "prove the exact job completed on the provisioned runner",
-            ),
-            (
-                "if ($env:RUNNER_TOKEN)",
-                "prove the registration token is absent before the listener starts",
-            ),
-            (
-                'if ($env:GH_TOKEN) { $problems += "outer_actions_token" }',
-                "make the pre-job hook reject an inherited bootstrap control token",
-            ),
-            (
-                "git diff --quiet $expectedSha -- packages/engine",
-                "prove the staged engine inputs are byte-source-equivalent to the immutable tag",
-            ),
-            (
-                "python scripts\\build_installer.py --stage-only",
-                "build the exact-tag engine resource tree before the immutable job reaches Cargo",
-            ),
-            (
-                "python scripts\\verify_install.py dist\\staging",
-                "verify the exact-tag engine staging tree before exposing it to the nested job",
-            ),
-            (
-                "TQ_ENGINE_STAGING_MANIFEST_SHA256",
-                "bind the injected engine tree to a complete pre-build file manifest",
-            ),
-            (
-                '$controlSha = (git -C $controlRoot rev-parse HEAD).Trim()',
-                "resolve the separate bootstrap-control checkout before copying helpers",
-            ),
-            (
-                '$controlSha -ne "${{ github.sha }}"',
-                "bind the copied bootstrap controls to this workflow run's exact reviewed head",
-            ),
-            (
-                'config --local --get-regexp "^http\\..*\\.extraheader$"',
-                "audit both outer Git configs for a persisted Actions auth header before listener startup",
-            ),
-            (
-                '"persisted_git_token"',
-                "make the pre-job hook independently reject any recoverable outer Git credential",
-            ),
-            (
-                ".tq-bootstrap-control\\scripts\\release-runner\\ensure-engine-staging.ps1",
-                "copy the injection helper from the audited control checkout, not the older tag",
-            ),
-            (
-                'New-Item -ItemType Junction -Path $link -Target $source',
-                "inject the verified staging tree only when the exact tag job first invokes Cargo",
-            ),
-            (
-                'pwsh.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File',
-                "run the injection helper under the same PowerShell 7 host used by the release runner",
-            ),
-            (
-                '$injectionReceiptPath = "C:\\tq-provision\\engine-staging-injection.json"',
-                "declare the engine-staging injection receipt checked after the listener exits",
-            ),
-            (
-                "Get-Content -LiteralPath $injectionReceiptPath -Raw",
-                "read the exact engine-staging injection receipt after the listener exits",
-            ),
-            (
-                "$postManifestHash -ne $env:TQ_ENGINE_STAGING_MANIFEST_SHA256",
-                "prove the injected exact-tag engine tree stayed unchanged through packaging",
-            ),
-        ):
-            if token not in bootstrap_exe:
-                problems.append(
-                    f"F. ephemeral runner bootstrap does not {why}; `{token}` is absent."
-                )
 
-        control_save = bootstrap_exe.find("$controlToken = $env:GH_TOKEN")
-        control_remove = bootstrap_exe.find("Remove-Item Env:GH_TOKEN")
-        listener_start = bootstrap_exe.find(".\\run.cmd")
-        control_restore = bootstrap_exe.find("$env:GH_TOKEN = $controlToken")
-        wrapper_prepend = bootstrap_exe.find(
-            '$env:PATH = "$env:TQ_CARGO_WRAPPER_ROOT;$env:PATH"'
+    setup_node_steps = [
+        step for step in release_steps if step.get("uses") == SETUP_NODE_ACTION
+    ]
+    setup_python_steps = [
+        step for step in release_steps if step.get("uses") == SETUP_PYTHON_ACTION
+    ]
+    if (
+        len(setup_node_steps) != 1
+        or str((setup_node_steps[0].get("with") or {}).get("node-version")) != PINNED_NODE
+    ):
+        problems.append(f"F. release Node must be pinned to {PINNED_NODE}.")
+    if (
+        len(setup_python_steps) != 1
+        or str((setup_python_steps[0].get("with") or {}).get("python-version"))
+        != PINNED_PYTHON
+    ):
+        problems.append(f"F. release Python must be pinned to {PINNED_PYTHON}.")
+    release_env = release_job.get("env") or {}
+    if (
+        release_env.get("TQ_MODEL_NAME") != "qwen3.5:9b"
+        or release_env.get("TQ_MODEL_DIGEST") != PINNED_MODEL_DIGEST
+    ):
+        problems.append(
+            "F. the release job must pin qwen3.5:9b to the exact A/B-proven model digest."
         )
-        if not (
-            0
-            <= control_save
-            < wrapper_prepend
-            < control_remove
-            < listener_start
-            < control_restore
-        ):
+
+    release_exe = _executable_step_text(release_job)
+    full_proof_steps = [
+        step
+        for step in release_steps
+        if step.get("name") == "Run full hosted release proof with the real local model"
+    ]
+    if len(full_proof_steps) != 1:
+        problems.append(
+            "F. the hosted release job must contain exactly one full release-proof step."
+        )
+        full_proof_script = ""
+    else:
+        full_proof_script = str(full_proof_steps[0].get("run", ""))
+
+    staging_integrity_sequence = (
+        "$receiptHash = (Get-FileHash $receiptPath -Algorithm SHA256)",
+        '$artifactRoot = Join-Path $env:RUNNER_TEMP "tinkerquarry-windows-release-artifacts"',
+        "[IO.Directory]::CreateDirectory($artifactRoot) | Out-Null",
+        "$stagedInstaller = Join-Path $artifactRoot $installer.Name",
+        '$stagedReceipt = Join-Path $artifactRoot "tinkerquarry-release-substrate.json"',
+        "Copy-Item -LiteralPath $installer.FullName -Destination $stagedInstaller",
+        "Copy-Item -LiteralPath $receiptPath -Destination $stagedReceipt",
+        "(Get-FileHash $stagedInstaller -Algorithm SHA256)",
+        'throw "staged installer hash does not match the proven installer"',
+        "(Get-FileHash $stagedReceipt -Algorithm SHA256)",
+        'throw "staged substrate receipt hash does not match the generated receipt"',
+        "$stagedFiles = @(Get-ChildItem -LiteralPath $artifactRoot -File)",
+        "if ($stagedFiles.Count -ne 2)",
+        'throw "release artifact staging must contain exactly two files;',
+    )
+    staging_positions = [full_proof_script.find(token) for token in staging_integrity_sequence]
+    if (
+        any(position < 0 for position in staging_positions)
+        or staging_positions != sorted(staging_positions)
+        or any(full_proof_script.count(token) != 1 for token in staging_integrity_sequence)
+    ):
+        problems.append(
+            "F. the hosted proof's artifact staging integrity sequence must create one "
+            "RUNNER_TEMP root, copy installer then receipt, verify both hashes, and enforce "
+            "exactly two staged files in that order."
+        )
+
+    for token, why in (
+        (
+            'git rev-parse "${env:GITHUB_SHA}^{commit}"',
+            "dereference an annotated release tag to its exact commit",
+        ),
+        (
+            "git worktree add --detach $env:TQ_SOURCE_ROOT $expectedCommit",
+            "create the exact short-path release worktree",
+        ),
+        (
+            "git -C $env:TQ_SOURCE_ROOT rev-parse HEAD",
+            "verify the short-path worktree commit",
+        ),
+        (
+            "python -m pip install -e \".[dev]\"",
+            "install the engine's full test dependencies",
+        ),
+        (
+            "python -m playwright install chromium",
+            "install the real browser used by the release proof",
+        ),
+        (
+            "cadquery==2.7.0",
+            "provision the exact CadQuery worker dependency",
+        ),
+        (
+            "python scripts\\fetch_tools.py",
+            "fetch the exact OpenSCAD and OrcaSlicer toolchain",
+        ),
+        (
+            "python scripts\\build_installer.py --stage-only",
+            "build engine staging before Cargo validates the Tauri resource tree",
+        ),
+        (
+            "python scripts\\verify_install.py dist\\staging",
+            "verify the staged engine before the full proof",
+        ),
+        (
+            "fetch_portable_ollama",
+            "fetch the product-pinned managed Ollama through its integrity gate",
+        ),
+        (
+            "& $ollamaExe pull $env:TQ_MODEL_NAME",
+            "provision the exact default live model",
+        ),
+        (
+            "Remove-Item Env:OLLAMA_HOST",
+            "remove the bootstrap host override before nested runtime tests",
+        ),
+        (
+            "Remove-Item Env:PYTHONPATH",
+            "remove the source import override before installed-app tests",
+        ),
+        (
+            "if ($env:KIMCAD_INSTALL_ROOT)",
+            "fail if the hosted source proof is contaminated by installed mode",
+        ),
+        (
+            "pnpm.cmd test:release",
+            "execute the complete release proof",
+        ),
+        (
+            "Stop-Process -Id $env:TQ_OLLAMA_PID",
+            "stop the exact provisioned model server during cleanup",
+        ),
+        (
+            f"node-gyp@{PINNED_NODE_GYP}",
+            "install the exact node-gyp release input",
+        ),
+        (
+            f'pip=={PINNED_PIP}',
+            "install the exact pip release input",
+        ),
+        (
+            f"cargo-audit --version {PINNED_CARGO_AUDIT} --locked",
+            "install the exact cargo-audit release input",
+        ),
+        (
+            f"rustup toolchain install {PINNED_RUST}-x86_64-pc-windows-msvc",
+            "install the exact Rust release toolchain",
+        ),
+        (
+            "ImageVersion",
+            "record the actual weekly runner image version",
+        ),
+        (
+            "tinkerquarry-release-substrate.json",
+            "emit an artifact-bound substrate receipt",
+        ),
+        (
+            "unsigned_installer",
+            "bind the substrate receipt to the exact unsigned installer",
+        ),
+        (
+            "Get-Content -LiteralPath $stderr -Tail",
+            "surface Ollama stderr when the hosted proof fails",
+        ),
+    ):
+        if token not in release_exe:
+            problems.append(f"F. hosted release job does not {why}; `{token}` is absent.")
+
+    upload_steps = [
+        step
+        for step in release_steps
+        if step.get("uses") == UPLOAD_ARTIFACT_ACTION
+    ]
+    success_uploads = [
+        step
+        for step in upload_steps
+        if (step.get("with") or {}).get("name")
+        == "tinkerquarry-windows-release-artifacts"
+    ]
+    failure_uploads = [
+        step
+        for step in upload_steps
+        if (step.get("with") or {}).get("name")
+        == "tinkerquarry-release-ollama-diagnostics"
+    ]
+    if (
+        len(success_uploads) != 1
+        or success_uploads[0].get("if") == "always()"
+        or (success_uploads[0].get("with") or {}).get("if-no-files-found") != "error"
+    ):
+        problems.append(
+            "F. the installer and substrate receipt must upload only after success "
+            "and must fail when either artifact is absent."
+        )
+    elif not _is_single_runner_temp_artifact_root(
+        (success_uploads[0].get("with") or {}).get("path")
+    ):
+        problems.append(
+            "F. the installer and substrate receipt must upload from the one reviewed "
+            "RUNNER_TEMP staging root; cross-volume upload paths fail on hosted Windows."
+        )
+    if (
+        len(failure_uploads) != 1
+        or failure_uploads[0].get("if") != "failure()"
+        or (failure_uploads[0].get("with") or {}).get("if-no-files-found") != "warn"
+    ):
+        problems.append(
+            "F. Ollama stdout/stderr must upload in one failure-only diagnostic artifact."
+        )
+
+    ci_doc = load_workflow(CI_YML)
+    release_wiring_job = (ci_doc.get("jobs") or {}).get("release-wiring")
+    ci_exe = (
+        _executable_step_text(release_wiring_job)
+        if isinstance(release_wiring_job, dict)
+        else ""
+    )
+    actionlint_steps = [
+        step
+        for step in (
+            (release_wiring_job.get("steps") or [])
+            if isinstance(release_wiring_job, dict)
+            else []
+        )
+        if isinstance(step, dict)
+        and step.get("name") == "Validate every Actions workflow with pinned actionlint"
+    ]
+    if (
+        len(actionlint_steps) != 1
+        or (actionlint_steps[0].get("env") or {}).get("ACTIONLINT_VERSION")
+        != ACTIONLINT_VERSION
+        or (actionlint_steps[0].get("env") or {}).get("ACTIONLINT_SHA256")
+        != ACTIONLINT_LINUX_SHA256
+    ):
+        problems.append(
+            "F. merge-gate actionlint version/checksum environment is not the reviewed pin."
+        )
+    for token, why in (
+        (
+            "rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}",
+            "download actionlint only from its official pinned release",
+        ),
+        (
+            "sha256sum --check",
+            "verify the pinned actionlint archive checksum",
+        ),
+        (
+            '".github/workflows"',
+            "lint every workflow directory entry",
+        ),
+    ):
+        if token not in ci_exe:
             problems.append(
-                "F. the exact-tag Cargo staging wrapper must join PATH before the "
-                "actions:write bootstrap token is removed and `run.cmd` starts; the "
-                "token may be restored only after the listener exits."
+                f"F. merge-gate Actions syntax validation does not {why}; `{token}` is absent."
             )
 
+    if EPHEMERAL_RUNNER_YML.exists():
+        problems.append(
+            "F. obsolete ephemeral-release-runner.yml still exists; the release proof "
+            "must not register a repository self-hosted runner."
+        )
 
 def main() -> int:
     problems: list[str] = []
@@ -827,7 +1074,7 @@ def main() -> int:
         check_b_and_c_coverage_map,
         check_d_release_path_gated,
         check_e_signed_artifact_evidence_chain,
-        check_f_self_hosted_scope,
+        check_f_hosted_release_scope,
     )
     for check in checks:
         try:

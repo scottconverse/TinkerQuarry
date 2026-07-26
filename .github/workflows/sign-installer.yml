@@ -198,8 +198,11 @@ jobs:
           PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
           PROOF_HEAD_SHA: ${{ needs.release-gate-proof.outputs.release_gate_head_sha }}
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
+          EXPECTED_MODEL_DIGEST: sha256:6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
+          $receiptFile = $null
+          $receipt = $null
           if ($env:TAG) {
             if (-not $env:PROOF_RUN_ID -or -not $env:PROOF_HEAD_SHA) {
               Write-Error "release-gate proof run ID or selected head SHA is empty"
@@ -225,6 +228,49 @@ jobs:
               exit 1
             }
             $exe = $exes[0]
+            $receiptFiles = @(
+              Get-ChildItem artifacts\gate -Recurse -Filter 'tinkerquarry-release-substrate.json'
+            )
+            if ($receiptFiles.Count -ne 1) {
+              Write-Error "expected exactly 1 substrate receipt in release-gate run $env:PROOF_RUN_ID, found $($receiptFiles.Count)"
+              exit 1
+            }
+            $receiptFile = $receiptFiles[0]
+            $receipt = Get-Content $receiptFile.FullName -Raw | ConvertFrom-Json
+            if (
+              $receipt.schema_version -ne 1 -or
+              $receipt.proof -ne "pnpm test:release passed" -or
+              $receipt.source_sha -ne $env:PROOF_SHA -or
+              "$($receipt.workflow.run_id)" -ne $env:PROOF_RUN_ID -or
+              "$($receipt.workflow.run_attempt)" -ne $env:PROOF_RUN_ATTEMPT -or
+              $receipt.workflow.head_sha -ne $env:PROOF_HEAD_SHA -or
+              $receipt.workflow.repository -ne "${{ github.repository }}" -or
+              -not $receipt.runner.image_os -or
+              -not $receipt.runner.image_version -or
+              $receipt.model.name -ne "qwen3.5:9b" -or
+              $receipt.model.digest -ne $env:EXPECTED_MODEL_DIGEST -or
+              $receipt.actions.checkout -ne "11d5960a326750d5838078e36cf38b85af677262" -or
+              $receipt.actions.setup_node -ne "49933ea5288caeca8642d1e84afbd3f7d6820020" -or
+              $receipt.actions.pnpm_setup -ne "b906affcce14559ad1aafd4ab0e942779e9f58b1" -or
+              $receipt.actions.setup_python -ne "a26af69be951a213d495a4c3e4e4022e16d87065" -or
+              $receipt.actions.upload_artifact -ne "ea165f8d65b6e75b540449e92b4886f43607fa02"
+            ) {
+              Write-Error "release substrate receipt identity or pinned-input fields are invalid"
+              exit 1
+            }
+            if (
+              $receipt.tools.node -ne "v22.23.1" -or
+              $receipt.tools.node_gyp -ne "v12.1.0" -or
+              $receipt.tools.python -ne "Python 3.13.14" -or
+              $receipt.tools.pip -notmatch "^pip 26\.1\.2 " -or
+              $receipt.tools.rustc -ne "rustc 1.97.1 (8bab26f4f 2026-07-14)" -or
+              $receipt.tools.cargo_audit -ne "cargo-audit 0.22.2" -or
+              $receipt.tools.cadquery -ne "2.7.0" -or
+              $receipt.tools.ollama -notmatch "0\.32\.0"
+            ) {
+              Write-Error "release substrate receipt carries an unexpected pinned tool version"
+              exit 1
+            }
 
             gh release download $env:TAG --repo ${{ github.repository }} --pattern release-manifest.json --dir artifacts
             if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -246,12 +292,31 @@ jobs:
             $exe = Get-Item artifacts\smoke-test.exe
           }
           $unsignedHash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($env:TAG) {
+            if (
+              $receipt.unsigned_installer.file -ne $exe.Name -or
+              $receipt.unsigned_installer.sha256 -ne $unsignedHash -or
+              [long]$receipt.unsigned_installer.size -ne [long]$exe.Length
+            ) {
+              Write-Error "substrate receipt does not bind the exact unsigned installer input"
+              exit 1
+            }
+            $receiptHash = (
+              Get-FileHash $receiptFile.FullName -Algorithm SHA256
+            ).Hash.ToLowerInvariant()
+            "substrate_receipt=$($receiptFile.FullName)" >> $env:GITHUB_OUTPUT
+            "substrate_receipt_name=$($receiptFile.Name)" >> $env:GITHUB_OUTPUT
+            "substrate_receipt_sha256=$receiptHash" >> $env:GITHUB_OUTPUT
+            "substrate_image_version=$($receipt.runner.image_version)" >> $env:GITHUB_OUTPUT
+            "substrate_model_name=$($receipt.model.name)" >> $env:GITHUB_OUTPUT
+            "substrate_model_digest=$($receipt.model.digest)" >> $env:GITHUB_OUTPUT
+          }
           "exe=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
           "unsigned_sha256=$unsignedHash" >> $env:GITHUB_OUTPUT
 
       - name: Sign with Azure Trusted Signing
-        uses: azure/artifact-signing-action@v2
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -313,6 +378,12 @@ jobs:
           PROOF_HEAD_SHA: ${{ needs.release-gate-proof.outputs.release_gate_head_sha }}
           SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
           EXPECTED_SIGNED_SHA256: ${{ steps.signed.outputs.signed_sha256 }}
+          SUBSTRATE_RECEIPT: ${{ steps.get.outputs.substrate_receipt }}
+          SUBSTRATE_RECEIPT_NAME: ${{ steps.get.outputs.substrate_receipt_name }}
+          SUBSTRATE_RECEIPT_SHA256: ${{ steps.get.outputs.substrate_receipt_sha256 }}
+          SUBSTRATE_IMAGE_VERSION: ${{ steps.get.outputs.substrate_image_version }}
+          SUBSTRATE_MODEL_NAME: ${{ steps.get.outputs.substrate_model_name }}
+          SUBSTRATE_MODEL_DIGEST: ${{ steps.get.outputs.substrate_model_digest }}
           EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
           REPO: ${{ github.repository }}
         run: |
@@ -331,6 +402,23 @@ jobs:
             Write-Error "signed installer changed between signature verification and publication preparation"
             exit 1
           }
+          if (
+            -not $env:SUBSTRATE_RECEIPT -or
+            -not $env:SUBSTRATE_RECEIPT_NAME -or
+            -not $env:SUBSTRATE_RECEIPT_SHA256 -or
+            -not $env:SUBSTRATE_IMAGE_VERSION -or
+            -not $env:SUBSTRATE_MODEL_DIGEST
+          ) {
+            Write-Error "release substrate receipt outputs are incomplete"
+            exit 1
+          }
+          $substrateHash = (
+            Get-FileHash $env:SUBSTRATE_RECEIPT -Algorithm SHA256
+          ).Hash.ToLowerInvariant()
+          if ($substrateHash -ne $env:SUBSTRATE_RECEIPT_SHA256) {
+            Write-Error "substrate receipt changed between gate validation and publication"
+            exit 1
+          }
 
           gh release download $env:TAG --repo ${{ github.repository }} --pattern SHA256SUMS.txt --pattern release-manifest.json --dir artifacts --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -338,12 +426,29 @@ jobs:
           # Exact filename-field match; anything but exactly one replaced line means
           # the release assets do not look like we expect - stop before uploading.
           $matched = 0
-          $sums = Get-Content artifacts\SHA256SUMS.txt | ForEach-Object {
-            if (($_ -split '\s+', 2)[1] -eq $name) { $matched++; "$hash  $name" } else { $_ }
-          }
+          $receiptMatched = 0
+          $sums = @(Get-Content artifacts\SHA256SUMS.txt | ForEach-Object {
+            $entryName = ($_ -split '\s+', 2)[1]
+            if ($entryName -eq $name) {
+              $matched++
+              "$hash  $name"
+            } elseif ($entryName -eq $env:SUBSTRATE_RECEIPT_NAME) {
+              $receiptMatched++
+              "$substrateHash  $env:SUBSTRATE_RECEIPT_NAME"
+            } else {
+              $_
+            }
+          })
           if ($matched -ne 1) {
             Write-Error "expected exactly 1 SHA256SUMS.txt line for $name, matched $matched"
             exit 1
+          }
+          if ($receiptMatched -gt 1) {
+            Write-Error "duplicate substrate receipt lines in SHA256SUMS.txt"
+            exit 1
+          }
+          if ($receiptMatched -eq 0) {
+            $sums += "$substrateHash  $env:SUBSTRATE_RECEIPT_NAME"
           }
           [IO.File]::WriteAllLines("$PWD\artifacts\SHA256SUMS.txt", $sums)
 
@@ -380,6 +485,23 @@ jobs:
             Write-Error "expected exactly 1 release-manifest.json artifact entry for $name, updated $updated"
             exit 1
           }
+          $substrateEntries = @(
+            $m.artifacts | Where-Object { $_.file -eq $env:SUBSTRATE_RECEIPT_NAME }
+          )
+          if ($substrateEntries.Count -gt 1) {
+            Write-Error "release manifest has duplicate substrate receipt entries"
+            exit 1
+          }
+          if ($substrateEntries.Count -eq 0) {
+            $artifacts = @($m.artifacts)
+            $artifacts += [pscustomobject]@{
+              sha256 = $substrateHash
+              file = $env:SUBSTRATE_RECEIPT_NAME
+            }
+            $m.artifacts = $artifacts
+          } else {
+            $substrateEntries[0].sha256 = $substrateHash
+          }
           $m.unsigned_build = $false
           $m.release_gate = "GitHub Actions Release Gate passed for $env:PROOF_SHA`: $env:PROOF_URL"
           $m | Add-Member -NotePropertyName signing -NotePropertyValue ([pscustomobject]@{
@@ -394,20 +516,25 @@ jobs:
             release_gate_url = $env:PROOF_URL
             source_unsigned_sha256 = $env:SOURCE_UNSIGNED_SHA256
             signed_sha256 = $hash
+            substrate_receipt_file = $env:SUBSTRATE_RECEIPT_NAME
+            substrate_receipt_sha256 = $substrateHash
+            runner_image_version = $env:SUBSTRATE_IMAGE_VERSION
+            model_name = $env:SUBSTRATE_MODEL_NAME
+            model_digest = $env:SUBSTRATE_MODEL_DIGEST
             signer_subject = $signature.SignerCertificate.Subject
             signer_issuer = $signature.SignerCertificate.Issuer
             signer_thumbprint = $signature.SignerCertificate.Thumbprint
             signer_serial_number = $signature.SignerCertificate.SerialNumber
             signed_at = (Get-Date).ToUniversalTime().ToString("o")
           }) -Force
-          [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
+          [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 8))
 
           $tagCommitBeforeUpload = Resolve-ProvenTagCommit
           if ($tagCommitBeforeUpload -ne $env:PROOF_SHA) {
             Write-Error "release tag moved before publication: expected $env:PROOF_SHA, got $tagCommitBeforeUpload"
             exit 1
           }
-          gh release upload $env:TAG $env:EXE artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
+          gh release upload $env:TAG $env:EXE $env:SUBSTRATE_RECEIPT artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Write-Host "signed $name  sha256=$hash"
 
@@ -425,6 +552,11 @@ jobs:
           PROOF_HEAD_SHA: ${{ needs.release-gate-proof.outputs.release_gate_head_sha }}
           SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
           EXPECTED_SIGNED_SHA256: ${{ steps.signed.outputs.signed_sha256 }}
+          SUBSTRATE_RECEIPT_NAME: ${{ steps.get.outputs.substrate_receipt_name }}
+          SUBSTRATE_RECEIPT_SHA256: ${{ steps.get.outputs.substrate_receipt_sha256 }}
+          SUBSTRATE_IMAGE_VERSION: ${{ steps.get.outputs.substrate_image_version }}
+          SUBSTRATE_MODEL_NAME: ${{ steps.get.outputs.substrate_model_name }}
+          SUBSTRATE_MODEL_DIGEST: ${{ steps.get.outputs.substrate_model_digest }}
           EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
           REPO: ${{ github.repository }}
         run: |
@@ -443,7 +575,7 @@ jobs:
             exit 1
           }
           New-Item -ItemType Directory -Force published | Out-Null
-          gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --pattern SHA256SUMS.txt --pattern release-manifest.json --dir published
+          gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --pattern SHA256SUMS.txt --pattern release-manifest.json --pattern tinkerquarry-release-substrate.json --dir published
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
           $publishedExes = @(Get-ChildItem published -Filter *.exe)
@@ -460,6 +592,29 @@ jobs:
           $publishedManifest = Get-Content published\release-manifest.json -Raw | ConvertFrom-Json
           $publishedEntry = @($publishedManifest.artifacts | Where-Object { $_.file -eq $publishedExe.Name })
           $publishedSum = @(Get-Content published\SHA256SUMS.txt | Where-Object { ($_ -split '\s+', 2)[1] -eq $publishedExe.Name })
+          $publishedReceipts = @(
+            Get-ChildItem published -Filter 'tinkerquarry-release-substrate.json' -File
+          )
+          if (
+            $publishedReceipts.Count -ne 1 -or
+            $publishedReceipts[0].Name -ne $env:SUBSTRATE_RECEIPT_NAME
+          ) {
+            Write-Error "expected exactly the published substrate receipt '$env:SUBSTRATE_RECEIPT_NAME'"
+            exit 1
+          }
+          $publishedReceiptFile = $publishedReceipts[0]
+          $publishedReceiptHash = (
+            Get-FileHash $publishedReceiptFile.FullName -Algorithm SHA256
+          ).Hash.ToLowerInvariant()
+          $publishedReceipt = Get-Content $publishedReceiptFile.FullName -Raw | ConvertFrom-Json
+          $publishedReceiptEntry = @(
+            $publishedManifest.artifacts |
+              Where-Object { $_.file -eq $publishedReceiptFile.Name }
+          )
+          $publishedReceiptSum = @(
+            Get-Content published\SHA256SUMS.txt |
+              Where-Object { ($_ -split '\s+', 2)[1] -eq $publishedReceiptFile.Name }
+          )
 
           if ($publishedEntry.Count -ne 1 -or $publishedEntry[0].sha256 -ne $publishedHash) {
             Write-Error "published manifest hash does not match the published installer"
@@ -467,6 +622,30 @@ jobs:
           }
           if ($publishedSum.Count -ne 1 -or ($publishedSum[0] -split '\s+', 2)[0] -ne $publishedHash) {
             Write-Error "published SHA256SUMS.txt does not match the published installer"
+            exit 1
+          }
+          if (
+            $publishedReceiptHash -ne $env:SUBSTRATE_RECEIPT_SHA256 -or
+            $publishedReceiptEntry.Count -ne 1 -or
+            $publishedReceiptEntry[0].sha256 -ne $publishedReceiptHash -or
+            $publishedReceiptSum.Count -ne 1 -or
+            ($publishedReceiptSum[0] -split '\s+', 2)[0] -ne $publishedReceiptHash
+          ) {
+            Write-Error "published substrate receipt bytes, manifest, or SHA256SUMS entry disagree"
+            exit 1
+          }
+          if (
+            $publishedReceipt.source_sha -ne $env:PROOF_SHA -or
+            "$($publishedReceipt.workflow.run_id)" -ne $env:PROOF_RUN_ID -or
+            "$($publishedReceipt.workflow.run_attempt)" -ne $env:PROOF_RUN_ATTEMPT -or
+            $publishedReceipt.workflow.head_sha -ne $env:PROOF_HEAD_SHA -or
+            $publishedReceipt.runner.image_version -ne $env:SUBSTRATE_IMAGE_VERSION -or
+            $publishedReceipt.model.name -ne $env:SUBSTRATE_MODEL_NAME -or
+            $publishedReceipt.model.digest -ne $env:SUBSTRATE_MODEL_DIGEST -or
+            $publishedReceipt.unsigned_installer.file -ne $publishedExe.Name -or
+            $publishedReceipt.unsigned_installer.sha256 -ne $env:SOURCE_UNSIGNED_SHA256
+          ) {
+            Write-Error "published substrate receipt no longer identifies the exact gate input"
             exit 1
           }
           if ($publishedManifest.commit -ne $env:PROOF_SHA -or $publishedManifest.tag -ne $env:TAG) {
@@ -483,7 +662,12 @@ jobs:
             $publishedManifest.signing.release_gate_head_sha -ne $env:PROOF_HEAD_SHA -or
             $publishedManifest.signing.release_gate_url -ne $env:PROOF_URL -or
             $publishedManifest.signing.source_unsigned_sha256 -ne $env:SOURCE_UNSIGNED_SHA256 -or
-            $publishedManifest.signing.signed_sha256 -ne $env:EXPECTED_SIGNED_SHA256
+            $publishedManifest.signing.signed_sha256 -ne $env:EXPECTED_SIGNED_SHA256 -or
+            $publishedManifest.signing.substrate_receipt_file -ne $env:SUBSTRATE_RECEIPT_NAME -or
+            $publishedManifest.signing.substrate_receipt_sha256 -ne $env:SUBSTRATE_RECEIPT_SHA256 -or
+            $publishedManifest.signing.runner_image_version -ne $env:SUBSTRATE_IMAGE_VERSION -or
+            $publishedManifest.signing.model_name -ne $env:SUBSTRATE_MODEL_NAME -or
+            $publishedManifest.signing.model_digest -ne $env:SUBSTRATE_MODEL_DIGEST
           ) {
             Write-Error "published signing evidence does not identify the exact gated unsigned input"
             exit 1

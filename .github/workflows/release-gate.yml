@@ -14,8 +14,9 @@ name: Release Gate
 #                  audit, coverage-gated unit lanes, the Cloudflare share-worker deploy
 #                  build, the FULL engine pytest with --strict-no-skips (no marker
 #                  filter), Playwright, the real NSIS installer build, and two native
-#                  smoke tests against the built and the installed binary. Up to 3 hours,
-#                  self-hosted Windows runner.
+#                  smoke tests against the built and the installed binary. It provisions
+#                  the real local tool/model stack on the declared GitHub-hosted Windows
+#                  2022 image family and records the exact weekly image version it received.
 #
 # Until 2026-07-21 this workflow had exactly one trigger, `workflow_dispatch`, and
 # `gh run list --workflow=release-gate.yml` returned zero rows for the entire life of the
@@ -62,10 +63,10 @@ name: Release Gate
 # ============================================================================================
 
 on:
-  # Automatic cadence. Weekly rather than nightly because this lane occupies the single
-  # self-hosted Windows runner for up to three hours; nightly-flakiness.yml already covers
-  # the fast suites every night. Weekly is the floor, not the ceiling - the tag trigger
-  # below is what actually gates a release.
+  # Automatic cadence. Weekly rather than nightly because this lane provisions the
+  # multi-gigabyte real tool/model stack and runs for up to four hours;
+  # nightly-flakiness.yml already covers the fast suites every night. Weekly is the
+  # floor, not the ceiling - the tag trigger below is what actually gates a release.
   schedule:
     - cron: "0 9 * * 0"
   # Every release tag proves itself. sign-installer.yml then requires this run to have
@@ -80,12 +81,14 @@ on:
 # Grouped PER REF, not workflow-wide. GitHub keeps only one pending run per concurrency
 # group, so a single shared group would let a second tag push cancel the first tag's queued
 # proof - and a cancelled proof means that tag can never be signed until someone notices and
-# re-runs it. Per-ref, each tag owns its own slot; the single self-hosted runner still
-# serializes the actual work. cancel-in-progress stays false: an in-flight proof is the
-# thing that unblocks signing, so it is never worth discarding.
+# re-runs it. Per-ref, each tag owns its own slot. cancel-in-progress stays false: an
+# in-flight proof is the thing that unblocks signing, so it is never worth discarding.
 concurrency:
   group: release-gate-${{ github.ref }}
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   license-gate:
@@ -95,15 +98,21 @@ jobs:
       run:
         working-directory: packages/engine
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          python-version: "3.13"
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13.14"
       - name: Install the shipped bundle set
+        shell: pwsh
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install "pip==26.1.2"
+          if ($LASTEXITCODE -ne 0) { throw "pip bootstrap failed with exit code $LASTEXITCODE" }
           python -m pip install -r requirements.lock
+          if ($LASTEXITCODE -ne 0) { throw "locked dependency install failed with exit code $LASTEXITCODE" }
           python -m pip install -e .
+          if ($LASTEXITCODE -ne 0) { throw "editable engine install failed with exit code $LASTEXITCODE" }
       - name: Run license gate
         run: python ../../scripts/license_scan.py
 
@@ -113,32 +122,437 @@ jobs:
     # this `needs`, the jobs run in parallel and a non-compliant bundle still produces a
     # downloadable release candidate (REVIEW finding, v1.5-1).
     needs: license-gate
-    runs-on: [self-hosted, Windows, X64]
-    timeout-minutes: 180
+    # Declare the image family: GitHub mutates this image weekly, so the exact
+    # ImageOS/ImageVersion and tool identities are captured in the substrate receipt.
+    # This job intentionally does not use a repository self-hosted runner, Windows
+    # Sandbox, or reboot-dependent state.
+    runs-on: windows-2022
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    env:
+      TQ_SOURCE_ROOT: C:\tq-release
+      TQ_MODEL_NAME: qwen3.5:9b
+      TQ_MODEL_DIGEST: sha256:6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7
     steps:
-      - uses: actions/checkout@v4
+      - name: Preflight hosted storage
+        shell: pwsh
+        run: |
+          $cFreeGb = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
+          $tempDrive = [IO.Path]::GetPathRoot($env:RUNNER_TEMP).TrimEnd(":\")
+          $tempFreeGb = [math]::Round((Get-PSDrive $tempDrive).Free / 1GB, 2)
+          [ordered]@{
+            c_free_gb = $cFreeGb
+            runner_temp_drive = $tempDrive
+            runner_temp_free_gb = $tempFreeGb
+          } | ConvertTo-Json
+          if ($cFreeGb -lt 12) {
+            throw "less than 12 GB is free on C: before the native release build"
+          }
+          if ($tempFreeGb -lt 12) {
+            throw "less than 12 GB is free on RUNNER_TEMP before runtime/model provisioning"
+          }
 
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          node-version: 22
+          fetch-depth: 0
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - name: Create exact short-path release worktree
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath $env:TQ_SOURCE_ROOT) {
+            throw "unexpected pre-existing short-path worktree: $env:TQ_SOURCE_ROOT"
+          }
+          $expectedCommit = (git rev-parse "${env:GITHUB_SHA}^{commit}").Trim()
+          if ($LASTEXITCODE -ne 0 -or -not $expectedCommit) {
+            throw "workflow SHA does not resolve to a commit"
+          }
+          git worktree add --detach $env:TQ_SOURCE_ROOT $expectedCommit
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $actualSha = (git -C $env:TQ_SOURCE_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualSha -ne $expectedCommit) {
+            throw "short-path worktree is not the workflow's exact commit"
+          }
+          $status = git -C $env:TQ_SOURCE_ROOT status --porcelain
+          if ($LASTEXITCODE -ne 0 -or $status) {
+            throw "short-path release worktree is not clean"
+          }
+          "TQ_EXPECTED_COMMIT=$expectedCommit" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.23.1"
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 10.12.4
 
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13.14"
+
+      - name: Use the exact Rust release toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.1-x86_64-pc-windows-msvc --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          rustup default 1.97.1-x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ((rustc --version | Out-String).Trim() -ne "rustc 1.97.1 (8bab26f4f 2026-07-14)") {
+            throw "the exact Rust 1.97.1 release toolchain is not active"
+          }
+
+      - name: Use a node-gyp that knows the hosted Visual Studio image
+        shell: pwsh
+        run: |
+          npm install -g node-gyp@12.1.0
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $gyp = Join-Path (npm root -g) "node-gyp\bin\node-gyp.js"
+          if (-not (Test-Path -LiteralPath $gyp)) {
+            throw "node-gyp not found at $gyp"
+          }
+          "npm_config_node_gyp=$gyp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        shell: pwsh
+        run: |
+          Set-Location $env:TQ_SOURCE_ROOT
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Run full local release proof
-        run: pnpm.cmd test:release
+      - name: Provision full engine and browser dependencies
+        shell: pwsh
+        run: |
+          $engineRoot = Join-Path $env:TQ_SOURCE_ROOT "packages\engine"
+          Set-Location $engineRoot
+          python -m pip install "pip==26.1.2"
+          if ($LASTEXITCODE -ne 0) { throw "pip bootstrap failed with exit code $LASTEXITCODE" }
+          python -m pip install -r requirements.lock
+          if ($LASTEXITCODE -ne 0) { throw "locked dependency install failed with exit code $LASTEXITCODE" }
+          python -m pip install -e ".[dev]"
+          if ($LASTEXITCODE -ne 0) { throw "editable engine install failed with exit code $LASTEXITCODE" }
+          python -m playwright install chromium
+          if ($LASTEXITCODE -ne 0) { throw "Playwright browser install failed with exit code $LASTEXITCODE" }
 
-      - name: Upload native release artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+          $cqRoot = Join-Path $engineRoot ".venv-cq313"
+          python -m venv $cqRoot
+          if ($LASTEXITCODE -ne 0) { throw "CadQuery venv creation failed with exit code $LASTEXITCODE" }
+          $cqPython = Join-Path $cqRoot "Scripts\python.exe"
+          & $cqPython -m pip install "pip==26.1.2"
+          if ($LASTEXITCODE -ne 0) { throw "CadQuery venv pip bootstrap failed with exit code $LASTEXITCODE" }
+          & $cqPython -m pip install "cadquery==2.7.0"
+          if ($LASTEXITCODE -ne 0) { throw "CadQuery install failed with exit code $LASTEXITCODE" }
+          & $cqPython -c "import importlib.metadata as m, sys; import cadquery; print(f'CadQuery {m.version(""cadquery"")} on {sys.executable}')"
+          if ($LASTEXITCODE -ne 0) { throw "CadQuery import verification failed with exit code $LASTEXITCODE" }
+
+          python scripts\fetch_tools.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python scripts\build_installer.py --stage-only
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python scripts\verify_install.py dist\staging
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m pip cache purge
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Provision cargo-audit
+        shell: pwsh
+        run: |
+          $cargoAuditVersion = (cargo audit --version 2>$null | Out-String).Trim()
+          if ($cargoAuditVersion -ne "cargo-audit 0.22.2") {
+            cargo install cargo-audit --version 0.22.2 --locked --force
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          cargo audit --version
+
+      - name: Attest hosted release substrate
+        shell: pwsh
+        run: |
+          $sourceSha = (git -C $env:TQ_SOURCE_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $sourceSha -ne $env:TQ_EXPECTED_COMMIT) {
+            throw "release source identity changed during provisioning"
+          }
+          $sourceStatus = git -C $env:TQ_SOURCE_ROOT status --porcelain
+          if ($LASTEXITCODE -ne 0 -or $sourceStatus) {
+            throw "tracked release source changed during provisioning"
+          }
+          if ($env:KIMCAD_INSTALL_ROOT) {
+            throw "KIMCAD_INSTALL_ROOT contaminates the hosted source release proof"
+          }
+          if (-not $env:ImageOS -or -not $env:ImageVersion) {
+            throw "GitHub runner ImageOS/ImageVersion provenance is absent"
+          }
+          $engineRoot = Join-Path $env:TQ_SOURCE_ROOT "packages\engine"
+          $vsDevCmd = @(
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat",
+            "$env:ProgramFiles\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat",
+            "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
+          ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $vsDevCmd) { throw "Visual Studio 2022 VsDevCmd.bat is absent" }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe is absent" }
+          $vsVersion = (& $vswhere -latest -property catalog_productDisplayVersion | Out-String).Trim()
+          $openScadExe = Join-Path $engineRoot "tools\openscad\openscad.exe"
+          $orcaExe = Join-Path $engineRoot "tools\orcaslicer\orca-slicer.exe"
+          if (-not (Test-Path -LiteralPath $openScadExe) -or -not (Test-Path -LiteralPath $orcaExe)) {
+            throw "the fetched OpenSCAD/OrcaSlicer toolchain is incomplete"
+          }
+          $cFreeGb = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
+          $tempDrive = [IO.Path]::GetPathRoot($env:RUNNER_TEMP).TrimEnd(":\")
+          $tempFreeGb = [math]::Round((Get-PSDrive $tempDrive).Free / 1GB, 2)
+          if ($cFreeGb -lt 6) {
+            throw "less than 6 GB remains on C: for the native Rust/Tauri/NSIS build"
+          }
+          if ($tempFreeGb -lt 12) {
+            throw "less than 12 GB remains on RUNNER_TEMP before runtime/model provisioning"
+          }
+          [ordered]@{
+            source_sha = $sourceSha
+            runner_image_os = $env:ImageOS
+            runner_image_version = $env:ImageVersion
+            os = [Environment]::OSVersion.VersionString
+            arch = $env:PROCESSOR_ARCHITECTURE
+            vs_dev_cmd = $vsDevCmd
+            visual_studio = $vsVersion
+            python = (python --version 2>&1 | Out-String).Trim()
+            pip = (python -m pip --version 2>&1 | Out-String).Trim()
+            node = (node --version 2>&1 | Out-String).Trim()
+            npm = (npm --version 2>&1 | Out-String).Trim()
+            pnpm = (pnpm --version 2>&1 | Out-String).Trim()
+            node_gyp = (node-gyp --version 2>&1 | Out-String).Trim()
+            rust = (rustc --version 2>&1 | Out-String).Trim()
+            cargo_audit = (cargo audit --version 2>&1 | Out-String).Trim()
+            openscad_sha256 = (Get-FileHash $openScadExe -Algorithm SHA256).Hash.ToLowerInvariant()
+            orcaslicer_sha256 = (Get-FileHash $orcaExe -Algorithm SHA256).Hash.ToLowerInvariant()
+            cadquery = (& (Join-Path $engineRoot ".venv-cq313\Scripts\python.exe") -c "import importlib.metadata as m; import cadquery; print(m.version('cadquery'))" 2>&1 | Out-String).Trim()
+            c_free_gb = $cFreeGb
+            runner_temp_free_gb = $tempFreeGb
+          } | ConvertTo-Json
+
+      - name: Run full hosted release proof with the real local model
+        shell: pwsh
+        run: |
+          Set-Location $env:TQ_SOURCE_ROOT
+          if ($env:KIMCAD_INSTALL_ROOT) {
+            throw "KIMCAD_INSTALL_ROOT contaminates the hosted source release proof"
+          }
+          $provisionRoot = Join-Path $env:RUNNER_TEMP "tq-release-runtime"
+          if (Test-Path -LiteralPath $provisionRoot) {
+            throw "unexpected pre-existing runtime provisioning root: $provisionRoot"
+          }
+          $ollamaRoot = Join-Path $provisionRoot "ollama"
+          $modelsRoot = Join-Path $env:RUNNER_TEMP "tq-release-models"
+          New-Item -ItemType Directory -Path $modelsRoot | Out-Null
+          $env:PYTHONPATH = (Resolve-Path "packages\engine\src").Path
+          $env:TQ_OLLAMA_ROOT = $ollamaRoot
+          @'
+          import os
+          from pathlib import Path
+          from kimcad.ollama_fetch import fetch_portable_ollama
+
+          print(fetch_portable_ollama(Path(os.environ["TQ_OLLAMA_ROOT"])), flush=True)
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Remove-Item Env:PYTHONPATH
+          if ($env:PYTHONPATH) {
+            throw "PYTHONPATH remained in the full-proof environment"
+          }
+
+          $ollamaExe = Join-Path $ollamaRoot "ollama.exe"
+          if (-not (Test-Path -LiteralPath $ollamaExe)) {
+            throw "product-pinned portable Ollama was not extracted"
+          }
+          $env:PATH = "$ollamaRoot;$env:PATH"
+          $env:OLLAMA_MODELS = $modelsRoot
+          $env:OLLAMA_HOST = "127.0.0.1:11434"
+          $stdout = Join-Path $env:RUNNER_TEMP "ollama-release-gate.stdout.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "ollama-release-gate.stderr.log"
+          try {
+            $serve = Start-Process -FilePath $ollamaExe -ArgumentList "serve" -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            $env:TQ_OLLAMA_PID = "$($serve.Id)"
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 120; $attempt++) {
+              try {
+                Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 2 | Out-Null
+                $ready = $true
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $ready) { throw "product-pinned Ollama did not become healthy" }
+
+            & $ollamaExe pull $env:TQ_MODEL_NAME
+            if ($LASTEXITCODE -ne 0) { throw "default model pull failed" }
+            $models = & $ollamaExe list
+            $models | Write-Host
+            if ($LASTEXITCODE -ne 0 -or ($models | Out-String) -notmatch "qwen3\.5:9b") {
+              throw "default $env:TQ_MODEL_NAME model is absent after pull"
+            }
+            $tagResponse = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 10
+            $modelRecords = @($tagResponse.models | Where-Object { $_.name -eq $env:TQ_MODEL_NAME })
+            if (
+              $modelRecords.Count -ne 1 -or
+              $modelRecords[0].digest.ToLowerInvariant() -ne $env:TQ_MODEL_DIGEST
+            ) {
+              $actualDigests = @($modelRecords | ForEach-Object { $_.digest }) -join ", "
+              throw "model tag drift: expected $env:TQ_MODEL_NAME at $env:TQ_MODEL_DIGEST, got $actualDigests"
+            }
+            $modelRecord = $modelRecords[0]
+            Write-Host "model identity verified: $($modelRecord.name) $($modelRecord.digest)"
+
+            # The server process already captured the intended bind address. The full
+            # engine suite starts a second real server on an alternate port; it must not
+            # inherit 11434 and collide with this one.
+            Remove-Item Env:OLLAMA_HOST
+            if ($env:OLLAMA_HOST) {
+              throw "OLLAMA_HOST remained in the full-proof environment"
+            }
+            pnpm.cmd test:release
+            if ($LASTEXITCODE -ne 0) { throw "full release proof failed" }
+
+            $installerDir = Join-Path $env:TQ_SOURCE_ROOT "apps\ui\src-tauri\target\release\bundle\nsis"
+            $installers = @(Get-ChildItem -LiteralPath $installerDir -Recurse -Filter "*-setup.exe" -File)
+            if ($installers.Count -ne 1) {
+              throw "expected exactly one release installer after the full proof, found $($installers.Count)"
+            }
+            $installer = $installers[0]
+            $installerHash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $engineRoot = Join-Path $env:TQ_SOURCE_ROOT "packages\engine"
+            $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+            $vsVersion = (& $vswhere -latest -property catalog_productDisplayVersion | Out-String).Trim()
+            $receipt = [ordered]@{
+              schema_version = 1
+              proof = "pnpm test:release passed"
+              source_sha = $env:TQ_EXPECTED_COMMIT
+              workflow = [ordered]@{
+                repository = $env:GITHUB_REPOSITORY
+                name = $env:GITHUB_WORKFLOW
+                ref = $env:GITHUB_REF
+                run_id = "$env:GITHUB_RUN_ID"
+                run_attempt = [int]$env:GITHUB_RUN_ATTEMPT
+                head_sha = $env:GITHUB_SHA
+              }
+              runner = [ordered]@{
+                image_os = $env:ImageOS
+                image_version = $env:ImageVersion
+                os = [Environment]::OSVersion.VersionString
+                arch = $env:PROCESSOR_ARCHITECTURE
+                visual_studio = $vsVersion
+              }
+              actions = [ordered]@{
+                checkout = "11d5960a326750d5838078e36cf38b85af677262"
+                setup_node = "49933ea5288caeca8642d1e84afbd3f7d6820020"
+                pnpm_setup = "b906affcce14559ad1aafd4ab0e942779e9f58b1"
+                setup_python = "a26af69be951a213d495a4c3e4e4022e16d87065"
+                upload_artifact = "ea165f8d65b6e75b540449e92b4886f43607fa02"
+              }
+              tools = [ordered]@{
+                node = (node --version 2>&1 | Out-String).Trim()
+                npm = (npm --version 2>&1 | Out-String).Trim()
+                pnpm = (pnpm --version 2>&1 | Out-String).Trim()
+                node_gyp = (node-gyp --version 2>&1 | Out-String).Trim()
+                python = (python --version 2>&1 | Out-String).Trim()
+                pip = (python -m pip --version 2>&1 | Out-String).Trim()
+                rustc = (rustc --version 2>&1 | Out-String).Trim()
+                cargo = (cargo --version 2>&1 | Out-String).Trim()
+                cargo_audit = (cargo audit --version 2>&1 | Out-String).Trim()
+                cadquery = (& (Join-Path $engineRoot ".venv-cq313\Scripts\python.exe") -c "import importlib.metadata as m; print(m.version('cadquery'))" 2>&1 | Out-String).Trim()
+                ollama = (& $ollamaExe --version 2>&1 | Out-String).Trim()
+              }
+              toolchain_files = [ordered]@{
+                openscad_sha256 = (Get-FileHash (Join-Path $engineRoot "tools\openscad\openscad.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+                orcaslicer_sha256 = (Get-FileHash (Join-Path $engineRoot "tools\orcaslicer\orca-slicer.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+                ollama_exe_sha256 = (Get-FileHash $ollamaExe -Algorithm SHA256).Hash.ToLowerInvariant()
+              }
+              model = [ordered]@{
+                name = $modelRecord.name
+                digest = $modelRecord.digest
+                size = [long]$modelRecord.size
+                family = $modelRecord.details.family
+                parameter_size = $modelRecord.details.parameter_size
+                quantization_level = $modelRecord.details.quantization_level
+              }
+              unsigned_installer = [ordered]@{
+                file = $installer.Name
+                size = [long]$installer.Length
+                sha256 = $installerHash
+              }
+            }
+            $receiptPath = Join-Path $env:RUNNER_TEMP "tinkerquarry-release-substrate.json"
+            $receiptJson = $receipt | ConvertTo-Json -Depth 8
+            [IO.File]::WriteAllText(
+              $receiptPath,
+              $receiptJson,
+              [Text.UTF8Encoding]::new($false)
+            )
+            $receiptHash = (Get-FileHash $receiptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Host "release substrate receipt: $receiptPath sha256=$receiptHash"
+
+            # upload-artifact cannot compute a common root across C: and RUNNER_TEMP
+            # (D: on GitHub-hosted Windows). Stage both proof-bound files together.
+            $artifactRoot = Join-Path $env:RUNNER_TEMP "tinkerquarry-windows-release-artifacts"
+            [IO.Directory]::CreateDirectory($artifactRoot) | Out-Null
+            $stagedInstaller = Join-Path $artifactRoot $installer.Name
+            $stagedReceipt = Join-Path $artifactRoot "tinkerquarry-release-substrate.json"
+            Copy-Item -LiteralPath $installer.FullName -Destination $stagedInstaller
+            Copy-Item -LiteralPath $receiptPath -Destination $stagedReceipt
+            if (
+              (Get-FileHash $stagedInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne
+              $installerHash
+            ) {
+              throw "staged installer hash does not match the proven installer"
+            }
+            if (
+              (Get-FileHash $stagedReceipt -Algorithm SHA256).Hash.ToLowerInvariant() -ne
+              $receiptHash
+            ) {
+              throw "staged substrate receipt hash does not match the generated receipt"
+            }
+            $stagedFiles = @(Get-ChildItem -LiteralPath $artifactRoot -File)
+            if ($stagedFiles.Count -ne 2) {
+              throw "release artifact staging must contain exactly two files; found $($stagedFiles.Count)"
+            }
+          } catch {
+            Write-Host "::error::hosted release proof failed: $($_.Exception.Message)"
+            if (Test-Path -LiteralPath $stdout) {
+              Write-Host "::group::Ollama stdout (last 250 lines)"
+              Get-Content -LiteralPath $stdout -Tail 250 | Write-Host
+              Write-Host "::endgroup::"
+            }
+            if (Test-Path -LiteralPath $stderr) {
+              Write-Host "::group::Ollama stderr (last 250 lines)"
+              Get-Content -LiteralPath $stderr -Tail 250 | Write-Host
+              Write-Host "::endgroup::"
+            }
+            throw
+          } finally {
+            $running = if ($env:TQ_OLLAMA_PID) {
+              Get-Process -Id $env:TQ_OLLAMA_PID -ErrorAction SilentlyContinue
+            }
+            if ($running) {
+              if ($running.Path -ne $ollamaExe) {
+                throw "refusing to stop an unexpected process at $($running.Path)"
+              }
+              Stop-Process -Id $env:TQ_OLLAMA_PID -Force
+              Wait-Process -Id $env:TQ_OLLAMA_PID -Timeout 30 -ErrorAction SilentlyContinue
+            }
+          }
+
+      - name: Upload Ollama diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tinkerquarry-release-ollama-diagnostics
+          path: |
+            ${{ runner.temp }}\ollama-release-gate.stdout.log
+            ${{ runner.temp }}\ollama-release-gate.stderr.log
+          if-no-files-found: warn
+
+      - name: Upload native release artifacts and substrate receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: tinkerquarry-windows-release-artifacts
-          path: |
-            apps/ui/src-tauri/target/release/bundle/**/*.msi
-            apps/ui/src-tauri/target/release/bundle/**/*.exe
-            playwright-report/**
-          if-no-files-found: warn
+          path: ${{ runner.temp }}\tinkerquarry-windows-release-artifacts
+          if-no-files-found: error

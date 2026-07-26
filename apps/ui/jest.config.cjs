@@ -14,7 +14,7 @@ module.exports = {
     '\\.scad$',
     // TQ_CI_NO_LIVE=1 deselects the live engine integration suite for environments with no
     // engine to spawn (hosted CI runners). A deselection, not a skip — the no-skips
-    // reporter forbids green-by-skip. Local dev and the self-hosted release proof run it.
+    // reporter forbids green-by-skip. Local dev and the hosted full release proof run it.
     // (In the config, not a CLI flag: --testPathIgnorePatterns REPLACES this whole list.)
     ...(process.env.TQ_CI_NO_LIVE ? ['/__tests__/engineLive\\.integration\\.test\\.ts$'] : []),
   ],

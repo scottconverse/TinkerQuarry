@@ -440,13 +440,17 @@ frontend Vitest suite, a committed-SPA build-reproducibility check, the installe
 smoke (`build_installer --stage-only` + `verify_install`), and — in release mode —
 live-tool proof.
 
-**CI runs on a self-hosted GitHub Actions runner** on the Windows build box
-(`.github/workflows/ci.yml`), executing the _same_ `scripts/ci.sh`. This is deliberate:
-the gate's live OpenSCAD / OrcaSlicer / CadQuery tests and the Windows installer build
-can't run on hosted Linux runners, and the repo's hosted-minutes budget is limited (see
-[the Stage 11 dispositions](docs/audits/stage-11/dispositions-2026-06-10.md)). The
-self-hosted runner is the gate of record; the pre-push hook runs the identical script so a
-push only reaches CI if it already passed locally.
+GitHub Actions uses two hosted layers. `.github/workflows/ci.yml` is the merge gate
+and runs the fast cross-platform suites on GitHub-hosted runners. The larger
+`.github/workflows/release-gate.yml` provisions OpenSCAD, OrcaSlicer, CadQuery,
+Chromium, the integrity-pinned Ollama runtime, and the real default model on a clean
+`windows-2022` image-family VM, then runs the complete `pnpm test:release` path,
+builds the NSIS installer, and exercises both the built and installed app. The
+workflow records the actual weekly image version, pinned tool/action identities,
+exact model digest, and unsigned installer hash in the release substrate receipt.
+Every release tag triggers that proof automatically, and the signing workflow
+refuses to sign without its exact successful run. No repository self-hosted runner
+is part of the release path.
 
 ## Platform notes
 

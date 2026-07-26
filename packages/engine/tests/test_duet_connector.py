@@ -134,7 +134,7 @@ def test_missing_password_against_protected_board_is_auth_error():
 
 
 def test_password_never_appears_in_error(tmp_path):
-    secret = "duet-secret-leak-me-7c2b"
+    secret = "duet-secret-leak-me-7c2b"  # gitleaks:allow -- redaction test fixture
     g = _write_gcode_3mf(tmp_path / "p.gcode.3mf")
     with serve_mock_duet(password="the-real-pw") as (base, _state):
         c = _connector(base, password=secret)
