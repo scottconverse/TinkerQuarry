@@ -383,6 +383,7 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("GITHUB_OUTPUT", "export machine-readable proof outputs"),
         ("tag_commit_sha", "export the exact proven tag commit"),
         ("release_gate_url", "export the successful release-gate run URL"),
+        ("release_gate_run_id", "export the successful release-gate run ID"),
     ):
         if token not in proof_exe:
             problems.append(
@@ -394,8 +395,15 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
     required_signing_tokens = (
         ("PROOF_SHA", "consume the exact proven tag commit"),
         ("PROOF_URL", "consume the successful release-gate run URL"),
+        ("PROOF_RUN_ID", "consume the successful release-gate run ID"),
+        ("gh run download", "obtain the installer from the successful release-gate run"),
+        (
+            "tinkerquarry-windows-release-artifacts",
+            "select the release gate's named native-artifact bundle",
+        ),
         ("$m.commit", "read the manifest's source commit before upload"),
         ("$m.tag", "read the manifest's tag before upload"),
+        ("source_unsigned_sha256", "record the exact gated bytes that were signed"),
         ("unsigned_build = $false", "mark the signed artifact as signed"),
         ("$m.release_gate", "replace the stale release-gate narrative"),
         ("gh release upload", "publish the signed installer and revised metadata"),

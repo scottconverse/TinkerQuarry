@@ -42,10 +42,90 @@ jobs:
       - name: Pre-provision the v1.5.1 engine test environment
         shell: pwsh
         run: |
+          $engineRoot = (Resolve-Path packages\engine).Path
+          # The nested runner checks the immutable tag out under its own short work
+          # tree. Point KimCad's resource seam at this outer, exact-tag checkout so
+          # the checksum-pinned tools and CadQuery worker survive that second checkout.
+          "KIMCAD_INSTALL_ROOT=$engineRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
           python -m pip install --upgrade pip
           python -m pip install -r packages/engine/requirements.lock
           python -m pip install -e "packages/engine[dev]"
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          python -m playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          $cqPython = Join-Path $engineRoot ".venv-cq313\Scripts\python.exe"
+          python -m venv (Join-Path $engineRoot ".venv-cq313")
+          & $cqPython -m pip install --upgrade pip
+          & $cqPython -m pip install "cadquery==2.7.0"
+          & $cqPython -c "import importlib.metadata as m, sys; import cadquery; print(f'CadQuery {m.version(""cadquery"")} on {sys.executable}')"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          Push-Location $engineRoot
+          try {
+            python scripts\fetch_tools.py
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Pre-provision the pinned Ollama runtime and default model
+        shell: pwsh
+        run: |
+          $provisionRoot = "C:\tq-provision"
+          if (Test-Path $provisionRoot) {
+            throw "unexpected pre-existing provisioning root: $provisionRoot"
+          }
+          New-Item -ItemType Directory -Path $provisionRoot | Out-Null
+          $ollamaRoot = Join-Path $provisionRoot "ollama"
+          $env:PYTHONPATH = (Resolve-Path packages\engine\src).Path
+          @'
+          from pathlib import Path
+          from kimcad.ollama_fetch import fetch_portable_ollama
+
+          exe = fetch_portable_ollama(Path(r"C:\tq-provision\ollama"))
+          print(exe)
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          $ollamaExe = Join-Path $ollamaRoot "ollama.exe"
+          if (-not (Test-Path $ollamaExe)) { throw "pinned portable Ollama was not extracted" }
+          $modelsRoot = Join-Path $env:RUNNER_TEMP "tq-ollama-models"
+          New-Item -ItemType Directory -Force $modelsRoot | Out-Null
+          "TQ_OLLAMA_EXE=$ollamaExe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "OLLAMA_MODELS=$modelsRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $ollamaRoot | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+          $env:OLLAMA_HOST = "127.0.0.1:11434"
+          $env:OLLAMA_MODELS = $modelsRoot
+          $stdout = Join-Path $env:RUNNER_TEMP "ollama-provision.stdout.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "ollama-provision.stderr.log"
+          $serve = Start-Process -FilePath $ollamaExe -ArgumentList "serve" -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 120; $attempt++) {
+              try {
+                Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 2 | Out-Null
+                $ready = $true
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $ready) { throw "pinned Ollama server did not become healthy" }
+            & $ollamaExe pull "qwen3.5:9b"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $models = & $ollamaExe list
+            $models | Write-Host
+            if (($models | Out-String) -notmatch 'qwen3\.5:9b') {
+              throw "default qwen3.5:9b model is absent after pull"
+            }
+          } finally {
+            Stop-Process -Id $serve.Id -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $serve.Id -Timeout 30 -ErrorAction SilentlyContinue
+          }
 
       - name: Pre-provision cargo-audit
         shell: pwsh
@@ -73,7 +153,15 @@ jobs:
             node = (node --version 2>&1 | Out-String).Trim()
             rust = (rustc --version 2>&1 | Out-String).Trim()
             cargo_audit = (cargo audit --version 2>&1 | Out-String).Trim()
+            openscad = Test-Path "$env:KIMCAD_INSTALL_ROOT\tools\openscad\openscad.exe"
+            orcaslicer = Test-Path "$env:KIMCAD_INSTALL_ROOT\tools\orcaslicer\orca-slicer.exe"
+            cadquery = (& "$env:KIMCAD_INSTALL_ROOT\.venv-cq313\Scripts\python.exe" -c "import importlib.metadata as m; import cadquery; print(m.version('cadquery'))" 2>&1 | Out-String).Trim()
+            ollama = (& $env:TQ_OLLAMA_EXE --version 2>&1 | Out-String).Trim()
+            c_free_gb = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
+            runner_temp_drive_free_gb = [math]::Round((Get-PSDrive ([IO.Path]::GetPathRoot($env:RUNNER_TEMP).TrimEnd(':\'))).Free / 1GB, 2)
           } | ConvertTo-Json
+          python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print('Playwright Chromium launch OK')"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Download and verify the official ephemeral runner
         shell: pwsh
@@ -101,12 +189,33 @@ jobs:
           RUNNER_TOKEN: ${{ secrets.TQ_EPHEMERAL_RUNNER_TOKEN }}
         run: |
           if (-not $env:RUNNER_TOKEN) { throw "TQ_EPHEMERAL_RUNNER_TOKEN is not set" }
-          Set-Location $env:TQ_RUNNER_ROOT
-          $runnerName = "tq-v151-$env:GITHUB_RUN_ID"
-          .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral" --work "_w"
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\run.cmd
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $env:OLLAMA_HOST = "127.0.0.1:11434"
+          $ollamaStdout = Join-Path $env:RUNNER_TEMP "ollama-release-gate.stdout.log"
+          $ollamaStderr = Join-Path $env:RUNNER_TEMP "ollama-release-gate.stderr.log"
+          $serve = Start-Process -FilePath $env:TQ_OLLAMA_EXE -ArgumentList "serve" -PassThru -WindowStyle Hidden -RedirectStandardOutput $ollamaStdout -RedirectStandardError $ollamaStderr
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 120; $attempt++) {
+              try {
+                Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 2 | Out-Null
+                $ready = $true
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $ready) { throw "Ollama did not become healthy for the nested release gate" }
+
+            Set-Location $env:TQ_RUNNER_ROOT
+            $runnerName = "tq-v151-$env:GITHUB_RUN_ID"
+            .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral" --work "_w"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            .\run.cmd
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          } finally {
+            Stop-Process -Id $serve.Id -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $serve.Id -Timeout 30 -ErrorAction SilentlyContinue
+          }
 
       - name: Upload runner diagnostics
         if: always()

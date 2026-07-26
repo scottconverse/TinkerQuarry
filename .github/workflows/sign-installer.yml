@@ -1,10 +1,11 @@
 name: Sign installer
 
-# Signs a release installer with Azure Trusted Signing. Release builds are made
-# locally (NSIS path-length constraint), so this runs on demand against a draft
-# release: download the unsigned exe -> Azure signs it with its HSM-held key ->
-# verify -> recompute checksums -> re-upload. Checksums are regenerated AFTER
-# signing because signing changes the file hash.
+# Signs a release installer with Azure Trusted Signing. For a real release, the
+# unsigned input is downloaded from the successful release-gate run at the tag's
+# exact commit (never from an unproven public asset), Azure signs it with its
+# HSM-held key, and the workflow verifies, re-hashes, publishes, re-downloads,
+# and verifies the exact public bytes. Checksums are regenerated AFTER signing
+# because signing changes the file hash.
 #
 # Run with no tag to smoke-test the signing chain: it signs a scratch exe and
 # touches no release.
@@ -39,6 +40,7 @@ jobs:
     outputs:
       tag_commit_sha: ${{ steps.proof.outputs.tag_commit_sha }}
       release_gate_url: ${{ steps.proof.outputs.release_gate_url }}
+      release_gate_run_id: ${{ steps.proof.outputs.release_gate_run_id }}
     steps:
       - name: Require a successful release-gate run at the tag's exact commit
         id: proof
@@ -84,6 +86,7 @@ jobs:
           # be signed, which is exactly how a stale proof would sneak through.
           runs=0
           proof_url=""
+          proof_run_id=""
           for candidate in $sha $tag_obj; do
             # shellcheck disable=SC2059
             url=$(printf "$runs_url" "$candidate")
@@ -95,6 +98,7 @@ jobs:
             runs=$((runs + n))
             if [ "$n" -gt 0 ] && [ -z "$proof_url" ]; then
               proof_url=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | sort_by(.created_at) | reverse | .[0].html_url')
+              proof_run_id=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | sort_by(.created_at) | reverse | .[0].id')
             fi
           done
           echo "successful release-gate runs for tag $TAG (either sha): $runs"
@@ -107,18 +111,22 @@ jobs:
             exit 1
           fi
 
-          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ]; then
-            echo "::error::A successful release-gate run was counted but its URL could not be resolved. Refusing to emit an untraceable proof."
+          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ] || [ -z "$proof_run_id" ] || [ "$proof_run_id" = "null" ]; then
+            echo "::error::A successful release-gate run was counted but its URL/ID could not be resolved. Refusing to emit an untraceable proof."
             exit 1
           fi
 
           echo "tag_commit_sha=$sha" >> "$GITHUB_OUTPUT"
           echo "release_gate_url=$proof_url" >> "$GITHUB_OUTPUT"
-          echo "release-gate proof found for $TAG ($sha): $proof_url"
+          echo "release_gate_run_id=$proof_run_id" >> "$GITHUB_OUTPUT"
+          echo "release-gate proof found for $TAG ($sha): run $proof_run_id, $proof_url"
 
   sign:
     needs: release-gate-proof
     runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
     steps:
       # Standing rule (all repos): prove the service-principal secret is valid in
       # seconds, before any longer work, by hitting the AAD token endpoint directly.
@@ -157,17 +165,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release-tag }}
+          PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
+          PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
           if ($env:TAG) {
-            gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --dir artifacts
+            if (-not $env:PROOF_RUN_ID) {
+              Write-Error "release-gate proof run ID is empty"
+              exit 1
+            }
+            New-Item -ItemType Directory -Force artifacts\gate | Out-Null
+            gh run download $env:PROOF_RUN_ID --repo ${{ github.repository }} --name tinkerquarry-windows-release-artifacts --dir artifacts\gate
             if ($LASTEXITCODE -ne 0) { exit 1 }
-            $exes = @(Get-ChildItem artifacts -Filter *.exe)
+            $exes = @(Get-ChildItem artifacts\gate -Recurse -Filter '*-setup.exe')
             if ($exes.Count -ne 1) {
-              Write-Error "expected exactly 1 installer exe on release $env:TAG, found $($exes.Count) - refusing to guess which to sign"
+              Write-Error "expected exactly 1 NSIS installer in release-gate run $env:PROOF_RUN_ID, found $($exes.Count) - refusing to guess which to sign"
               exit 1
             }
             $exe = $exes[0]
+
+            gh release download $env:TAG --repo ${{ github.repository }} --pattern release-manifest.json --dir artifacts
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $manifest = Get-Content artifacts\release-manifest.json -Raw | ConvertFrom-Json
+            $manifestEntry = @($manifest.artifacts | Where-Object { $_.file -eq $exe.Name })
+            if ($manifest.commit -ne $env:PROOF_SHA -or $manifest.tag -ne $env:TAG) {
+              Write-Error "public release manifest identity does not match the proven tag"
+              exit 1
+            }
+            if ($manifestEntry.Count -ne 1) {
+              Write-Error "release-gate installer '$($exe.Name)' is not the manifest's unique installer"
+              exit 1
+            }
           } else {
             Set-Content smoke.cs 'class Smoke { static void Main() {} }'
             $csc = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64\v4*\csc.exe" | Select-Object -First 1
@@ -175,8 +203,10 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit 1 }
             $exe = Get-Item artifacts\smoke-test.exe
           }
+          $unsignedHash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           "exe=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+          "unsigned_sha256=$unsignedHash" >> $env:GITHUB_OUTPUT
 
       - name: Sign with Azure Trusted Signing
         uses: azure/artifact-signing-action@v2
@@ -218,6 +248,8 @@ jobs:
           EXE_NAME: ${{ steps.get.outputs.exe_name }}
           PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
+          PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
+          SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
         run: |
           $name = $env:EXE_NAME
           $hash = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLower()
@@ -250,6 +282,10 @@ jobs:
             Write-Error "release-gate proof URL is empty"
             exit 1
           }
+          if (-not $env:PROOF_RUN_ID -or -not $env:SOURCE_UNSIGNED_SHA256) {
+            Write-Error "release-gate run ID or gated unsigned hash is empty"
+            exit 1
+          }
           $updated = 0
           foreach ($a in $m.artifacts) { if ($a.file -eq $name) { $a.sha256 = $hash; $updated++ } }
           if ($updated -ne 1) {
@@ -264,6 +300,9 @@ jobs:
             timestamp = "RFC3161/SHA256"
             authenticode_verified = $true
             timestamp_verified = $true
+            release_gate_run_id = $env:PROOF_RUN_ID
+            release_gate_url = $env:PROOF_URL
+            source_unsigned_sha256 = $env:SOURCE_UNSIGNED_SHA256
             signed_at = (Get-Date).ToUniversalTime().ToString("o")
           }) -Force
           [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
@@ -281,6 +320,8 @@ jobs:
           EXE_NAME: ${{ steps.get.outputs.exe_name }}
           PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
+          PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
+          SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
         run: |
           New-Item -ItemType Directory -Force published | Out-Null
           gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --pattern SHA256SUMS.txt --pattern release-manifest.json --dir published
@@ -311,6 +352,14 @@ jobs:
           }
           if ($publishedManifest.unsigned_build -ne $false -or $publishedManifest.release_gate -notlike "*$env:PROOF_URL*") {
             Write-Error "published manifest does not carry the signed posture and exact release-gate proof URL"
+            exit 1
+          }
+          if (
+            $publishedManifest.signing.release_gate_run_id -ne $env:PROOF_RUN_ID -or
+            $publishedManifest.signing.release_gate_url -ne $env:PROOF_URL -or
+            $publishedManifest.signing.source_unsigned_sha256 -ne $env:SOURCE_UNSIGNED_SHA256
+          ) {
+            Write-Error "published signing evidence does not identify the exact gated unsigned input"
             exit 1
           }
 
