@@ -872,6 +872,28 @@ def check_f_hosted_release_scope(problems: list[str]) -> None:
             "exactly two staged files in that order."
         )
 
+    model_digest_sequence = (
+        "$modelRecord = $modelRecords[0]",
+        "$reportedModelDigest = ([string]$modelRecord.digest).ToLowerInvariant()",
+        '$modelDigest = if ($reportedModelDigest.StartsWith("sha256:"))',
+        '"sha256:$reportedModelDigest"',
+        "$modelDigest -ne $env:TQ_MODEL_DIGEST",
+        "digest = $modelDigest",
+    )
+    model_digest_positions = [
+        full_proof_script.find(token) for token in model_digest_sequence
+    ]
+    if (
+        any(position < 0 for position in model_digest_positions)
+        or model_digest_positions != sorted(model_digest_positions)
+        or any(full_proof_script.count(token) != 1 for token in model_digest_sequence)
+    ):
+        problems.append(
+            "F. the hosted proof's canonical model digest sequence must normalize the "
+            "Ollama API digest to `sha256:...`, compare that canonical value to the exact "
+            "pin, and record the same canonical value in the substrate receipt."
+        )
+
     for token, why in (
         (
             'git rev-parse "${env:GITHUB_SHA}^{commit}"',

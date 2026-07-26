@@ -176,6 +176,25 @@ def test_check_f_rejects_removed_artifact_integrity_checks(monkeypatch, tmp_path
     assert any("artifact staging integrity sequence" in problem for problem in problems)
 
 
+def test_check_f_rejects_raw_ollama_model_digest_comparison(monkeypatch, tmp_path):
+    """Mutation integration: API digests without ``sha256:`` must normalize to the pin."""
+    guard = _load("check_release_gate_wiring")
+    workflows = _mutated_workflows(guard, monkeypatch, tmp_path)
+    release_gate = workflows / "release-gate.yml"
+    text = release_gate.read_text(encoding="utf-8")
+    canonicalization = '$reportedModelDigest.StartsWith("sha256:")'
+    assert canonicalization in text
+    release_gate.write_text(
+        text.replace(canonicalization, "$false", 1),
+        encoding="utf-8",
+    )
+
+    problems = []
+    guard.check_f_hosted_release_scope(problems)
+
+    assert any("canonical model digest sequence" in problem for problem in problems)
+
+
 def test_check_d_ignores_head_sha_that_lives_only_in_a_comment():
     """A run block that only *mentions* head_sha in a comment must not satisfy check D."""
     guard = _load("check_release_gate_wiring")

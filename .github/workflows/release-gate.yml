@@ -392,15 +392,21 @@ jobs:
             }
             $tagResponse = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 10
             $modelRecords = @($tagResponse.models | Where-Object { $_.name -eq $env:TQ_MODEL_NAME })
-            if (
-              $modelRecords.Count -ne 1 -or
-              $modelRecords[0].digest.ToLowerInvariant() -ne $env:TQ_MODEL_DIGEST
-            ) {
+            if ($modelRecords.Count -ne 1) {
               $actualDigests = @($modelRecords | ForEach-Object { $_.digest }) -join ", "
-              throw "model tag drift: expected $env:TQ_MODEL_NAME at $env:TQ_MODEL_DIGEST, got $actualDigests"
+              throw "expected one $env:TQ_MODEL_NAME record, got $($modelRecords.Count): $actualDigests"
             }
             $modelRecord = $modelRecords[0]
-            Write-Host "model identity verified: $($modelRecord.name) $($modelRecord.digest)"
+            $reportedModelDigest = ([string]$modelRecord.digest).ToLowerInvariant()
+            $modelDigest = if ($reportedModelDigest.StartsWith("sha256:")) {
+              $reportedModelDigest
+            } else {
+              "sha256:$reportedModelDigest"
+            }
+            if ($modelDigest -ne $env:TQ_MODEL_DIGEST) {
+              throw "model tag drift: expected $env:TQ_MODEL_NAME at $env:TQ_MODEL_DIGEST, got $modelDigest"
+            }
+            Write-Host "model identity verified: $($modelRecord.name) $modelDigest"
 
             # The server process already captured the intended bind address. The full
             # engine suite starts a second real server on an alternate port; it must not
@@ -468,7 +474,7 @@ jobs:
               }
               model = [ordered]@{
                 name = $modelRecord.name
-                digest = $modelRecord.digest
+                digest = $modelDigest
                 size = [long]$modelRecord.size
                 family = $modelRecord.details.family
                 parameter_size = $modelRecord.details.parameter_size
