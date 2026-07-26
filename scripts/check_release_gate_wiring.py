@@ -629,6 +629,7 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             for index, step in checkout_steps
             if (step.get("with") or {}).get("ref") == "v1.5.1"
             and not (step.get("with") or {}).get("path")
+            and (step.get("with") or {}).get("persist-credentials") is False
         ]
         control_checkouts = [
             (index, step)
@@ -643,11 +644,16 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             len(tag_checkouts) != 1
             or len(control_checkouts) != 1
             or tag_checkouts[0][0] >= control_checkouts[0][0]
+            or any(
+                (step.get("with") or {}).get("persist-credentials") is not False
+                for _, step in checkout_steps
+            )
         ):
             problems.append(
                 "F. bootstrap must first check out immutable v1.5.1 as the product "
                 "tree, then sparsely check out runner controls from `${{ github.sha }}` "
-                "under `.tq-bootstrap-control` without persisted credentials."
+                "under `.tq-bootstrap-control`; every checkout must disable persisted "
+                "credentials."
             )
 
         token_steps = [
@@ -753,6 +759,14 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             (
                 '$controlSha -ne "${{ github.sha }}"',
                 "bind the copied bootstrap controls to this workflow run's exact reviewed head",
+            ),
+            (
+                'config --local --get-regexp "^http\\..*\\.extraheader$"',
+                "audit both outer Git configs for a persisted Actions auth header before listener startup",
+            ),
+            (
+                '"persisted_git_token"',
+                "make the pre-job hook independently reject any recoverable outer Git credential",
             ),
             (
                 ".tq-bootstrap-control\\scripts\\release-runner\\ensure-engine-staging.ps1",

@@ -11,7 +11,8 @@ $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $fixtureRoot = Join-Path $tempBase ("tq-engine-staging-fixture-" + [Guid]::NewGuid().ToString("N"))
 $source = Join-Path $fixtureRoot "source"
 $tagWorkspace = Join-Path $fixtureRoot "tag-workspace"
-$controlRunnerRoot = Join-Path $fixtureRoot "control-checkout\scripts\release-runner"
+$controlCheckout = Join-Path $fixtureRoot "control-checkout"
+$controlRunnerRoot = Join-Path $controlCheckout "scripts\release-runner"
 $wrapperRoot = Join-Path $fixtureRoot "wrapper"
 $nestedLink = Join-Path $fixtureRoot "nested\packages\engine\dist\staging"
 $receiptPath = Join-Path $fixtureRoot "receipt.json"
@@ -40,11 +41,45 @@ function Write-Manifest {
         Set-Content -LiteralPath $OutputPath -Encoding utf8
 }
 
+function Test-PersistedGitAuth {
+    param([Parameter(Mandatory)][string]$Repository)
+
+    $extraHeaders = @(git -C $Repository config --local --get-regexp "^http\..*\.extraheader$" 2>$null)
+    $extraHeaderExit = $LASTEXITCODE
+    $origin = (git -C $Repository remote get-url origin 2>$null | Out-String).Trim()
+    $originExit = $LASTEXITCODE
+    if ($extraHeaderExit -notin @(0, 1) -or $originExit -ne 0) {
+        throw "Git auth fixture could not inspect repository credentials"
+    }
+    return (
+        $extraHeaderExit -eq 0 -or
+        $extraHeaders.Count -ne 0 -or
+        $origin -match "(?i)(x-access-token|ghs_|github_pat_)"
+    )
+}
+
 try {
     New-Item -ItemType Directory -Path (Join-Path $source "python") -Force | Out-Null
     New-Item -ItemType Directory -Path $tagWorkspace -Force | Out-Null
     New-Item -ItemType Directory -Path $controlRunnerRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $wrapperRoot -Force | Out-Null
+    git init --quiet $tagWorkspace
+    if ($LASTEXITCODE -ne 0) { throw "could not initialize tag-workspace fixture" }
+    git -C $tagWorkspace remote add origin "https://github.com/scottconverse/TinkerQuarry"
+    git init --quiet $controlCheckout
+    if ($LASTEXITCODE -ne 0) { throw "could not initialize control-workspace fixture" }
+    git -C $controlCheckout remote add origin "https://github.com/scottconverse/TinkerQuarry"
+    git -C $tagWorkspace config --local "http.https://github.com/.extraheader" "AUTHORIZATION: basic fixture"
+    if (-not (Test-PersistedGitAuth -Repository $tagWorkspace)) {
+        throw "persisted Git auth fixture did not detect an Actions-style extraheader"
+    }
+    git -C $tagWorkspace config --local --unset-all "http.https://github.com/.extraheader"
+    if (
+        (Test-PersistedGitAuth -Repository $tagWorkspace) -or
+        (Test-PersistedGitAuth -Repository $controlCheckout)
+    ) {
+        throw "credential-free checkout fixture was not accepted after auth removal"
+    }
     Set-Content -LiteralPath (Join-Path $source "python\python.exe") -Value "fixture-python" -Encoding ascii
     Set-Content -LiteralPath (Join-Path $source "payload.txt") -Value "exact-payload" -Encoding ascii
     if (Test-Path -LiteralPath (Join-Path $tagWorkspace "scripts\release-runner")) {
