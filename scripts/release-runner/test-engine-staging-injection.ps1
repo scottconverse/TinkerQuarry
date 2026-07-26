@@ -85,9 +85,17 @@ exit /b 23
     if ([IO.Path]::GetFullPath($resolvedCargo) -ne [IO.Path]::GetFullPath((Join-Path $wrapperRoot "cargo.cmd"))) {
         throw "cargo wrapper did not win Windows command resolution"
     }
-    & (Join-Path $wrapperRoot "cargo.cmd") "fixture-arg"
-    if ($LASTEXITCODE -ne 23) {
-        throw "cargo wrapper did not preserve the real Cargo exit code; got $LASTEXITCODE"
+    $pwshAvailable = $null -ne (Get-Command pwsh.exe -ErrorAction SilentlyContinue)
+    if ($pwshAvailable) {
+        & (Join-Path $wrapperRoot "cargo.cmd") "fixture-arg"
+        if ($LASTEXITCODE -ne 23) {
+            throw "cargo wrapper did not preserve the real Cargo exit code; got $LASTEXITCODE"
+        }
+    } else {
+        # Windows PowerShell-only development machines can still prove the helper.
+        # GitHub's Windows CI and the bootstrap image both carry pwsh and therefore
+        # exercise cargo.cmd plus its real exit-code propagation.
+        & (Join-Path $wrapperRoot "ensure-engine-staging.ps1")
     }
 
     $linkItem = Get-Item -LiteralPath $nestedLink -Force
@@ -120,7 +128,8 @@ exit /b 23
         throw "tampered staging fixture was not refused before writing a new receipt"
     }
 
-    Write-Host "engine staging injection fixture PASS: identity, manifest, junction, receipt, command resolution, and exit-code propagation"
+    $wrapperProof = if ($pwshAvailable) { " and exit-code propagation" } else { "" }
+    Write-Host "engine staging injection fixture PASS: identity, manifest, junction, receipt, command resolution$wrapperProof"
 } finally {
     $env:PATH = $savedPath
     if (Test-Path -LiteralPath $nestedLink) {

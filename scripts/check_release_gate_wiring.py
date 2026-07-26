@@ -719,6 +719,10 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
                 "inject the verified staging tree only when the exact tag job first invokes Cargo",
             ),
             (
+                'pwsh.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File',
+                "run the injection helper under the same PowerShell 7 host used by the release runner",
+            ),
+            (
                 '$injectionReceiptPath = "C:\\tq-provision\\engine-staging-injection.json"',
                 "declare the engine-staging injection receipt checked after the listener exits",
             ),
