@@ -64,6 +64,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Exact-tag engine staging injection fixture
+        shell: pwsh
+        run: scripts\release-runner\test-engine-staging-injection.ps1
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22

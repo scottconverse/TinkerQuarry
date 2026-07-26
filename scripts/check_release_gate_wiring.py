@@ -29,7 +29,8 @@ This script enforces six properties. Each one fails loudly and specifically:
      runner bootstrap stays manual-only, isolates its one-hour registration secret
      to the ephemeral configuration step, queues one exact rerun itself, installs an
      exact-job start hook, withholds its actions:write control token from nested code,
-     and proves that assignment completed on its named runner.
+     injects only a manifest-bound exact-tag engine tree, and proves that assignment
+     completed on its named runner.
 
 Run it:  python scripts/check_release_gate_wiring.py
 Exit 0 = wired. Exit 1 = a specific, named property is broken (printed).
@@ -53,6 +54,10 @@ CI_YML = WORKFLOWS / "ci.yml"
 RELEASE_GATE_YML = WORKFLOWS / "release-gate.yml"
 SIGN_YML = WORKFLOWS / "sign-installer.yml"
 EPHEMERAL_RUNNER_YML = WORKFLOWS / "ephemeral-release-runner.yml"
+RUNNER_SUPPORT_DIR = REPO_ROOT / "scripts" / "release-runner"
+ENGINE_STAGING_HELPER = RUNNER_SUPPORT_DIR / "ensure-engine-staging.ps1"
+CARGO_WRAPPER = RUNNER_SUPPORT_DIR / "cargo.cmd"
+ENGINE_STAGING_FIXTURE = RUNNER_SUPPORT_DIR / "test-engine-staging-injection.ps1"
 PACKAGE_JSON = REPO_ROOT / "package.json"
 
 # The marked comment blocks the two workflows carry. Kept as comments (not YAML keys) so
@@ -628,6 +633,30 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             )
 
         bootstrap_exe = _executable_step_text(bootstrap)
+        for support_path in (
+            ENGINE_STAGING_HELPER,
+            CARGO_WRAPPER,
+            ENGINE_STAGING_FIXTURE,
+        ):
+            if not support_path.exists():
+                problems.append(
+                    "F. ephemeral runner support file is absent: "
+                    f"`{support_path.relative_to(REPO_ROOT)}`."
+                )
+            else:
+                bootstrap_exe += "\n" + support_path.read_text(encoding="utf-8")
+
+        ci_doc = load_workflow(CI_YML)
+        ci_frontend = (ci_doc.get("jobs") or {}).get("frontend") or {}
+        ci_exe = _executable_step_text(ci_frontend)
+        if (
+            "scripts\\release-runner\\test-engine-staging-injection.ps1"
+            not in ci_exe
+        ):
+            problems.append(
+                "F. Windows CI must execute the exact-tag engine staging injection "
+                "fixture before this temporary bootstrap can be merged."
+            )
         for token, why in (
             (
                 "EXPECTED_RELEASE_GATE_RUN_ID",
@@ -669,6 +698,38 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
                 'if ($env:GH_TOKEN) { $problems += "outer_actions_token" }',
                 "make the pre-job hook reject an inherited bootstrap control token",
             ),
+            (
+                "git diff --quiet $expectedSha -- packages/engine",
+                "prove the staged engine inputs are byte-source-equivalent to the immutable tag",
+            ),
+            (
+                "python scripts\\build_installer.py --stage-only",
+                "build the exact-tag engine resource tree before the immutable job reaches Cargo",
+            ),
+            (
+                "python scripts\\verify_install.py dist\\staging",
+                "verify the exact-tag engine staging tree before exposing it to the nested job",
+            ),
+            (
+                "TQ_ENGINE_STAGING_MANIFEST_SHA256",
+                "bind the injected engine tree to a complete pre-build file manifest",
+            ),
+            (
+                'New-Item -ItemType Junction -Path $link -Target $source',
+                "inject the verified staging tree only when the exact tag job first invokes Cargo",
+            ),
+            (
+                '$injectionReceiptPath = "C:\\tq-provision\\engine-staging-injection.json"',
+                "declare the engine-staging injection receipt checked after the listener exits",
+            ),
+            (
+                "Get-Content -LiteralPath $injectionReceiptPath -Raw",
+                "read the exact engine-staging injection receipt after the listener exits",
+            ),
+            (
+                "$postManifestHash -ne $env:TQ_ENGINE_STAGING_MANIFEST_SHA256",
+                "prove the injected exact-tag engine tree stayed unchanged through packaging",
+            ),
         ):
             if token not in bootstrap_exe:
                 problems.append(
@@ -679,12 +740,21 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
         control_remove = bootstrap_exe.find("Remove-Item Env:GH_TOKEN")
         listener_start = bootstrap_exe.find(".\\run.cmd")
         control_restore = bootstrap_exe.find("$env:GH_TOKEN = $controlToken")
+        wrapper_prepend = bootstrap_exe.find(
+            '$env:PATH = "$env:TQ_CARGO_WRAPPER_ROOT;$env:PATH"'
+        )
         if not (
-            0 <= control_save < control_remove < listener_start < control_restore
+            0
+            <= control_save
+            < wrapper_prepend
+            < control_remove
+            < listener_start
+            < control_restore
         ):
             problems.append(
-                "F. the actions:write bootstrap token must be saved, removed before "
-                "`run.cmd`, and restored only after the nested one-job listener exits."
+                "F. the exact-tag Cargo staging wrapper must join PATH before the "
+                "actions:write bootstrap token is removed and `run.cmd` starts; the "
+                "token may be restored only after the listener exits."
             )
 
 

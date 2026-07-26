@@ -202,9 +202,65 @@ jobs:
           try {
             python scripts\fetch_tools.py
             if ($LASTEXITCODE -ne 0) { exit 1 }
+
+            # The immutable v1.5.1 test:release command reaches `cargo test`
+            # before native-release.cmd creates the engine resource tree required
+            # by tauri.conf.json. Build that tree from product inputs proven
+            # identical to the protected tag, then expose it only when the nested
+            # tag job first invokes Cargo.
+            $expectedSha = "ea75c5eb14a8da1e63d4f34aa84d8a6d3735eef8"
+            Push-Location $env:GITHUB_WORKSPACE
+            try {
+              git fetch --no-tags --depth=1 origin $expectedSha
+              if ($LASTEXITCODE -ne 0) { exit 1 }
+              git diff --quiet $expectedSha -- packages/engine
+              if ($LASTEXITCODE -ne 0) {
+                throw "main's engine packaging inputs differ from the immutable v1.5.1 tag"
+              }
+            } finally {
+              Pop-Location
+            }
+
+            python scripts\build_installer.py --stage-only
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            python scripts\verify_install.py dist\staging
+            if ($LASTEXITCODE -ne 0) { exit 1 }
           } finally {
             Pop-Location
           }
+
+          $stagingRoot = (Resolve-Path packages\engine\dist\staging).Path
+          $manifestPath = Join-Path $env:RUNNER_TEMP "tq-v151-engine-staging.manifest.json"
+          $manifest = @(
+            Get-ChildItem -LiteralPath $stagingRoot -Recurse -File |
+              Sort-Object FullName |
+              ForEach-Object {
+                [ordered]@{
+                  path = $_.FullName.Substring($stagingRoot.Length + 1).Replace("\", "/")
+                  size = $_.Length
+                  sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+              }
+          )
+          if ($manifest.Count -eq 0) { throw "exact-tag engine staging manifest is empty" }
+          ConvertTo-Json -InputObject $manifest -Depth 4 -Compress | Set-Content -LiteralPath $manifestPath -Encoding utf8
+          $manifestHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          $realCargo = (Get-Command cargo.exe -ErrorAction Stop).Source
+          $wrapperRoot = Join-Path $env:RUNNER_TEMP "tq-v151-cargo-wrapper"
+          New-Item -ItemType Directory -Path $wrapperRoot | Out-Null
+          $ensurePath = Join-Path $wrapperRoot "ensure-engine-staging.ps1"
+          $cargoWrapper = Join-Path $wrapperRoot "cargo.cmd"
+          Copy-Item -LiteralPath scripts\release-runner\ensure-engine-staging.ps1 -Destination $ensurePath
+          Copy-Item -LiteralPath scripts\release-runner\cargo.cmd -Destination $cargoWrapper
+
+          "TQ_EXACT_ENGINE_STAGING=$stagingRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TQ_ENGINE_STAGING_MANIFEST=$manifestPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TQ_ENGINE_STAGING_MANIFEST_SHA256=$manifestHash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TQ_REAL_CARGO=$realCargo" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TQ_CARGO_WRAPPER_ROOT=$wrapperRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TQ_NESTED_ENGINE_STAGING_LINK=C:\tqr\_w\TinkerQuarry\TinkerQuarry\packages\engine\dist\staging" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TQ_ENGINE_STAGING_INJECTION_RECEIPT=C:\tq-provision\engine-staging-injection.json" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           python -m pip cache purge
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
@@ -373,14 +429,22 @@ jobs:
             # run/attempt/ref/SHA/workflow/job selected above. A wrong job gets no steps.
             $hookPath = "C:\tq-provision\assert-exact-release-job.ps1"
             $receiptPath = "C:\tq-provision\accepted-release-job.json"
+            $injectionReceiptPath = "C:\tq-provision\engine-staging-injection.json"
             if (Test-Path $receiptPath) { throw "unexpected pre-existing release assignment receipt" }
+            if (Test-Path $injectionReceiptPath) { throw "unexpected pre-existing engine staging receipt" }
             $hook = @'
           $expectedRunId = "__RUN_ID__"
           $expectedRunAttempt = "__RUN_ATTEMPT__"
           $expectedSha = "ea75c5eb14a8da1e63d4f34aa84d8a6d3735eef8"
           $expectedRef = "refs/tags/v1.5.1"
           $problems = @()
+          $expectedCargoWrapper = Join-Path $env:TQ_CARGO_WRAPPER_ROOT "cargo.cmd"
+          $cargoCommand = Get-Command cargo -ErrorAction SilentlyContinue
           if ($env:GH_TOKEN) { $problems += "outer_actions_token" }
+          if (
+            -not $cargoCommand -or
+            [IO.Path]::GetFullPath($cargoCommand.Source) -ne [IO.Path]::GetFullPath($expectedCargoWrapper)
+          ) { $problems += "cargo_wrapper" }
           if ($env:GITHUB_RUN_ID -ne $expectedRunId) { $problems += "run_id" }
           if ($env:GITHUB_RUN_ATTEMPT -ne $expectedRunAttempt) { $problems += "run_attempt" }
           if ($env:GITHUB_SHA -ne $expectedSha) { $problems += "sha" }
@@ -411,6 +475,12 @@ jobs:
             # immutable-tag job or any of its package scripts inherit that authority.
             $controlToken = $env:GH_TOKEN
             if (-not $controlToken) { throw "outer Actions control token is absent" }
+            $env:PATH = "$env:TQ_CARGO_WRAPPER_ROOT;$env:PATH"
+            $selectedCargo = (Get-Command cargo -ErrorAction Stop).Source
+            $expectedCargo = Join-Path $env:TQ_CARGO_WRAPPER_ROOT "cargo.cmd"
+            if ([IO.Path]::GetFullPath($selectedCargo) -ne [IO.Path]::GetFullPath($expectedCargo)) {
+              throw "exact-tag Cargo staging wrapper did not win command resolution"
+            }
             Remove-Item Env:GH_TOKEN
             try {
               .\run.cmd
@@ -433,6 +503,47 @@ jobs:
               $receipt.job -ne "windows-release-gate"
             ) {
               throw "release assignment receipt does not match the exact selected job"
+            }
+
+            if (-not (Test-Path $injectionReceiptPath)) {
+              throw "exact release job never injected the verified engine staging tree"
+            }
+            $injection = Get-Content -LiteralPath $injectionReceiptPath -Raw | ConvertFrom-Json
+            $expectedStaging = (Resolve-Path -LiteralPath $env:TQ_EXACT_ENGINE_STAGING).Path
+            $expectedLink = "C:\tqr\_w\TinkerQuarry\TinkerQuarry\packages\engine\dist\staging"
+            if (
+              "$($injection.run_id)" -ne $env:EXPECTED_RELEASE_GATE_RUN_ID -or
+              "$($injection.run_attempt)" -ne $env:EXPECTED_RELEASE_GATE_RUN_ATTEMPT -or
+              $injection.sha -ne $expectedSha -or
+              $injection.ref -ne $expectedRef -or
+              $injection.source -ne $expectedStaging -or
+              $injection.link -ne $expectedLink -or
+              $injection.manifest_sha256 -ne $env:TQ_ENGINE_STAGING_MANIFEST_SHA256
+            ) {
+              throw "engine staging injection receipt does not match the exact selected job and tree"
+            }
+            $linkItem = Get-Item -LiteralPath $expectedLink -Force
+            $linkTarget = [IO.Path]::GetFullPath([string]@($linkItem.Target)[0])
+            if ($linkItem.LinkType -ne "Junction" -or $linkTarget -ne [IO.Path]::GetFullPath($expectedStaging)) {
+              throw "engine staging injection junction changed during the exact release job"
+            }
+
+            $postManifestPath = Join-Path $env:RUNNER_TEMP "tq-v151-engine-staging.post.manifest.json"
+            $postManifest = @(
+              Get-ChildItem -LiteralPath $expectedStaging -Recurse -File |
+                Sort-Object FullName |
+                ForEach-Object {
+                  [ordered]@{
+                    path = $_.FullName.Substring($expectedStaging.Length + 1).Replace("\", "/")
+                    size = $_.Length
+                    sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                  }
+                }
+            )
+            ConvertTo-Json -InputObject $postManifest -Depth 4 -Compress | Set-Content -LiteralPath $postManifestPath -Encoding utf8
+            $postManifestHash = (Get-FileHash -LiteralPath $postManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($postManifestHash -ne $env:TQ_ENGINE_STAGING_MANIFEST_SHA256) {
+              throw "verified exact-tag engine staging tree changed while the release artifact was built"
             }
 
             $proved = $false
