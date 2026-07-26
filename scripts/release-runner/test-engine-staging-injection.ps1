@@ -143,3 +143,8 @@ exit /b 23
         Remove-Item -LiteralPath $resolvedFixtureRoot -Recurse -Force
     }
 }
+
+# The negative fixtures intentionally invoke failing child processes. PowerShell
+# otherwise leaks the last native exit code at script EOF even after every
+# assertion and cleanup passes.
+exit 0
