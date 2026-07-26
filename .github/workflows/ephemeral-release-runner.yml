@@ -380,6 +380,7 @@ jobs:
           $expectedSha = "ea75c5eb14a8da1e63d4f34aa84d8a6d3735eef8"
           $expectedRef = "refs/tags/v1.5.1"
           $problems = @()
+          if ($env:GH_TOKEN) { $problems += "outer_actions_token" }
           if ($env:GITHUB_RUN_ID -ne $expectedRunId) { $problems += "run_id" }
           if ($env:GITHUB_RUN_ATTEMPT -ne $expectedRunAttempt) { $problems += "run_attempt" }
           if ($env:GITHUB_SHA -ne $expectedSha) { $problems += "sha" }
@@ -406,8 +407,18 @@ jobs:
             $env:ACTIONS_RUNNER_HOOK_JOB_STARTED = $hookPath
 
             Set-Location $env:TQ_RUNNER_ROOT
-            .\run.cmd
-            if ($LASTEXITCODE -ne 0) { exit 1 }
+            # The control-plane token can rerun workflows. Never let the nested,
+            # immutable-tag job or any of its package scripts inherit that authority.
+            $controlToken = $env:GH_TOKEN
+            if (-not $controlToken) { throw "outer Actions control token is absent" }
+            Remove-Item Env:GH_TOKEN
+            try {
+              .\run.cmd
+              $runnerExitCode = $LASTEXITCODE
+            } finally {
+              $env:GH_TOKEN = $controlToken
+            }
+            if ($runnerExitCode -ne 0) { exit 1 }
 
             if (-not (Test-Path $receiptPath)) {
               throw "one-job runner exited without accepting the exact release assignment"

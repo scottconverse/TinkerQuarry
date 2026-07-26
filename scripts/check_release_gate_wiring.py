@@ -28,7 +28,8 @@ This script enforces six properties. Each one fails loudly and specifically:
      triggered by a pull-request event from untrusted fork code. The temporary
      runner bootstrap stays manual-only, isolates its one-hour registration secret
      to the ephemeral configuration step, queues one exact rerun itself, installs an
-     exact-job start hook, and proves that assignment completed on its named runner.
+     exact-job start hook, withholds its actions:write control token from nested code,
+     and proves that assignment completed on its named runner.
 
 Run it:  python scripts/check_release_gate_wiring.py
 Exit 0 = wired. Exit 1 = a specific, named property is broken (printed).
@@ -664,11 +665,27 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
                 "if ($env:RUNNER_TOKEN)",
                 "prove the registration token is absent before the listener starts",
             ),
+            (
+                'if ($env:GH_TOKEN) { $problems += "outer_actions_token" }',
+                "make the pre-job hook reject an inherited bootstrap control token",
+            ),
         ):
             if token not in bootstrap_exe:
                 problems.append(
                     f"F. ephemeral runner bootstrap does not {why}; `{token}` is absent."
                 )
+
+        control_save = bootstrap_exe.find("$controlToken = $env:GH_TOKEN")
+        control_remove = bootstrap_exe.find("Remove-Item Env:GH_TOKEN")
+        listener_start = bootstrap_exe.find(".\\run.cmd")
+        control_restore = bootstrap_exe.find("$env:GH_TOKEN = $controlToken")
+        if not (
+            0 <= control_save < control_remove < listener_start < control_restore
+        ):
+            problems.append(
+                "F. the actions:write bootstrap token must be saved, removed before "
+                "`run.cmd`, and restored only after the nested one-job listener exits."
+            )
 
 
 def main() -> int:
