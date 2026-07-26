@@ -10,6 +10,8 @@ $sourceWrapper = Join-Path $scriptRoot "cargo.cmd"
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $fixtureRoot = Join-Path $tempBase ("tq-engine-staging-fixture-" + [Guid]::NewGuid().ToString("N"))
 $source = Join-Path $fixtureRoot "source"
+$tagWorkspace = Join-Path $fixtureRoot "tag-workspace"
+$controlRunnerRoot = Join-Path $fixtureRoot "control-checkout\scripts\release-runner"
 $wrapperRoot = Join-Path $fixtureRoot "wrapper"
 $nestedLink = Join-Path $fixtureRoot "nested\packages\engine\dist\staging"
 $receiptPath = Join-Path $fixtureRoot "receipt.json"
@@ -40,11 +42,18 @@ function Write-Manifest {
 
 try {
     New-Item -ItemType Directory -Path (Join-Path $source "python") -Force | Out-Null
+    New-Item -ItemType Directory -Path $tagWorkspace -Force | Out-Null
+    New-Item -ItemType Directory -Path $controlRunnerRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $wrapperRoot -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $source "python\python.exe") -Value "fixture-python" -Encoding ascii
     Set-Content -LiteralPath (Join-Path $source "payload.txt") -Value "exact-payload" -Encoding ascii
-    Copy-Item -LiteralPath $sourceHelper -Destination (Join-Path $wrapperRoot "ensure-engine-staging.ps1")
-    Copy-Item -LiteralPath $sourceWrapper -Destination (Join-Path $wrapperRoot "cargo.cmd")
+    if (Test-Path -LiteralPath (Join-Path $tagWorkspace "scripts\release-runner")) {
+        throw "tag-workspace fixture unexpectedly contains post-tag runner controls"
+    }
+    Copy-Item -LiteralPath $sourceHelper -Destination (Join-Path $controlRunnerRoot "ensure-engine-staging.ps1")
+    Copy-Item -LiteralPath $sourceWrapper -Destination (Join-Path $controlRunnerRoot "cargo.cmd")
+    Copy-Item -LiteralPath (Join-Path $controlRunnerRoot "ensure-engine-staging.ps1") -Destination (Join-Path $wrapperRoot "ensure-engine-staging.ps1")
+    Copy-Item -LiteralPath (Join-Path $controlRunnerRoot "cargo.cmd") -Destination (Join-Path $wrapperRoot "cargo.cmd")
     @'
 @echo off
 if not "%~1"=="fixture-arg" exit /b 22

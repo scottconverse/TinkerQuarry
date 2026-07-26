@@ -52,6 +52,17 @@ jobs:
         with:
           ref: v1.5.1
 
+      # The product/build tree above must stay on the protected tag. The temporary
+      # runner controls were added later, so fetch only those reviewed files from
+      # this workflow run's own immutable head into a separate nested checkout.
+      - name: Checkout audited bootstrap controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .tq-bootstrap-control
+          sparse-checkout: scripts/release-runner
+          persist-credentials: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -215,7 +226,7 @@ jobs:
               if ($LASTEXITCODE -ne 0) { exit 1 }
               git diff --quiet $expectedSha -- packages/engine
               if ($LASTEXITCODE -ne 0) {
-                throw "main's engine packaging inputs differ from the immutable v1.5.1 tag"
+                throw "checked-out engine packaging inputs differ from the immutable v1.5.1 tag"
               }
             } finally {
               Pop-Location
@@ -251,8 +262,17 @@ jobs:
           New-Item -ItemType Directory -Path $wrapperRoot | Out-Null
           $ensurePath = Join-Path $wrapperRoot "ensure-engine-staging.ps1"
           $cargoWrapper = Join-Path $wrapperRoot "cargo.cmd"
-          Copy-Item -LiteralPath scripts\release-runner\ensure-engine-staging.ps1 -Destination $ensurePath
-          Copy-Item -LiteralPath scripts\release-runner\cargo.cmd -Destination $cargoWrapper
+          $controlRoot = (Resolve-Path .tq-bootstrap-control).Path
+          $controlSha = (git -C $controlRoot rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $controlSha -ne "${{ github.sha }}") {
+            throw "bootstrap controls are not from this workflow run's exact head"
+          }
+          $controlStatus = git -C $controlRoot status --porcelain
+          if ($LASTEXITCODE -ne 0 -or $controlStatus) {
+            throw "bootstrap control checkout is not clean"
+          }
+          Copy-Item -LiteralPath .tq-bootstrap-control\scripts\release-runner\ensure-engine-staging.ps1 -Destination $ensurePath
+          Copy-Item -LiteralPath .tq-bootstrap-control\scripts\release-runner\cargo.cmd -Destination $cargoWrapper
 
           "TQ_EXACT_ENGINE_STAGING=$stagingRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "TQ_ENGINE_STAGING_MANIFEST=$manifestPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8

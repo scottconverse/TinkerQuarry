@@ -618,6 +618,38 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             )
 
         steps = bootstrap.get("steps") or []
+        checkout_steps = [
+            (index, step)
+            for index, step in enumerate(steps)
+            if isinstance(step, dict)
+            and str(step.get("uses", "")).startswith("actions/checkout@")
+        ]
+        tag_checkouts = [
+            (index, step)
+            for index, step in checkout_steps
+            if (step.get("with") or {}).get("ref") == "v1.5.1"
+            and not (step.get("with") or {}).get("path")
+        ]
+        control_checkouts = [
+            (index, step)
+            for index, step in checkout_steps
+            if (step.get("with") or {}).get("ref") == "${{ github.sha }}"
+            and (step.get("with") or {}).get("path") == ".tq-bootstrap-control"
+            and (step.get("with") or {}).get("sparse-checkout")
+            == "scripts/release-runner"
+            and (step.get("with") or {}).get("persist-credentials") is False
+        ]
+        if (
+            len(tag_checkouts) != 1
+            or len(control_checkouts) != 1
+            or tag_checkouts[0][0] >= control_checkouts[0][0]
+        ):
+            problems.append(
+                "F. bootstrap must first check out immutable v1.5.1 as the product "
+                "tree, then sparsely check out runner controls from `${{ github.sha }}` "
+                "under `.tq-bootstrap-control` without persisted credentials."
+            )
+
         token_steps = [
             step
             for step in steps
@@ -713,6 +745,18 @@ def check_f_self_hosted_scope(problems: list[str]) -> None:
             (
                 "TQ_ENGINE_STAGING_MANIFEST_SHA256",
                 "bind the injected engine tree to a complete pre-build file manifest",
+            ),
+            (
+                '$controlSha = (git -C $controlRoot rev-parse HEAD).Trim()',
+                "resolve the separate bootstrap-control checkout before copying helpers",
+            ),
+            (
+                '$controlSha -ne "${{ github.sha }}"',
+                "bind the copied bootstrap controls to this workflow run's exact reviewed head",
+            ),
+            (
+                ".tq-bootstrap-control\\scripts\\release-runner\\ensure-engine-staging.ps1",
+                "copy the injection helper from the audited control checkout, not the older tag",
             ),
             (
                 'New-Item -ItemType Junction -Path $link -Target $source',
