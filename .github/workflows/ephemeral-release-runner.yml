@@ -80,7 +80,10 @@ jobs:
         run: |
           $runnerVersion = "2.336.0"
           $runnerSha256 = "d59123a43003e357b0805b5d0f611d0bd2f65ab67d51bd070dd4e7a0f685c162"
-          $runnerRoot = Join-Path $env:RUNNER_TEMP "tq-ephemeral-runner"
+          # Keep the nested runner checkout short. The native Windows bundle has a known
+          # path-length constraint; placing _work under RUNNER_TEMP would add the outer
+          # runner's already-deep path before every Rust/Tauri artifact.
+          $runnerRoot = "C:\tqr"
           $archive = Join-Path $env:RUNNER_TEMP "actions-runner-win-x64-$runnerVersion.zip"
           $uri = "https://github.com/actions/runner/releases/download/v$runnerVersion/actions-runner-win-x64-$runnerVersion.zip"
           Invoke-WebRequest -Uri $uri -OutFile $archive
@@ -100,7 +103,7 @@ jobs:
           if (-not $env:RUNNER_TOKEN) { throw "TQ_EPHEMERAL_RUNNER_TOKEN is not set" }
           Set-Location $env:TQ_RUNNER_ROOT
           $runnerName = "tq-v151-$env:GITHUB_RUN_ID"
-          .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral"
+          .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral" --work "_w"
           if ($LASTEXITCODE -ne 0) { exit 1 }
           .\run.cmd
           if ($LASTEXITCODE -ne 0) { exit 1 }
