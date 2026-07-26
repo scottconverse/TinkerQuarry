@@ -1,0 +1,114 @@
+name: Ephemeral release runner bootstrap
+
+# Temporary release-recovery workflow for v1.5.1. It provisions one clean
+# GitHub-hosted Windows VM as a one-job, repository-scoped self-hosted runner so
+# the immutable v1.5.1 tag can execute its existing [self-hosted, Windows, X64]
+# release gate. The runner auto-deregisters after one job. Remove this workflow
+# after the signed release closes.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    name: Provision one-job v1.5.1 release runner
+    runs-on: windows-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.5.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Use a node-gyp that knows the hosted Visual Studio image
+        shell: pwsh
+        run: |
+          npm install -g node-gyp@latest
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $gyp = Join-Path (npm root -g) "node-gyp\bin\node-gyp.js"
+          if (-not (Test-Path $gyp)) { throw "node-gyp not found at $gyp" }
+          "npm_config_node_gyp=$gyp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Pre-provision the v1.5.1 engine test environment
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r packages/engine/requirements.lock
+          python -m pip install -e "packages/engine[dev]"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Pre-provision cargo-audit
+        shell: pwsh
+        run: |
+          if (-not (Get-Command cargo-audit -ErrorAction SilentlyContinue)) {
+            cargo install cargo-audit --locked
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          cargo audit --version
+
+      - name: Attest the hosted build substrate
+        shell: pwsh
+        run: |
+          $vsDevCmd = @(
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat",
+            "$env:ProgramFiles\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat",
+            "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $vsDevCmd) { throw "Visual Studio 2022 VsDevCmd.bat is absent" }
+          [ordered]@{
+            os = [Environment]::OSVersion.VersionString
+            arch = $env:PROCESSOR_ARCHITECTURE
+            vs_dev_cmd = $vsDevCmd
+            python = (python --version 2>&1 | Out-String).Trim()
+            node = (node --version 2>&1 | Out-String).Trim()
+            rust = (rustc --version 2>&1 | Out-String).Trim()
+            cargo_audit = (cargo audit --version 2>&1 | Out-String).Trim()
+          } | ConvertTo-Json
+
+      - name: Download and verify the official ephemeral runner
+        shell: pwsh
+        run: |
+          $runnerVersion = "2.336.0"
+          $runnerSha256 = "d59123a43003e357b0805b5d0f611d0bd2f65ab67d51bd070dd4e7a0f685c162"
+          $runnerRoot = Join-Path $env:RUNNER_TEMP "tq-ephemeral-runner"
+          $archive = Join-Path $env:RUNNER_TEMP "actions-runner-win-x64-$runnerVersion.zip"
+          $uri = "https://github.com/actions/runner/releases/download/v$runnerVersion/actions-runner-win-x64-$runnerVersion.zip"
+          Invoke-WebRequest -Uri $uri -OutFile $archive
+          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $runnerSha256) {
+            throw "runner archive SHA-256 mismatch: expected $runnerSha256, got $actual"
+          }
+          New-Item -ItemType Directory -Force $runnerRoot | Out-Null
+          Expand-Archive -LiteralPath $archive -DestinationPath $runnerRoot
+          "TQ_RUNNER_ROOT=$runnerRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Register one-job runner and wait for the release gate
+        shell: pwsh
+        env:
+          RUNNER_TOKEN: ${{ secrets.TQ_EPHEMERAL_RUNNER_TOKEN }}
+        run: |
+          if (-not $env:RUNNER_TOKEN) { throw "TQ_EPHEMERAL_RUNNER_TOKEN is not set" }
+          Set-Location $env:TQ_RUNNER_ROOT
+          $runnerName = "tq-v151-$env:GITHUB_RUN_ID"
+          .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          .\run.cmd
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Upload runner diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.5.1-ephemeral-runner-diagnostics
+          path: ${{ env.TQ_RUNNER_ROOT }}\_diag\**
+          if-no-files-found: warn

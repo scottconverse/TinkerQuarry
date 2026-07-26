@@ -36,8 +36,12 @@ jobs:
     permissions:
       contents: read
       actions: read
+    outputs:
+      tag_commit_sha: ${{ steps.proof.outputs.tag_commit_sha }}
+      release_gate_url: ${{ steps.proof.outputs.release_gate_url }}
     steps:
       - name: Require a successful release-gate run at the tag's exact commit
+        id: proof
         # Skipped for the no-tag smoke test, which signs a scratch exe and touches no release.
         if: inputs.release-tag != ''
         shell: bash
@@ -79,6 +83,7 @@ jobs:
           # commit — main, a branch, last week's tag — proves nothing about what is about to
           # be signed, which is exactly how a stale proof would sneak through.
           runs=0
+          proof_url=""
           for candidate in $sha $tag_obj; do
             # shellcheck disable=SC2059
             url=$(printf "$runs_url" "$candidate")
@@ -88,6 +93,9 @@ jobs:
             fi
             echo "successful release-gate runs at $candidate: $n"
             runs=$((runs + n))
+            if [ "$n" -gt 0 ] && [ -z "$proof_url" ]; then
+              proof_url=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | sort_by(.created_at) | reverse | .[0].html_url')
+            fi
           done
           echo "successful release-gate runs for tag $TAG (either sha): $runs"
 
@@ -99,7 +107,14 @@ jobs:
             exit 1
           fi
 
-          echo "release-gate proof found for $TAG ($sha) - proceeding to sign."
+          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ]; then
+            echo "::error::A successful release-gate run was counted but its URL could not be resolved. Refusing to emit an untraceable proof."
+            exit 1
+          fi
+
+          echo "tag_commit_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "release_gate_url=$proof_url" >> "$GITHUB_OUTPUT"
+          echo "release-gate proof found for $TAG ($sha): $proof_url"
 
   sign:
     needs: release-gate-proof
@@ -201,6 +216,8 @@ jobs:
           TAG: ${{ inputs.release-tag }}
           EXE: ${{ steps.get.outputs.exe }}
           EXE_NAME: ${{ steps.get.outputs.exe_name }}
+          PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
+          PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
         run: |
           $name = $env:EXE_NAME
           $hash = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLower()
@@ -221,6 +238,18 @@ jobs:
           [IO.File]::WriteAllLines("$PWD\artifacts\SHA256SUMS.txt", $sums)
 
           $m = Get-Content artifacts\release-manifest.json -Raw | ConvertFrom-Json
+          if ($m.commit -ne $env:PROOF_SHA) {
+            Write-Error "release manifest commit '$($m.commit)' does not match proven tag commit '$env:PROOF_SHA'"
+            exit 1
+          }
+          if ($m.tag -ne $env:TAG) {
+            Write-Error "release manifest tag '$($m.tag)' does not match requested tag '$env:TAG'"
+            exit 1
+          }
+          if (-not $env:PROOF_URL) {
+            Write-Error "release-gate proof URL is empty"
+            exit 1
+          }
           $updated = 0
           foreach ($a in $m.artifacts) { if ($a.file -eq $name) { $a.sha256 = $hash; $updated++ } }
           if ($updated -ne 1) {
@@ -228,8 +257,70 @@ jobs:
             exit 1
           }
           $m.unsigned_build = $false
+          $m.release_gate = "GitHub Actions Release Gate passed for $env:PROOF_SHA`: $env:PROOF_URL"
+          $m | Add-Member -NotePropertyName signing -NotePropertyValue ([pscustomobject]@{
+            provider = "Azure Trusted Signing"
+            digest = "SHA256"
+            timestamp = "RFC3161/SHA256"
+            authenticode_verified = $true
+            timestamp_verified = $true
+            signed_at = (Get-Date).ToUniversalTime().ToString("o")
+          }) -Force
           [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
 
           gh release upload $env:TAG $env:EXE artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Write-Host "signed $name  sha256=$hash"
+
+      - name: Verify exact published release assets
+        if: inputs.release-tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+          EXE_NAME: ${{ steps.get.outputs.exe_name }}
+          PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
+          PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
+        run: |
+          New-Item -ItemType Directory -Force published | Out-Null
+          gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --pattern SHA256SUMS.txt --pattern release-manifest.json --dir published
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          $publishedExes = @(Get-ChildItem published -Filter *.exe)
+          if ($publishedExes.Count -ne 1 -or $publishedExes[0].Name -ne $env:EXE_NAME) {
+            Write-Error "expected exactly the published installer '$env:EXE_NAME', found: $($publishedExes.Name -join ', ')"
+            exit 1
+          }
+          $publishedExe = $publishedExes[0]
+          $publishedHash = (Get-FileHash $publishedExe.FullName -Algorithm SHA256).Hash.ToLower()
+          $publishedManifest = Get-Content published\release-manifest.json -Raw | ConvertFrom-Json
+          $publishedEntry = @($publishedManifest.artifacts | Where-Object { $_.file -eq $publishedExe.Name })
+          $publishedSum = @(Get-Content published\SHA256SUMS.txt | Where-Object { ($_ -split '\s+', 2)[1] -eq $publishedExe.Name })
+
+          if ($publishedEntry.Count -ne 1 -or $publishedEntry[0].sha256 -ne $publishedHash) {
+            Write-Error "published manifest hash does not match the published installer"
+            exit 1
+          }
+          if ($publishedSum.Count -ne 1 -or ($publishedSum[0] -split '\s+', 2)[0] -ne $publishedHash) {
+            Write-Error "published SHA256SUMS.txt does not match the published installer"
+            exit 1
+          }
+          if ($publishedManifest.commit -ne $env:PROOF_SHA -or $publishedManifest.tag -ne $env:TAG) {
+            Write-Error "published manifest identity does not match the proven tag"
+            exit 1
+          }
+          if ($publishedManifest.unsigned_build -ne $false -or $publishedManifest.release_gate -notlike "*$env:PROOF_URL*") {
+            Write-Error "published manifest does not carry the signed posture and exact release-gate proof URL"
+            exit 1
+          }
+
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          $out = & $signtool.FullName verify /pa /v $publishedExe.FullName 2>&1 | Out-String
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { Write-Error "published installer signature verification failed"; exit 1 }
+          if ($out -notmatch 'The signature is timestamped') {
+            Write-Error "published installer signature verified but no timestamp was found"
+            exit 1
+          }
+          Write-Host "published signed installer verified: $($publishedExe.Name) sha256=$publishedHash"

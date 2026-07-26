@@ -7,7 +7,7 @@ for the entire life of the repo - the full release proof had never once run in G
 Actions. Every release shipped on a human remembering to run ``pnpm test:release`` locally.
 Nothing anywhere said so, so a green CI badge read as "proven".
 
-This script enforces four properties. Each one fails loudly and specifically:
+This script enforces five properties. Each one fails loudly and specifically:
 
   A. release-gate.yml has a real *automatic* trigger (a schedule and/or a tag push),
      not workflow_dispatch alone.
@@ -20,6 +20,10 @@ This script enforces four properties. Each one fails loudly and specifically:
      ci.yml. Rename or delete that step -> red. A claim of coverage has to stay true.
   D. The release path (sign-installer.yml) refuses to sign a tag unless a *successful*
      release-gate run exists for that tag's exact commit.
+  E. Signing preserves the proof chain after it mutates the published artifact: the
+     manifest identity is checked against the proven tag, stale unsigned gate text is
+     replaced with the successful run URL, and the uploaded asset is downloaded again
+     for independent hash and Authenticode verification.
 
 Run it:  python scripts/check_release_gate_wiring.py
 Exit 0 = wired. Exit 1 = a specific, named property is broken (printed).
@@ -366,9 +370,56 @@ def check_d_release_path_gated(problems: list[str]) -> None:
         )
 
 
+def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
+    sign = load_workflow(SIGN_YML)
+    jobs = sign.get("jobs") or {}
+    proof = jobs.get(PROOF_JOB_ID)
+    signing = jobs.get("sign")
+    if not isinstance(proof, dict) or not isinstance(signing, dict):
+        return  # Check D owns the missing-job diagnostics.
+
+    proof_exe = _executable_step_text(proof)
+    for token, why in (
+        ("GITHUB_OUTPUT", "export machine-readable proof outputs"),
+        ("tag_commit_sha", "export the exact proven tag commit"),
+        ("release_gate_url", "export the successful release-gate run URL"),
+    ):
+        if token not in proof_exe:
+            problems.append(
+                f"E. `{PROOF_JOB_ID}` does not {why} (`{token}` is absent from executable "
+                "steps). The signing job cannot bind its manifest update to the proof it found."
+            )
+
+    sign_exe = _executable_step_text(signing)
+    required_signing_tokens = (
+        ("PROOF_SHA", "consume the exact proven tag commit"),
+        ("PROOF_URL", "consume the successful release-gate run URL"),
+        ("$m.commit", "read the manifest's source commit before upload"),
+        ("$m.tag", "read the manifest's tag before upload"),
+        ("unsigned_build = $false", "mark the signed artifact as signed"),
+        ("$m.release_gate", "replace the stale release-gate narrative"),
+        ("gh release upload", "publish the signed installer and revised metadata"),
+        ("published", "use a distinct post-upload download directory"),
+        ("gh release download", "download the published assets again after upload"),
+        ("Get-FileHash", "derive the published installer's hash independently"),
+        ("signtool", "verify Authenticode on the published installer"),
+    )
+    for token, why in required_signing_tokens:
+        if token not in sign_exe:
+            problems.append(
+                f"E. sign job does not {why} (`{token}` is absent from executable steps). "
+                "A pre-upload green check cannot prove the final public artifact."
+            )
+
+
 def main() -> int:
     problems: list[str] = []
-    checks = (check_a_automatic_trigger, check_b_and_c_coverage_map, check_d_release_path_gated)
+    checks = (
+        check_a_automatic_trigger,
+        check_b_and_c_coverage_map,
+        check_d_release_path_gated,
+        check_e_signed_artifact_evidence_chain,
+    )
     for check in checks:
         try:
             check(problems)
