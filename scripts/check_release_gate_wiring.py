@@ -7,7 +7,7 @@ for the entire life of the repo - the full release proof had never once run in G
 Actions. Every release shipped on a human remembering to run ``pnpm test:release`` locally.
 Nothing anywhere said so, so a green CI badge read as "proven".
 
-This script enforces five properties. Each one fails loudly and specifically:
+This script enforces six properties. Each one fails loudly and specifically:
 
   A. release-gate.yml has a real *automatic* trigger (a schedule and/or a tag push),
      not workflow_dispatch alone.
@@ -24,6 +24,10 @@ This script enforces five properties. Each one fails loudly and specifically:
      manifest identity is checked against the proven tag, stale unsigned gate text is
      replaced with the successful run URL, and the uploaded asset is downloaded again
      for independent hash and Authenticode verification.
+  F. The only executable self-hosted job is the release gate, and it cannot be
+     triggered by a pull-request event from untrusted fork code. The temporary
+     runner bootstrap stays manual-only, isolates its one-hour registration secret
+     to the ephemeral configuration step, and installs an exact-job start hook.
 
 Run it:  python scripts/check_release_gate_wiring.py
 Exit 0 = wired. Exit 1 = a specific, named property is broken (printed).
@@ -46,6 +50,7 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 CI_YML = WORKFLOWS / "ci.yml"
 RELEASE_GATE_YML = WORKFLOWS / "release-gate.yml"
 SIGN_YML = WORKFLOWS / "sign-installer.yml"
+EPHEMERAL_RUNNER_YML = WORKFLOWS / "ephemeral-release-runner.yml"
 PACKAGE_JSON = REPO_ROOT / "package.json"
 
 # The marked comment blocks the two workflows carry. Kept as comments (not YAML keys) so
@@ -384,6 +389,8 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("tag_commit_sha", "export the exact proven tag commit"),
         ("release_gate_url", "export the successful release-gate run URL"),
         ("release_gate_run_id", "export the successful release-gate run ID"),
+        ("release_gate_run_attempt", "export the successful release-gate run attempt"),
+        ("run_json", "derive proof fields from one API response snapshot"),
     ):
         if token not in proof_exe:
             problems.append(
@@ -396,6 +403,7 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("PROOF_SHA", "consume the exact proven tag commit"),
         ("PROOF_URL", "consume the successful release-gate run URL"),
         ("PROOF_RUN_ID", "consume the successful release-gate run ID"),
+        ("PROOF_RUN_ATTEMPT", "consume the successful release-gate run attempt"),
         ("gh run download", "obtain the installer from the successful release-gate run"),
         (
             "tinkerquarry-windows-release-artifacts",
@@ -404,6 +412,9 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
         ("$m.commit", "read the manifest's source commit before upload"),
         ("$m.tag", "read the manifest's tag before upload"),
         ("source_unsigned_sha256", "record the exact gated bytes that were signed"),
+        ("EXPECTED_SIGNED_SHA256", "carry the exact pre-upload signed hash into publication verification"),
+        ("EXPECTED_SIGNER_SUBJECT", "pin the expected Azure Trusted Signing identity"),
+        ("Resolve-ProvenTagCommit", "re-resolve the release tag at publication time"),
         ("unsigned_build = $false", "mark the signed artifact as signed"),
         ("$m.release_gate", "replace the stale release-gate narrative"),
         ("gh release upload", "publish the signed installer and revised metadata"),
@@ -419,6 +430,178 @@ def check_e_signed_artifact_evidence_chain(problems: list[str]) -> None:
                 "A pre-upload green check cannot prove the final public artifact."
             )
 
+    if proof_exe.count('gh api "$url"') != 1:
+        problems.append(
+            "E. release proof must derive count, URL, run ID, and attempt from exactly one "
+            "`gh api \"$url\"` response per candidate. Independent queries can bind fields "
+            "from different runs."
+        )
+    for token, why in (
+        ('<<< "$run_json"', "derive proof values from the captured API response"),
+        ("proof_run_id=$(jq", "derive the proof run ID from the selected response object"),
+        (
+            "proof_run_attempt=$(jq",
+            "derive the proof run attempt from the selected response object",
+        ),
+    ):
+        if token not in proof_exe:
+            problems.append(
+                f"E. release proof does not {why}; expected executable dataflow token "
+                f"`{token}`."
+            )
+
+    workflow_concurrency = sign.get("concurrency")
+    if not isinstance(workflow_concurrency, dict) or "sign-installer-" not in str(
+        workflow_concurrency.get("group", "")
+    ):
+        problems.append(
+            "E. sign-installer.yml lacks per-tag publication concurrency. Two signing runs "
+            "could race while replacing the same public assets."
+        )
+
+    exact_hash_check = "$publishedHash -ne $env:EXPECTED_SIGNED_SHA256"
+    if exact_hash_check not in sign_exe:
+        problems.append(
+            "E. post-publication verification does not compare the downloaded installer to "
+            "the exact pre-upload signed SHA-256."
+        )
+
+    upload_pos = sign_exe.find("gh release upload")
+    published_download_pos = sign_exe.rfind("gh release download")
+    if upload_pos < 0 or published_download_pos <= upload_pos:
+        problems.append(
+            "E. the distinct public re-download must execute after `gh release upload`."
+        )
+
+    artifact_download_pos = sign_exe.find("gh run download")
+    run_recheck_pos = sign_exe.find('actions/runs/$env:PROOF_RUN_ID')
+    if run_recheck_pos < 0 or artifact_download_pos <= run_recheck_pos:
+        problems.append(
+            "E. the selected release-gate run identity must be re-queried before its "
+            "artifact is downloaded."
+        )
+
+    for token, why in (
+        (
+            "$tagCommitBeforeUpload = Resolve-ProvenTagCommit",
+            "re-resolve the tag immediately before upload",
+        ),
+        (
+            "$tagCommitAfterUpload = Resolve-ProvenTagCommit",
+            "re-resolve the tag immediately after upload",
+        ),
+        (
+            "$tagCommitAfterVerification = Resolve-ProvenTagCommit",
+            "re-resolve the tag when public verification closes",
+        ),
+        (
+            "$signature.SignerCertificate.Subject -ne $env:EXPECTED_SIGNER_SUBJECT",
+            "enforce the expected signer before publication",
+        ),
+        (
+            "$publishedSignature.SignerCertificate.Subject -ne $env:EXPECTED_SIGNER_SUBJECT",
+            "enforce the expected signer on the public re-download",
+        ),
+        (
+            "signer_subject = $signature.SignerCertificate.Subject",
+            "record the signer identity from the verified certificate",
+        ),
+        (
+            "$publishedManifest.signing.signer_subject -ne "
+            "$publishedSignature.SignerCertificate.Subject",
+            "compare the public signer to the published manifest",
+        ),
+    ):
+        if token not in sign_exe:
+            problems.append(f"E. signing workflow does not {why}; expected `{token}`.")
+
+
+def check_f_self_hosted_scope(problems: list[str]) -> None:
+    executable_self_hosted: list[tuple[Path, str, set[str]]] = []
+    workflow_paths = sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")])
+    for path in workflow_paths:
+        doc = load_workflow(path)
+        trigger = triggers(doc)
+        trigger_names = set(trigger) if isinstance(trigger, dict) else {str(trigger)}
+        for job_id, job in (doc.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            runs_on = job.get("runs-on")
+            labels = runs_on if isinstance(runs_on, list) else [runs_on]
+            if any(str(label).lower() == "self-hosted" for label in labels):
+                executable_self_hosted.append((path, str(job_id), trigger_names))
+
+    expected = [(RELEASE_GATE_YML, "windows-release-gate")]
+    actual = [(path, job_id) for path, job_id, _ in executable_self_hosted]
+    if actual != expected:
+        rendered = ", ".join(f"{p.name}:{j}" for p, j in actual) or "<none>"
+        problems.append(
+            "F. executable self-hosted scope drifted. Expected only "
+            f"`release-gate.yml:windows-release-gate`; found {rendered}."
+        )
+
+    for path, job_id, trigger_set in executable_self_hosted:
+        unsafe = trigger_set & {"pull_request", "pull_request_target"}
+        if unsafe:
+            problems.append(
+                f"F. `{path.name}:{job_id}` is self-hosted but accepts untrusted "
+                f"pull-request trigger(s): {', '.join(sorted(unsafe))}."
+            )
+
+    if EPHEMERAL_RUNNER_YML.exists():
+        bootstrap_doc = load_workflow(EPHEMERAL_RUNNER_YML)
+        bootstrap_triggers = set(triggers(bootstrap_doc))
+        if bootstrap_triggers != {"workflow_dispatch"}:
+            problems.append(
+                "F. ephemeral-release-runner.yml must remain manual-only while it can "
+                "register a repository runner; found triggers "
+                f"{sorted(bootstrap_triggers) or '<none>'}."
+            )
+
+        bootstrap_jobs = bootstrap_doc.get("jobs") or {}
+        bootstrap = bootstrap_jobs.get("bootstrap")
+        if not isinstance(bootstrap, dict) or len(bootstrap_jobs) != 1:
+            problems.append(
+                "F. ephemeral-release-runner.yml must contain exactly its audited "
+                "`bootstrap` job."
+            )
+            return
+
+        steps = bootstrap.get("steps") or []
+        token_steps = [
+            step
+            for step in steps
+            if isinstance(step, dict)
+            and "secrets.TQ_EPHEMERAL_RUNNER_TOKEN" in str(step)
+        ]
+        if len(token_steps) != 1 or "config.cmd --unattended --ephemeral" not in (
+            _executable_step_text({"steps": token_steps}) if token_steps else ""
+        ):
+            problems.append(
+                "F. the ephemeral registration secret must appear in exactly one step, "
+                "and that step must only configure an unattended one-job runner."
+            )
+
+        bootstrap_exe = _executable_step_text(bootstrap)
+        for token, why in (
+            (
+                "EXPECTED_RELEASE_GATE_RUN_ID",
+                "bind startup to an explicitly selected Release Gate run",
+            ),
+            (
+                "ACTIONS_RUNNER_HOOK_JOB_STARTED",
+                "install the fail-closed pre-job identity hook",
+            ),
+            (
+                "if ($env:RUNNER_TOKEN)",
+                "prove the registration token is absent before the listener starts",
+            ),
+        ):
+            if token not in bootstrap_exe:
+                problems.append(
+                    f"F. ephemeral runner bootstrap does not {why}; `{token}` is absent."
+                )
+
 
 def main() -> int:
     problems: list[str] = []
@@ -427,6 +610,7 @@ def main() -> int:
         check_b_and_c_coverage_map,
         check_d_release_path_gated,
         check_e_signed_artifact_evidence_chain,
+        check_f_self_hosted_scope,
     )
     for check in checks:
         try:

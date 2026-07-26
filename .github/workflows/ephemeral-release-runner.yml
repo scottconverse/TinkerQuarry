@@ -8,9 +8,16 @@ name: Ephemeral release runner bootstrap
 
 on:
   workflow_dispatch:
+    inputs:
+      release_gate_run_id:
+        description: "Existing v1.5.1 Release Gate run ID to re-run and bind to this one-job runner"
+        required: true
+        type: string
+        default: "29987927784"
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   bootstrap:
@@ -38,6 +45,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+
+      - name: Download and verify the official ephemeral runner
+        shell: pwsh
+        run: |
+          $runnerVersion = "2.336.0"
+          $runnerSha256 = "d59123a43003e357b0805b5d0f611d0bd2f65ab67d51bd070dd4e7a0f685c162"
+          # Keep the nested runner checkout short. The native Windows bundle has a known
+          # path-length constraint; placing _work under RUNNER_TEMP would add the outer
+          # runner's already-deep path before every Rust/Tauri artifact.
+          $runnerRoot = "C:\tqr"
+          $archive = Join-Path $env:RUNNER_TEMP "actions-runner-win-x64-$runnerVersion.zip"
+          $uri = "https://github.com/actions/runner/releases/download/v$runnerVersion/actions-runner-win-x64-$runnerVersion.zip"
+          Invoke-WebRequest -Uri $uri -OutFile $archive
+          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $runnerSha256) {
+            throw "runner archive SHA-256 mismatch: expected $runnerSha256, got $actual"
+          }
+          if (Test-Path $runnerRoot) { throw "unexpected pre-existing runner root: $runnerRoot" }
+          New-Item -ItemType Directory -Path $runnerRoot | Out-Null
+          Expand-Archive -LiteralPath $archive -DestinationPath $runnerRoot
+          "TQ_RUNNER_ROOT=$runnerRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Register the one-job runner while its token is fresh
+        shell: pwsh
+        env:
+          RUNNER_TOKEN: ${{ secrets.TQ_EPHEMERAL_RUNNER_TOKEN }}
+        run: |
+          if (-not $env:RUNNER_TOKEN) { throw "TQ_EPHEMERAL_RUNNER_TOKEN is not set" }
+          Set-Location $env:TQ_RUNNER_ROOT
+          $runnerName = "tq-v151-$env:GITHUB_RUN_ID"
+          # Registration does not start the listener. The runner stays offline and
+          # cannot accept any job until the fully-provisioned final step calls run.cmd.
+          .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral" --work "_w"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Pre-provision the v1.5.1 engine test environment
         shell: pwsh
@@ -92,7 +133,7 @@ jobs:
 
           $ollamaExe = Join-Path $ollamaRoot "ollama.exe"
           if (-not (Test-Path $ollamaExe)) { throw "pinned portable Ollama was not extracted" }
-          $modelsRoot = Join-Path $env:RUNNER_TEMP "tq-ollama-models"
+          $modelsRoot = Join-Path $provisionRoot "models"
           New-Item -ItemType Directory -Force $modelsRoot | Out-Null
           "TQ_OLLAMA_EXE=$ollamaExe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "OLLAMA_MODELS=$modelsRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -145,6 +186,9 @@ jobs:
             "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $vsDevCmd) { throw "Visual Studio 2022 VsDevCmd.bat is absent" }
+          $cFreeGb = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
+          $tempDrive = [IO.Path]::GetPathRoot($env:RUNNER_TEMP).TrimEnd(':\')
+          $tempFreeGb = [math]::Round((Get-PSDrive $tempDrive).Free / 1GB, 2)
           [ordered]@{
             os = [Environment]::OSVersion.VersionString
             arch = $env:PROCESSOR_ARCHITECTURE
@@ -157,38 +201,27 @@ jobs:
             orcaslicer = Test-Path "$env:KIMCAD_INSTALL_ROOT\tools\orcaslicer\orca-slicer.exe"
             cadquery = (& "$env:KIMCAD_INSTALL_ROOT\.venv-cq313\Scripts\python.exe" -c "import importlib.metadata as m; import cadquery; print(m.version('cadquery'))" 2>&1 | Out-String).Trim()
             ollama = (& $env:TQ_OLLAMA_EXE --version 2>&1 | Out-String).Trim()
-            c_free_gb = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
-            runner_temp_drive_free_gb = [math]::Round((Get-PSDrive ([IO.Path]::GetPathRoot($env:RUNNER_TEMP).TrimEnd(':\'))).Free / 1GB, 2)
+            c_free_gb = $cFreeGb
+            runner_temp_drive_free_gb = $tempFreeGb
           } | ConvertTo-Json
+          if ($cFreeGb -lt 20) {
+            throw "less than 20 GB remains on C: for the nested Rust/Tauri/NSIS build ($cFreeGb GB)"
+          }
+          if ($tempFreeGb -lt 2) {
+            throw "less than 2 GB remains on the outer runner temp drive ($tempFreeGb GB)"
+          }
           python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print('Playwright Chromium launch OK')"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Download and verify the official ephemeral runner
-        shell: pwsh
-        run: |
-          $runnerVersion = "2.336.0"
-          $runnerSha256 = "d59123a43003e357b0805b5d0f611d0bd2f65ab67d51bd070dd4e7a0f685c162"
-          # Keep the nested runner checkout short. The native Windows bundle has a known
-          # path-length constraint; placing _work under RUNNER_TEMP would add the outer
-          # runner's already-deep path before every Rust/Tauri artifact.
-          $runnerRoot = "C:\tqr"
-          $archive = Join-Path $env:RUNNER_TEMP "actions-runner-win-x64-$runnerVersion.zip"
-          $uri = "https://github.com/actions/runner/releases/download/v$runnerVersion/actions-runner-win-x64-$runnerVersion.zip"
-          Invoke-WebRequest -Uri $uri -OutFile $archive
-          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $runnerSha256) {
-            throw "runner archive SHA-256 mismatch: expected $runnerSha256, got $actual"
-          }
-          New-Item -ItemType Directory -Force $runnerRoot | Out-Null
-          Expand-Archive -LiteralPath $archive -DestinationPath $runnerRoot
-          "TQ_RUNNER_ROOT=$runnerRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      - name: Register one-job runner and wait for the release gate
+      - name: Start the provisioned one-job runner and wait for the release gate
         shell: pwsh
         env:
-          RUNNER_TOKEN: ${{ secrets.TQ_EPHEMERAL_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_RELEASE_GATE_RUN_ID: ${{ inputs.release_gate_run_id }}
         run: |
-          if (-not $env:RUNNER_TOKEN) { throw "TQ_EPHEMERAL_RUNNER_TOKEN is not set" }
+          if ($env:RUNNER_TOKEN) {
+            throw "registration token leaked beyond the isolated config step"
+          }
           $env:OLLAMA_HOST = "127.0.0.1:11434"
           $ollamaStdout = Join-Path $env:RUNNER_TEMP "ollama-release-gate.stdout.log"
           $ollamaStderr = Join-Path $env:RUNNER_TEMP "ollama-release-gate.stderr.log"
@@ -206,21 +239,61 @@ jobs:
             }
             if (-not $ready) { throw "Ollama did not become healthy for the nested release gate" }
 
+            $repo = "${{ github.repository }}"
+            $expectedSha = "ea75c5eb14a8da1e63d4f34aa84d8a6d3735eef8"
+            $expectedRef = "refs/tags/v1.5.1"
+            $selectedRun = gh api "repos/$repo/actions/runs/$env:EXPECTED_RELEASE_GATE_RUN_ID" | ConvertFrom-Json
+            if (
+              $LASTEXITCODE -ne 0 -or
+              $selectedRun.name -ne "Release Gate" -or
+              $selectedRun.head_sha -ne $expectedSha -or
+              $selectedRun.head_branch -ne "v1.5.1" -or
+              $selectedRun.status -notin @("queued", "in_progress")
+            ) {
+              throw "selected run is not the active exact v1.5.1 Release Gate"
+            }
+            $jobs = gh api "repos/$repo/actions/runs/$env:EXPECTED_RELEASE_GATE_RUN_ID/jobs?filter=latest" | ConvertFrom-Json
+            $windowsJobs = @($jobs.jobs | Where-Object name -eq "Windows release gate")
+            if ($windowsJobs.Count -ne 1 -or $windowsJobs[0].status -ne "queued") {
+              throw "exactly one queued Windows release gate job was required before starting the listener"
+            }
+            $otherActive = @()
+            foreach ($status in @("queued", "in_progress")) {
+              $active = gh api "repos/$repo/actions/workflows/release-gate.yml/runs?status=$status&per_page=100" | ConvertFrom-Json
+              $otherActive += @($active.workflow_runs | Where-Object { "$($_.id)" -ne $env:EXPECTED_RELEASE_GATE_RUN_ID })
+            }
+            if ($otherActive.Count -ne 0) {
+              throw "another Release Gate run is active and could compete for the generic immutable-tag labels"
+            }
+
+            # The immutable v1.5.1 job predates the custom runner label. Fail closed
+            # in a pre-job hook if routing ever assigns anything except the one exact
+            # run/ref/SHA/workflow/job selected above. A wrong job gets no steps.
+            $hookPath = "C:\tq-provision\assert-exact-release-job.ps1"
+            $hook = @'
+          $expectedRunId = "__RUN_ID__"
+          $expectedSha = "ea75c5eb14a8da1e63d4f34aa84d8a6d3735eef8"
+          $expectedRef = "refs/tags/v1.5.1"
+          $problems = @()
+          if ($env:GITHUB_RUN_ID -ne $expectedRunId) { $problems += "run_id" }
+          if ($env:GITHUB_SHA -ne $expectedSha) { $problems += "sha" }
+          if ($env:GITHUB_REF -ne $expectedRef) { $problems += "ref" }
+          if ($env:GITHUB_WORKFLOW -ne "Release Gate") { $problems += "workflow" }
+          if ($env:GITHUB_JOB -ne "windows-release-gate") { $problems += "job" }
+          if ($problems.Count -ne 0) {
+            Write-Error "runner assignment refused: wrong $($problems -join ', ')"
+            exit 91
+          }
+          Write-Host "exact release assignment accepted: run=$expectedRunId sha=$expectedSha ref=$expectedRef"
+          '@
+            $hook = $hook.Replace("__RUN_ID__", $env:EXPECTED_RELEASE_GATE_RUN_ID)
+            Set-Content -LiteralPath $hookPath -Value $hook -Encoding utf8
+            $env:ACTIONS_RUNNER_HOOK_JOB_STARTED = $hookPath
+
             Set-Location $env:TQ_RUNNER_ROOT
-            $runnerName = "tq-v151-$env:GITHUB_RUN_ID"
-            .\config.cmd --unattended --ephemeral --url "https://github.com/${{ github.repository }}" --token $env:RUNNER_TOKEN --name $runnerName --labels "tq-v151-ephemeral" --work "_w"
-            if ($LASTEXITCODE -ne 0) { exit 1 }
             .\run.cmd
             if ($LASTEXITCODE -ne 0) { exit 1 }
           } finally {
             Stop-Process -Id $serve.Id -Force -ErrorAction SilentlyContinue
             Wait-Process -Id $serve.Id -Timeout 30 -ErrorAction SilentlyContinue
           }
-
-      - name: Upload runner diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: v1.5.1-ephemeral-runner-diagnostics
-          path: ${{ env.TQ_RUNNER_ROOT }}\_diag\**
-          if-no-files-found: warn

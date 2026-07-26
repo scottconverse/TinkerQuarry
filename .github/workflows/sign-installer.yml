@@ -22,6 +22,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sign-installer-${{ inputs.release-tag || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   # Gate finding TEST-2: v1.5.0 was built, signed and published without the full release
   # proof ever having run in Actions — release-gate.yml was workflow_dispatch-only and had
@@ -41,6 +45,7 @@ jobs:
       tag_commit_sha: ${{ steps.proof.outputs.tag_commit_sha }}
       release_gate_url: ${{ steps.proof.outputs.release_gate_url }}
       release_gate_run_id: ${{ steps.proof.outputs.release_gate_run_id }}
+      release_gate_run_attempt: ${{ steps.proof.outputs.release_gate_run_attempt }}
     steps:
       - name: Require a successful release-gate run at the tag's exact commit
         id: proof
@@ -87,18 +92,34 @@ jobs:
           runs=0
           proof_url=""
           proof_run_id=""
-          for candidate in $sha $tag_obj; do
+          proof_run_attempt=""
+          diagnostics=""
+          candidates="$sha"
+          if [ -n "$tag_obj" ] && [ "$tag_obj" != "$sha" ]; then
+            candidates="$candidates $tag_obj"
+          fi
+          for candidate in $candidates; do
             # shellcheck disable=SC2059
             url=$(printf "$runs_url" "$candidate")
-            if ! n=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | length'); then
+            if ! run_json=$(gh api "$url"); then
               echo "::error::Could not query release-gate.yml runs for $candidate. Refusing to sign an installer whose release proof cannot be confirmed."
               exit 1
             fi
+            n=$(jq '[.workflow_runs[] | select(.conclusion == "success")] | length' <<< "$run_json")
             echo "successful release-gate runs at $candidate: $n"
             runs=$((runs + n))
+            summary=$(jq -r '.workflow_runs[] | "  \(.status)/\(.conclusion // "pending")  \(.html_url)"' <<< "$run_json")
+            if [ -z "$summary" ]; then
+              summary="  <none>"
+            fi
+            diagnostics="${diagnostics}
+          candidate $candidate:
+          $summary"
             if [ "$n" -gt 0 ] && [ -z "$proof_url" ]; then
-              proof_url=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | sort_by(.created_at) | reverse | .[0].html_url')
-              proof_run_id=$(gh api "$url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | sort_by(.created_at) | reverse | .[0].id')
+              latest=$(jq -c '[.workflow_runs[] | select(.conclusion == "success")] | sort_by(.created_at) | reverse | .[0]' <<< "$run_json")
+              proof_url=$(jq -r '.html_url' <<< "$latest")
+              proof_run_id=$(jq -r '.id | tostring' <<< "$latest")
+              proof_run_attempt=$(jq -r '.run_attempt | tostring' <<< "$latest")
             fi
           done
           echo "successful release-gate runs for tag $TAG (either sha): $runs"
@@ -106,20 +127,23 @@ jobs:
           if [ "$runs" -eq 0 ]; then
             echo "::error::No successful release-gate.yml run exists for $TAG ($sha). This installer has NOT been release-proven: the full pnpm test:release lane (Rust tests, cargo audit, Playwright, the full engine pytest, the native build and both installed-binary smoke tests) has not passed on this commit. Refusing to sign."
             echo "release-gate runs found at this commit (if any):"
-            gh api "$url" --jq '.workflow_runs[] | "  \(.status)/\(.conclusion // "pending")  \(.html_url)"' || echo "  <none>"
+            printf '%s\n' "$diagnostics"
             echo "Fix: run the 'Release Gate' workflow against $TAG, wait for it to go green, then re-run this."
             exit 1
           fi
 
-          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ] || [ -z "$proof_run_id" ] || [ "$proof_run_id" = "null" ]; then
-            echo "::error::A successful release-gate run was counted but its URL/ID could not be resolved. Refusing to emit an untraceable proof."
+          if [ -z "$proof_url" ] || [ "$proof_url" = "null" ] || [ -z "$proof_run_id" ] || [ "$proof_run_id" = "null" ] || [ -z "$proof_run_attempt" ] || [ "$proof_run_attempt" = "null" ]; then
+            echo "::error::A successful release-gate run was counted but its URL/ID/attempt could not be resolved. Refusing to emit an untraceable proof."
             exit 1
           fi
 
-          echo "tag_commit_sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "release_gate_url=$proof_url" >> "$GITHUB_OUTPUT"
-          echo "release_gate_run_id=$proof_run_id" >> "$GITHUB_OUTPUT"
-          echo "release-gate proof found for $TAG ($sha): run $proof_run_id, $proof_url"
+          {
+            echo "tag_commit_sha=$sha"
+            echo "release_gate_url=$proof_url"
+            echo "release_gate_run_id=$proof_run_id"
+            echo "release_gate_run_attempt=$proof_run_attempt"
+          } >> "$GITHUB_OUTPUT"
+          echo "release-gate proof found for $TAG ($sha): run $proof_run_id attempt $proof_run_attempt, $proof_url"
 
   sign:
     needs: release-gate-proof
@@ -167,11 +191,24 @@ jobs:
           TAG: ${{ inputs.release-tag }}
           PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
           PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
+          PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
+          PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
           if ($env:TAG) {
             if (-not $env:PROOF_RUN_ID) {
               Write-Error "release-gate proof run ID is empty"
+              exit 1
+            }
+            $run = gh api "repos/${{ github.repository }}/actions/runs/$env:PROOF_RUN_ID" | ConvertFrom-Json
+            if (
+              $LASTEXITCODE -ne 0 -or
+              $run.conclusion -ne "success" -or
+              "$($run.run_attempt)" -ne $env:PROOF_RUN_ATTEMPT -or
+              $run.html_url -ne $env:PROOF_URL -or
+              $run.head_sha -ne $env:PROOF_SHA
+            ) {
+              Write-Error "release-gate run identity changed after proof selection"
               exit 1
             }
             New-Item -ItemType Directory -Force artifacts\gate | Out-Null
@@ -223,9 +260,11 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Verify signature
+        id: signed
         shell: pwsh
         env:
           EXE: ${{ steps.get.outputs.exe }}
+          EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
         run: |
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
             Sort-Object FullName -Descending | Select-Object -First 1
@@ -237,6 +276,22 @@ jobs:
             Write-Error "signature verified but no timestamp found - failing"
             exit 1
           }
+          $signature = Get-AuthenticodeSignature $env:EXE
+          $expectedIssuer = '^CN=Microsoft ID Verified CS EOC CA [0-9]+, O=Microsoft Corporation, C=US$'
+          $expectedTimestampIssuer = '^CN=Microsoft Public RSA Timestamping CA 2020, O=Microsoft Corporation, C=US$'
+          if (
+            $signature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+            $signature.SignerCertificate.Subject -ne $env:EXPECTED_SIGNER_SUBJECT -or
+            $signature.SignerCertificate.Issuer -notmatch $expectedIssuer -or
+            $null -eq $signature.TimeStamperCertificate -or
+            $signature.TimeStamperCertificate.Issuer -notmatch $expectedTimestampIssuer
+          ) {
+            Write-Error "signature is valid but is not the expected Scott Converse Azure Trusted Signing identity/timestamp chain"
+            exit 1
+          }
+          $signedHash = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLowerInvariant()
+          "signed_sha256=$signedHash" >> $env:GITHUB_OUTPUT
+          Write-Host "expected signer verified; exact signed SHA-256=$signedHash"
 
       - name: Re-hash and update release assets
         if: inputs.release-tag != ''
@@ -249,10 +304,27 @@ jobs:
           PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
           PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
+          PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
           SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
+          EXPECTED_SIGNED_SHA256: ${{ steps.signed.outputs.signed_sha256 }}
+          EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
+          REPO: ${{ github.repository }}
         run: |
+          function Resolve-ProvenTagCommit {
+            $resolved = gh api "repos/$env:REPO/commits/$env:TAG" --jq .sha
+            if ($LASTEXITCODE -ne 0 -or -not $resolved) {
+              Write-Error "could not re-resolve release tag $env:TAG"
+              exit 1
+            }
+            return ($resolved | Out-String).Trim()
+          }
+
           $name = $env:EXE_NAME
           $hash = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:EXPECTED_SIGNED_SHA256) {
+            Write-Error "signed installer changed between signature verification and publication preparation"
+            exit 1
+          }
 
           gh release download $env:TAG --repo ${{ github.repository }} --pattern SHA256SUMS.txt --pattern release-manifest.json --dir artifacts --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -282,8 +354,18 @@ jobs:
             Write-Error "release-gate proof URL is empty"
             exit 1
           }
-          if (-not $env:PROOF_RUN_ID -or -not $env:SOURCE_UNSIGNED_SHA256) {
-            Write-Error "release-gate run ID or gated unsigned hash is empty"
+          if (-not $env:PROOF_RUN_ID -or -not $env:PROOF_RUN_ATTEMPT -or -not $env:SOURCE_UNSIGNED_SHA256) {
+            Write-Error "release-gate run ID/attempt or gated unsigned hash is empty"
+            exit 1
+          }
+          $signature = Get-AuthenticodeSignature $env:EXE
+          $expectedIssuer = '^CN=Microsoft ID Verified CS EOC CA [0-9]+, O=Microsoft Corporation, C=US$'
+          if (
+            $signature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+            $signature.SignerCertificate.Subject -ne $env:EXPECTED_SIGNER_SUBJECT -or
+            $signature.SignerCertificate.Issuer -notmatch $expectedIssuer
+          ) {
+            Write-Error "expected signer identity did not survive release preparation"
             exit 1
           }
           $updated = 0
@@ -301,12 +383,23 @@ jobs:
             authenticode_verified = $true
             timestamp_verified = $true
             release_gate_run_id = $env:PROOF_RUN_ID
+            release_gate_run_attempt = [int]$env:PROOF_RUN_ATTEMPT
             release_gate_url = $env:PROOF_URL
             source_unsigned_sha256 = $env:SOURCE_UNSIGNED_SHA256
+            signed_sha256 = $hash
+            signer_subject = $signature.SignerCertificate.Subject
+            signer_issuer = $signature.SignerCertificate.Issuer
+            signer_thumbprint = $signature.SignerCertificate.Thumbprint
+            signer_serial_number = $signature.SignerCertificate.SerialNumber
             signed_at = (Get-Date).ToUniversalTime().ToString("o")
           }) -Force
           [IO.File]::WriteAllText("$PWD\artifacts\release-manifest.json", ($m | ConvertTo-Json -Depth 5))
 
+          $tagCommitBeforeUpload = Resolve-ProvenTagCommit
+          if ($tagCommitBeforeUpload -ne $env:PROOF_SHA) {
+            Write-Error "release tag moved before publication: expected $env:PROOF_SHA, got $tagCommitBeforeUpload"
+            exit 1
+          }
           gh release upload $env:TAG $env:EXE artifacts\SHA256SUMS.txt artifacts\release-manifest.json --repo ${{ github.repository }} --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Write-Host "signed $name  sha256=$hash"
@@ -321,8 +414,26 @@ jobs:
           PROOF_SHA: ${{ needs.release-gate-proof.outputs.tag_commit_sha }}
           PROOF_URL: ${{ needs.release-gate-proof.outputs.release_gate_url }}
           PROOF_RUN_ID: ${{ needs.release-gate-proof.outputs.release_gate_run_id }}
+          PROOF_RUN_ATTEMPT: ${{ needs.release-gate-proof.outputs.release_gate_run_attempt }}
           SOURCE_UNSIGNED_SHA256: ${{ steps.get.outputs.unsigned_sha256 }}
+          EXPECTED_SIGNED_SHA256: ${{ steps.signed.outputs.signed_sha256 }}
+          EXPECTED_SIGNER_SUBJECT: "CN=Scott Converse, O=Scott Converse, L=Longmont, S=co, C=US"
+          REPO: ${{ github.repository }}
         run: |
+          function Resolve-ProvenTagCommit {
+            $resolved = gh api "repos/$env:REPO/commits/$env:TAG" --jq .sha
+            if ($LASTEXITCODE -ne 0 -or -not $resolved) {
+              Write-Error "could not re-resolve release tag $env:TAG"
+              exit 1
+            }
+            return ($resolved | Out-String).Trim()
+          }
+
+          $tagCommitAfterUpload = Resolve-ProvenTagCommit
+          if ($tagCommitAfterUpload -ne $env:PROOF_SHA) {
+            Write-Error "release tag moved during publication: expected $env:PROOF_SHA, got $tagCommitAfterUpload"
+            exit 1
+          }
           New-Item -ItemType Directory -Force published | Out-Null
           gh release download $env:TAG --repo ${{ github.repository }} --pattern '*-setup.exe' --pattern SHA256SUMS.txt --pattern release-manifest.json --dir published
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -334,6 +445,10 @@ jobs:
           }
           $publishedExe = $publishedExes[0]
           $publishedHash = (Get-FileHash $publishedExe.FullName -Algorithm SHA256).Hash.ToLower()
+          if ($publishedHash -ne $env:EXPECTED_SIGNED_SHA256) {
+            Write-Error "published installer bytes differ from the exact locally verified signed bytes"
+            exit 1
+          }
           $publishedManifest = Get-Content published\release-manifest.json -Raw | ConvertFrom-Json
           $publishedEntry = @($publishedManifest.artifacts | Where-Object { $_.file -eq $publishedExe.Name })
           $publishedSum = @(Get-Content published\SHA256SUMS.txt | Where-Object { ($_ -split '\s+', 2)[1] -eq $publishedExe.Name })
@@ -356,8 +471,10 @@ jobs:
           }
           if (
             $publishedManifest.signing.release_gate_run_id -ne $env:PROOF_RUN_ID -or
+            "$($publishedManifest.signing.release_gate_run_attempt)" -ne $env:PROOF_RUN_ATTEMPT -or
             $publishedManifest.signing.release_gate_url -ne $env:PROOF_URL -or
-            $publishedManifest.signing.source_unsigned_sha256 -ne $env:SOURCE_UNSIGNED_SHA256
+            $publishedManifest.signing.source_unsigned_sha256 -ne $env:SOURCE_UNSIGNED_SHA256 -or
+            $publishedManifest.signing.signed_sha256 -ne $env:EXPECTED_SIGNED_SHA256
           ) {
             Write-Error "published signing evidence does not identify the exact gated unsigned input"
             exit 1
@@ -370,6 +487,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Write-Error "published installer signature verification failed"; exit 1 }
           if ($out -notmatch 'The signature is timestamped') {
             Write-Error "published installer signature verified but no timestamp was found"
+            exit 1
+          }
+          $publishedSignature = Get-AuthenticodeSignature $publishedExe.FullName
+          $expectedIssuer = '^CN=Microsoft ID Verified CS EOC CA [0-9]+, O=Microsoft Corporation, C=US$'
+          $expectedTimestampIssuer = '^CN=Microsoft Public RSA Timestamping CA 2020, O=Microsoft Corporation, C=US$'
+          if (
+            $publishedSignature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+            $publishedSignature.SignerCertificate.Subject -ne $env:EXPECTED_SIGNER_SUBJECT -or
+            $publishedSignature.SignerCertificate.Issuer -notmatch $expectedIssuer -or
+            $null -eq $publishedSignature.TimeStamperCertificate -or
+            $publishedSignature.TimeStamperCertificate.Issuer -notmatch $expectedTimestampIssuer -or
+            $publishedManifest.signing.signer_subject -ne $publishedSignature.SignerCertificate.Subject -or
+            $publishedManifest.signing.signer_issuer -ne $publishedSignature.SignerCertificate.Issuer -or
+            $publishedManifest.signing.signer_thumbprint -ne $publishedSignature.SignerCertificate.Thumbprint -or
+            $publishedManifest.signing.signer_serial_number -ne $publishedSignature.SignerCertificate.SerialNumber
+          ) {
+            Write-Error "published installer signer is not the expected identity or does not match its manifest"
+            exit 1
+          }
+          $tagCommitAfterVerification = Resolve-ProvenTagCommit
+          if ($tagCommitAfterVerification -ne $env:PROOF_SHA) {
+            Write-Error "release tag moved before publication verification closed"
             exit 1
           }
           Write-Host "published signed installer verified: $($publishedExe.Name) sha256=$publishedHash"
