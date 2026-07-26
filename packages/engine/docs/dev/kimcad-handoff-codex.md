@@ -78,18 +78,13 @@ unless the user explicitly adds a cloud key.
 - `.github/workflows/cost-hygiene.yml` + `.github/COST_HYGIENE.md` landed via PR #36 (Scott) —
   respect those guardrails in any CI work (relevant to #16).
 - All per-slice audits closed at 0/0/0/0/0; CHANGELOG current through slice 4.
-- CI: the self-hosted runner `kimcad-windows` lives on the OLD dev box and is being retired
-  with it. **Scott's standing CI direction: the repo is public, so GitHub-hosted runners are
-  free and unlimited — use them.** Migrate the gate to hosted runners (`windows-latest` for
-  the live Windows tool contract — `scripts/ci.sh` already self-provisions venv from
-  `requirements.lock`, tools via `scripts/fetch_tools.py`, the `.venv-cq313` CadQuery worker
-  venv, and frontend `node_modules`; verify the live OpenSCAD/OrcaSlicer/CadQuery tests run
-  on a hosted Windows image, and keep the "no green by skip" assertion). Respect the cost-
-  hygiene guardrails Scott added in PR #36 (`.github/COST_HYGIENE.md` +
-  `.github/workflows/cost-hygiene.yml`). The local pre-push hook (`scripts/ci.sh`) remains
-  the authoritative pre-push gate on your machine regardless — run it green ONCE on a fresh
-  clone before any push. Hosted migration largely absorbs #16 (fork-PR smoke): once the gate
-  is hosted, fork PRs get a signal for free — close #16 against that work with evidence.
+- CI: the old `kimcad-windows` self-hosted runner is retired. The merge checks run on
+  GitHub-hosted runners, and `.github/workflows/release-gate.yml` provisions the full
+  OpenSCAD/OrcaSlicer/CadQuery/Chromium/Ollama/model stack directly on the declared
+  `windows-2022` image family with strict no-skip enforcement. The successful gate
+  records the actual image version and exact tool/model/installer identities in its
+  substrate receipt. The local pre-push hook
+  (`scripts/ci.sh`) remains the authoritative pre-push gate on your machine.
 - `gh` CLI must be authenticated as `scottconverse` on this machine.
 
 ## THE WORK — every open item, in execution order
@@ -127,10 +122,8 @@ unless the user explicitly adds a cloud key.
    pages, console-error watcher, `browser_serial` marker; journeys: wizard, prompt→design→
    refine, sliders, photo/sketch, gate fail/pass, slice/download, settings, My Designs, error
    recovery. Wire into the gate behind a marker.
-8. **#16 — Hosted-CI for everyone**: per the CI direction above, migrate the gate to free
-   hosted runners (`windows-latest` for the live-tool gate; `ubuntu-latest` where Windows
-   isn't required) — this gives fork PRs their signal and retires the self-hosted dependency
-   in one move. Honor `.github/COST_HYGIENE.md`.
+8. **#16 — Hosted-CI for everyone — completed**: merge checks and the full Windows release
+   proof now run on GitHub-hosted infrastructure; no repository self-hosted runner remains.
 9. **#27 — Diff-coverage gate**: changed-lines ≥80% total / ≥70% per-module (when ≥20 lines)
    in `scripts/ci.sh`; document in CONTRIBUTING.
 

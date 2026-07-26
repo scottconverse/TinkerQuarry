@@ -1,11 +1,10 @@
 #!/bin/sh
 # Local CI gate — the AUTHORITATIVE pre-push gate (run on Windows): ruff + the full pytest
 # suite (incl. the live OrcaSlicer slice) + frontend vitest + SPA build-reproducibility +
-# release-mode live-tool proof. The SAME script is what the SELF-HOSTED GitHub Actions
-# runner executes (.github/workflows/ci.yml — the full gate on this box since Stage A,
-# plus the installer staging smoke; hosted runners are not used — owner decision, see
-# docs/audits/stage-11/dispositions-2026-06-10.md). Used by the pre-push hook
-# (.githooks/pre-push) and runnable by hand.
+# release-mode live-tool proof. This is the local pre-push lane; GitHub's merge checks
+# run in `.github/workflows/ci.yml`, while the clean hosted Windows release proof runs
+# the broader root `pnpm test:release` contract in `.github/workflows/release-gate.yml`.
+# Used by the pre-push hook (.githooks/pre-push) and runnable by hand.
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
@@ -32,11 +31,11 @@ echo "[ci] geometry backends..."
 # pin bumped without a review.
 echo "[ci] binary advisories..."
 "$PY" scripts/check_binary_advisories.py
-# Gate-integrity 2026-06-13: the CadQuery worker's cold OCP/OCCT import is slow, and this old
-# self-hosted runner thermal-throttles under a sustained full-gate load — the production-default
+# Gate-integrity 2026-06-13: the CadQuery worker's cold OCP/OCCT import is slow, and a local
+# development box can thermal-throttle under a sustained full-gate load — the production-default
 # 120 s render / 90 s discovery-probe timeouts then flake on the FIRST (cold) CadQuery render
-# (box/tube exceeded 120 s on a 30-min throttled run). Grant the gate generous headroom; runtime,
-# with these unset, keeps the tight production defaults. Hosted runners (#16) retire this box.
+# (box/tube exceeded 120 s on a 30-min throttled run). Grant the local gate generous headroom;
+# runtime, with these unset, keeps the tight production defaults.
 export KIMCAD_CQ_TIMEOUT_S="${KIMCAD_CQ_TIMEOUT_S:-360}"
 export KIMCAD_CQ_PROBE_TIMEOUT_S="${KIMCAD_CQ_PROBE_TIMEOUT_S:-240}"
 echo "[ci] pytest..."
@@ -71,8 +70,8 @@ if [ "$PYTEST_RC" -ne 0 ]; then
 fi
 # KC-22 (#27): the DIFF-COVERAGE gate (changed kimcad lines >=80% overall, >=70% per module of
 # >=20 changed lines) runs on incoming PRs in the hosted PR smoke (.github/workflows/pr-smoke.yml),
-# which has the PR base to diff against — this self-hosted gate runs on push to main (where
-# main already == HEAD, so there is nothing to diff). To self-check a branch locally before a PR:
+# which has the PR base to diff against — this local hook does not assume a PR base.
+# To self-check a branch locally before a PR:
 #   .venv/Scripts/python -m pytest -q --cov=kimcad --cov-report=xml \
 #     && .venv/Scripts/python scripts/check_diff_coverage.py coverage.xml --compare-branch origin/main
 # (scripts/check_diff_coverage.py is the portable, unit-tested gate — see tests/test_check_diff_coverage.py.)

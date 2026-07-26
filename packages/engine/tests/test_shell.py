@@ -103,7 +103,7 @@ def test_shell_server_enforces_the_session_token_guard(fake_webview, monkeypatch
     httpd = shell.build_shell(demo=True, start_gui=False)
     try:
         port = httpd.server_address[1]
-        # Generous HTTP timeouts: under the FULL self-hosted gate (live OrcaSlicer + real-model runs
+        # Generous HTTP timeouts: under the FULL hosted release gate (live OrcaSlicer + real-model runs
         # saturate CPU), the shell's daemon serve_forever thread can be starved past a tight 10s
         # budget, intermittently aborting the read (WinError 10053). 30s rides out the load — the
         # same thermally-throttling-box accommodation the e2e suite already uses.

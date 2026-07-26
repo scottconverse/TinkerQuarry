@@ -22,26 +22,29 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
-# Pinned Ollama portable Windows build. Verified 2026-06-17 against the GitHub release asset
-# digest (`gh api repos/ollama/ollama/releases/.../assets`). Bump deliberately: update the
-# version AND the SHA-256 together, never one without the other.
-PORTABLE_VERSION = "v0.30.9"
+# Pinned Ollama portable Windows build. v0.32.0 is the exact runtime used by the qwen3.5
+# benchmark and the 2026-07-26 release-blocker A/B: unchanged v1.5.1 model tests were 1/3
+# on v0.30.9 and 3/3 on v0.32.0 at the same 4096-token context. The asset identity below
+# was independently verified against GitHub's release API. Bump deliberately: version,
+# SHA-256, and exact size always move together.
+PORTABLE_VERSION = "v0.32.0"
 PORTABLE_ASSET = "ollama-windows-amd64.zip"
 PORTABLE_URL = (
     f"https://github.com/ollama/ollama/releases/download/{PORTABLE_VERSION}/{PORTABLE_ASSET}"
 )
-PORTABLE_SHA256 = "6d83cbe1db06ec659e7f47c0897318d2093128bcbb7c5d140c142e71d65f991f"
-# The exact byte size of the pinned v0.30.9 ``ollama-windows-amd64.zip`` release asset
-# (`gh api .../assets`, same 2026-06-17 verification as the SHA above). Used only to show honest
+PORTABLE_SHA256 = "56561a8f0a904483303c610e61af61c5a7b6f5496ce3707e207d25d4ff67b89e"
+# The exact byte size of the pinned v0.32.0 ``ollama-windows-amd64.zip`` release asset
+# (`gh api .../assets`, same 2026-07-26 verification as the SHA above). Used only to show honest
 # progress when the server omits a Content-Length. The integrity check is the SHA-256, never the
 # size. (≈1.4 GB)
-PORTABLE_SIZE_BYTES = 1_461_613_335
+PORTABLE_SIZE_BYTES = 1_503_047_573
 
 
 class OllamaFetchError(RuntimeError):
@@ -79,16 +82,27 @@ def fetch_portable_ollama(
     chunk: int = 1 << 20,
     timeout: float = 60.0,
 ) -> Path:
-    """Download the pinned portable Ollama zip, verify its SHA-256, and extract it into
-    ``dest_dir``. Returns the path to the extracted ``ollama.exe``. Reports
+    """Download the pinned portable Ollama zip, verify its SHA-256, and stage it beside
+    ``dest_dir`` before swapping the complete tree into place. Returns the path to the
+    extracted ``ollama.exe``. Reports
     ``progress(downloaded_bytes, total_bytes)`` as it streams (``total`` is 0 when unknown).
     Raises :class:`OllamaFetchError` on a hash mismatch (before extracting) or a bad archive.
 
     The download streams to a temp file (a 1.4 GB blob never sits whole in RAM) that is removed
-    after extraction; a partial/failed download leaves nothing behind."""
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    after extraction. A partial download or extraction never mutates an existing runtime; only
+    a fully verified, fully extracted tree crosses the final rename boundary."""
+    dest_dir = Path(dest_dir)
+    dest_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(
+            prefix=f".{dest_dir.name}-staging-",
+            dir=str(dest_dir.parent),
+        )
+    )
     hasher = hashlib.sha256()
-    tmp_fd, tmp_name = tempfile.mkstemp(prefix="kimcad-ollama-", suffix=".zip", dir=str(dest_dir))
+    tmp_fd, tmp_name = tempfile.mkstemp(
+        prefix="kimcad-ollama-", suffix=".zip", dir=str(staging)
+    )
     tmp = Path(tmp_name)
     try:
         with os.fdopen(tmp_fd, "wb") as out, opener(url, timeout=timeout) as resp:  # type: ignore[call-arg]
@@ -118,19 +132,39 @@ def fetch_portable_ollama(
             )
         try:
             with zipfile.ZipFile(tmp) as zf:
-                _safe_extract(zf, dest_dir)
+                _safe_extract(zf, staging)
         except zipfile.BadZipFile as e:
             raise OllamaFetchError(
                 "The downloaded Ollama runtime archive was corrupt; nothing was installed. "
                 "Check your internet connection and try again."
             ) from e
-    finally:
         tmp.unlink(missing_ok=True)
 
-    exe = dest_dir / ("ollama.exe" if os.name == "nt" else "ollama")
-    if not exe.exists():
-        raise OllamaFetchError(
-            "The Ollama runtime download extracted, but the expected executable wasn't found. "
-            "Please try again, or install Ollama from ollama.com."
-        )
-    return exe
+        staged_exe = staging / ("ollama.exe" if os.name == "nt" else "ollama")
+        if not staged_exe.exists():
+            raise OllamaFetchError(
+                "The Ollama runtime download extracted, but the expected executable wasn't found. "
+                "Please try again, or install Ollama from ollama.com."
+            )
+
+        # A same-volume directory rename is the commit point. If a corrupt/partial target from an
+        # interrupted earlier attempt exists, preserve it until the complete staged tree has been
+        # promoted; restore it if promotion fails.
+        backup: Path | None = None
+        if dest_dir.exists():
+            backup = staging.with_name(staging.name.replace("-staging-", "-backup-", 1))
+            os.replace(dest_dir, backup)
+        try:
+            os.replace(staging, dest_dir)
+        except OSError:
+            if backup is not None and backup.exists() and not dest_dir.exists():
+                os.replace(backup, dest_dir)
+            raise
+        if backup is not None:
+            shutil.rmtree(backup, ignore_errors=True)
+
+        return dest_dir / staged_exe.name
+    finally:
+        tmp.unlink(missing_ok=True)
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)

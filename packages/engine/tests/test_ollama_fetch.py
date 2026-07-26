@@ -71,6 +71,56 @@ def test_fetch_happy_path_extracts_and_reports_progress(tmp_path: Path) -> None:
     assert not list(tmp_path.glob("kimcad-ollama-*.zip"))
 
 
+def test_fetch_replaces_an_existing_version_dir_only_after_complete_extract(
+    tmp_path: Path,
+) -> None:
+    """A managed-runtime upgrade is staged off to the side, then swapped into place.
+
+    The prior runtime must not be mixed with files from the new archive.
+    """
+    dest = tmp_path / "v0.32.0"
+    dest.mkdir()
+    (dest / "ollama.exe").write_bytes(b"OLD")
+    (dest / "stale.dll").write_bytes(b"STALE")
+    data = _make_zip({"ollama.exe": b"NEW", "lib/ollama/runner.dll": b"RUN"})
+
+    exe = of.fetch_portable_ollama(
+        dest,
+        sha256=hashlib.sha256(data).hexdigest(),
+        opener=_opener(data),
+    )
+
+    assert exe.read_bytes() == b"NEW"
+    assert (dest / "lib" / "ollama" / "runner.dll").read_bytes() == b"RUN"
+    assert not (dest / "stale.dll").exists()
+    assert not list(tmp_path.glob(".v0.32.0-*"))
+
+
+def test_fetch_keeps_existing_runtime_when_staged_extract_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial extraction cannot replace the last complete managed runtime."""
+    dest = tmp_path / "v0.32.0"
+    dest.mkdir()
+    (dest / "ollama.exe").write_bytes(b"KNOWN-GOOD")
+    data = _make_zip({"ollama.exe": b"NEW"})
+
+    def _partial_then_fail(_zf: zipfile.ZipFile, stage: Path) -> None:
+        (stage / "ollama.exe").write_bytes(b"PARTIAL")
+        raise of.OllamaFetchError("synthetic extraction failure")
+
+    monkeypatch.setattr(of, "_safe_extract", _partial_then_fail)
+    with pytest.raises(of.OllamaFetchError, match="synthetic extraction failure"):
+        of.fetch_portable_ollama(
+            dest,
+            sha256=hashlib.sha256(data).hexdigest(),
+            opener=_opener(data),
+        )
+
+    assert (dest / "ollama.exe").read_bytes() == b"KNOWN-GOOD"
+    assert not list(tmp_path.glob(".v0.32.0-*"))
+
+
 def test_fetch_unknown_length_falls_back_to_pinned_size(tmp_path: Path) -> None:
     data = _make_zip({"ollama.exe": b"X"})
     sha = hashlib.sha256(data).hexdigest()
@@ -117,9 +167,16 @@ def test_fetch_errors_when_exe_missing_from_archive(tmp_path: Path) -> None:
         of.fetch_portable_ollama(tmp_path, sha256=sha, opener=_opener(data))
 
 
-def test_pinned_portable_size_is_the_real_v0_30_9_asset_size() -> None:
-    """ENG-GG-003 / TEST-GG-006: the progress-fallback size is the EXACT byte size of the pinned
-    v0.30.9 release asset (so the no-Content-Length progress bar isn't off by ~70 MB), and it
-    stays in the ≈1.4 GB ballpark the docstring promises."""
-    assert of.PORTABLE_SIZE_BYTES == 1_461_613_335
+def test_pinned_portable_release_is_the_proven_v0_32_0_asset() -> None:
+    """The managed runtime must be the exact v0.32.0 Windows asset that passed the
+    qwen3.5 release-blocker A/B, with every identity field pinned together."""
+    assert of.PORTABLE_VERSION == "v0.32.0"
+    assert of.PORTABLE_URL == (
+        "https://github.com/ollama/ollama/releases/download/"
+        "v0.32.0/ollama-windows-amd64.zip"
+    )
+    assert of.PORTABLE_SHA256 == (
+        "56561a8f0a904483303c610e61af61c5a7b6f5496ce3707e207d25d4ff67b89e"
+    )
+    assert of.PORTABLE_SIZE_BYTES == 1_503_047_573
     assert 1.35 * 1024**3 < of.PORTABLE_SIZE_BYTES < 1.45 * 1024**3

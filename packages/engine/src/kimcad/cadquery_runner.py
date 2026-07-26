@@ -176,7 +176,7 @@ def _env_timeout(name: str, default: int) -> int:
     """A positive integer timeout from ``name``, or ``default``. The CadQuery worker's cold start
     (importing cadquery -> loading the OCP/OCCT binaries while Defender scans them) is slow, and
     slower still on a loaded/thermal-throttled box. These timeouts default to production-safe
-    values but are env-overridable so the local CI gate on the old self-hosted runner can grant the
+    values but are env-overridable so a slower local pre-push gate can grant the
     cold first render generous headroom WITHOUT changing runtime behaviour (the env vars are unset
     in production, so a real user-facing render keeps the tight default). See scripts/ci.sh."""
     try:

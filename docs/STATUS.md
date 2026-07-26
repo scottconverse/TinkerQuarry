@@ -1,12 +1,15 @@
 # TinkerQuarry Status Matrix
 
-**As of:** 2026-07-23
+**As of:** 2026-07-26
 **Product release:** **v1.5.1 is the current release**, superseding v1.4.0. v1.5.0 was published,
 failed its gate, and remains withdrawn to pre-release. v1.5.1 ships as an unsigned beta (like v1.4.0);
-code signing returns once the release-gate runner is stood up.
+its exact-tag full Release Gate attempt did not pass, so signing remains blocked. The correction
+branch configures that proof to run directly on GitHub-hosted Windows 2022; that is configuration,
+not evidence of a completed hosted proof. No corrected or newly signed release is published yet.
 **Engine:** KimCad 0.9.4
 **Current gate:** the v1.5.0 figures below are the historical record of THAT release's gate run.
-They are not a claim about this branch.
+They are not a claim about this branch. The next release candidate must complete the hosted full
+proof before its installer can enter the signing workflow.
 
 ## Plain-English Truth
 
@@ -78,8 +81,8 @@ get the installer, which was a live instruction to download a build we had alrea
 Known limits:
 
 - Windows is the supported beta package target.
-- The beta installer is signed (Azure Trusted Signing) as of v1.5.0; SmartScreen may still warn
-  while the certificate builds reputation.
+- Azure Trusted Signing was proven on v1.5.0, but the current v1.5.1 installer remains unsigned
+  because its exact-tag full Release Gate did not pass.
 - Real hardware connector certification remains field-validation work beyond the mock connector.
 - Visual inspection is advisory and does not replace deterministic geometry checks.
 - STEP reverse-to-parametric import is not implemented yet; STEP is currently an export lane.
